@@ -1,0 +1,96 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: "20"
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.13"
+      - name: Set up .NET
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          global-json-file: global.json
+      - name: Validate release commit and version
+        id: version
+        env:
+          RELEASE_EVENT: ${{ github.event_name }}
+          RELEASE_REF: ${{ github.ref }}
+        run: |
+          if [[ "$RELEASE_EVENT" == workflow_dispatch && "$RELEASE_REF" != refs/heads/main ]]; then
+            echo 'Manual releases must run from main.' >&2
+            exit 1
+          fi
+          git merge-base --is-ancestor HEAD origin/main
+          release_tag="$(python3 scripts/release_tag.py)"
+          if [[ "$RELEASE_EVENT" == push && "$RELEASE_REF" != "refs/tags/$release_tag" ]]; then
+            echo 'Pushed tag does not match the project version.' >&2
+            exit 1
+          fi
+          echo "tag=$release_tag" >> "$GITHUB_OUTPUT"
+      - name: Verify
+        run: ./scripts/build-and-test.sh
+      - name: Create disposable Jellyfin server
+        env:
+          META_TAGGER_DOCKER_CONTEXT: ""
+        run: python3 scripts/disposable-jellyfin.py create
+      - name: Test release ZIP lifecycle
+        env:
+          META_TAGGER_DOCKER_CONTEXT: ""
+        run: ./scripts/test-release-lifecycle.sh
+      - name: Build release assets
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_REPOSITORY: ${{ github.server_url }}/${{ github.repository }}
+        run: >-
+          python3 scripts/package_release.py
+          --repository "$RELEASE_REPOSITORY"
+          --tag "$RELEASE_TAG"
+          --output artifacts
+      - name: Confirm the tested ZIP is the published ZIP
+        run: cmp artifacts/meta-tagger_*.zip .jellyfin-test/repository/meta-tagger_*.zip
+      - name: Create release tag if needed
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if ! git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"; then
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f "ref=refs/tags/$RELEASE_TAG" -f "sha=$GITHUB_SHA"
+          fi
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: >-
+          gh release create "$RELEASE_TAG" artifacts/*
+          --verify-tag
+          --generate-notes
+          --title "$RELEASE_TAG"

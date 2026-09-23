@@ -1,0 +1,38 @@
+name: Feature request
+description: Propose a focused improvement
+title: "feat: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the user problem without prescribing an implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: List observable results and important edge cases.
+    validations:
+      required: true
+  - type: dropdown
+    id: risk
+    attributes:
+      label: Affected area
+      options:
+        - Tag generation or preview
+        - Tag application or cleanup
+        - Dashboard
+        - Persistence or recovery
+        - Packaging or compatibility
+        - Documentation or tooling
+    validations:
+      required: true

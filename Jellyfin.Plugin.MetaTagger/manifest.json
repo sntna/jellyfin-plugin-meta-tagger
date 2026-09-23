@@ -1,0 +1,19 @@
+[
+  {
+    "guid": "4851185f-7284-4cad-9eeb-2c73576bb214",
+    "name": "Meta Tagger",
+    "description": "Creates tags from Jellyfin metadata for use in user access rules.",
+    "overview": "Preview tag changes before saving them. Choose the metadata sources and item types to tag.",
+    "owner": "sntna",
+    "category": "Metadata",
+    "versions": [
+      {
+        "version": "0.1.0.0",
+        "targetAbi": "12.0.0.0",
+        "sourceUrl": "",
+        "checksum": "",
+        "timestamp": "2026-09-15T00:00:00Z"
+      }
+    ]
+  }
+]

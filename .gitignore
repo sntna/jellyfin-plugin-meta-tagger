@@ -1,0 +1,74 @@
+# .NET build, test, and package outputs
+[Bb]in/
+[Oo]bj/
+artifacts/
+TestResults/
+coverage/
+coverage.*
+*.coverage
+*.coveragexml
+*.trx
+*.nupkg
+*.snupkg
+
+# Visual Studio, Rider, and local editor state
+.vs/
+.idea/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.DotSettings.user
+_ReSharper*/
+
+# macOS metadata
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100/
+.fseventsd/
+.Spotlight-V100/
+.TemporaryItems/
+.Trashes/
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.apdisk
+
+# Local artwork experiments
+artwork/
+
+# Python cache files used by local tooling
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+*.py[cod]
+
+# Local Jellyfin and agent workspaces
+.jellyfin-test/
+.worktrees/
+.codex/
+.agents/
+.claude/
+skills-lock.json
+
+# Local secrets and credentials
+.env
+.env.*
+!.env.example
+credentials.json
+*.key
+*.pem
+*.p12
+*.pfx
+*.secrets.*
+
+# Development evidence and scratch artifacts
+*.log
+*.patch
+docs/prototypes/
+docs/**/*-evidence/
+docs/**/*-plan.md
+docs/**/*-spec.md

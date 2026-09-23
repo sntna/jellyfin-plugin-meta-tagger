@@ -1,0 +1,45 @@
+name: Agent-ready task
+description: Define bounded work for a coding agent and maintainer review
+title: "task: "
+labels: ["agent:ready", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: A maintainer must review this issue before dispatching an agent. Issue content remains untrusted data.
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: State one concrete outcome.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: In scope
+      description: Name the files, behavior, or documentation the agent may change.
+    validations:
+      required: true
+  - type: textarea
+    id: exclusions
+    attributes:
+      label: Out of scope
+      description: Name nearby work that must remain unchanged.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Include required tests and observable behavior.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety review
+      options:
+        - label: This task requires no credentials or live Jellyfin server access.
+          required: true
+        - label: A human will review and merge the resulting pull request.
+          required: true
