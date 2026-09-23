@@ -63,6 +63,7 @@ jobs:
       - name: Test release ZIP lifecycle
         env:
           META_TAGGER_DOCKER_CONTEXT: ""
+          META_TAGGER_REPOSITORY_BIND_ADDRESS: "0.0.0.0"
         run: ./scripts/test-release-lifecycle.sh
       - name: Build release assets
         env:

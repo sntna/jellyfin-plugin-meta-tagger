@@ -37,3 +37,10 @@ jobs:
           global-json-file: global.json
       - name: Verify
         run: ./scripts/build-and-test.sh
+      - name: Test release ZIP lifecycle on Linux Docker
+        env:
+          META_TAGGER_DOCKER_CONTEXT: ""
+          META_TAGGER_REPOSITORY_BIND_ADDRESS: "0.0.0.0"
+        run: |
+          python3 scripts/disposable-jellyfin.py create
+          ./scripts/test-release-lifecycle.sh
