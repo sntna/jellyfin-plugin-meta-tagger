@@ -5,6 +5,9 @@ repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 test_directory="${1:-}"
 current_port="${2:-8098}"
 previous_port="${3:-8099}"
+# Linux Docker's host gateway cannot reach a listener bound only to loopback.
+# Keep local catalogs private by default; CI opts into a reachable address.
+repository_bind_address="${META_TAGGER_REPOSITORY_BIND_ADDRESS:-127.0.0.1}"
 current_repository="$repo_root/.jellyfin-test/repository"
 previous_repository="$repo_root/.jellyfin-test/repository-previous"
 release_version="$(PYTHONPATH="$repo_root/scripts" python3 -c 'from package_release import _project_versions; print(_project_versions()[0])')"
@@ -31,9 +34,9 @@ python3 "$repo_root/scripts/package_release.py" \
   --source-url-base "http://host.docker.internal:${current_port}" \
   --output "$current_repository"
 
-python3 -m http.server "$previous_port" --bind 127.0.0.1 --directory "$previous_repository" >/dev/null 2>&1 &
+python3 -m http.server "$previous_port" --bind "$repository_bind_address" --directory "$previous_repository" >/dev/null 2>&1 &
 previous_server=$!
-python3 -m http.server "$current_port" --bind 127.0.0.1 --directory "$current_repository" >/dev/null 2>&1 &
+python3 -m http.server "$current_port" --bind "$repository_bind_address" --directory "$current_repository" >/dev/null 2>&1 &
 current_server=$!
 
 cleanup() {

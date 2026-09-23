@@ -6,6 +6,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import argparse
 import hashlib
+import io
 import json
 from pathlib import Path
 import re
@@ -34,7 +35,7 @@ def _sha256(path: Path) -> str:
 
 def write_release_assets(
     *,
-    dll_path: Path,
+    dll_path: Path | None,
     manifest_path: Path,
     output_dir: Path,
     repository: str,
@@ -42,6 +43,7 @@ def write_release_assets(
     timestamp: str,
     source_url_base: str | None = None,
     version_override: str | None = None,
+    tested_repository: Path | None = None,
 ) -> ReleaseAssets:
     manifest = json.loads(manifest_path.read_text())
     entry = manifest[0]
@@ -60,19 +62,40 @@ def write_release_assets(
         raise ValueError(f"Release tag {tag!r} does not match {expected_tag!r}.")
     if not re.fullmatch(r"https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
         raise ValueError("Repository must be an https://github.com/owner/name URL.")
-    if not dll_path.is_file():
-        raise FileNotFoundError(dll_path)
+    package_name = f"meta-tagger_{four_part_version}.zip"
+    if tested_repository is not None:
+        if dll_path is not None or version_override is not None:
+            raise ValueError("Reuse a tested package without a DLL or fixture version override.")
+        tested_manifest = json.loads((tested_repository / "manifest.json").read_text())[0]
+        tested_version = tested_manifest["versions"][0]
+        if (tested_manifest["guid"] != entry["guid"]
+                or tested_version["version"] != four_part_version
+                or tested_version.get("targetAbi") != version.get("targetAbi")):
+            raise ValueError("Tested repository does not match the release identity, version, or target ABI.")
+        package_bytes = (tested_repository / package_name).read_bytes()
+        if hashlib.md5(package_bytes).hexdigest() != tested_version["checksum"]:
+            raise ValueError("Tested package checksum does not match its catalog.")
+        with zipfile.ZipFile(io.BytesIO(package_bytes)) as package:
+            if (package.namelist() != ["Jellyfin.Plugin.MetaTagger.dll", "meta-tagger.png"]
+                    or not package.read("Jellyfin.Plugin.MetaTagger.dll")
+                    or package.read("meta-tagger.png") != PLUGIN_IMAGE_PATH.read_bytes()):
+                raise ValueError("Tested package contents do not match the release layout or image.")
+    else:
+        if dll_path is None or not dll_path.is_file():
+            raise FileNotFoundError(dll_path)
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as package:
+            for name, content in [("Jellyfin.Plugin.MetaTagger.dll", dll_path.read_bytes()),
+                                  ("meta-tagger.png", PLUGIN_IMAGE_PATH.read_bytes())]:
+                member = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+                member.compress_type = zipfile.ZIP_DEFLATED
+                member.external_attr = 0o644 << 16
+                package.writestr(member, content)
+        package_bytes = buffer.getvalue()
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    package_name = f"meta-tagger_{four_part_version}.zip"
     package_path = output_dir / package_name
-    with zipfile.ZipFile(package_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as package:
-        for name, content in [("Jellyfin.Plugin.MetaTagger.dll", dll_path.read_bytes()),
-                              ("meta-tagger.png", PLUGIN_IMAGE_PATH.read_bytes())]:
-            member = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
-            member.compress_type = zipfile.ZIP_DEFLATED
-            member.external_attr = 0o644 << 16
-            package.writestr(member, content)
+    package_path.write_bytes(package_bytes)
 
     package_base_url = source_url_base or f"{repository}/releases/download/{tag}"
     if not re.fullmatch(r"https?://[^\s/]+(?::[0-9]+)?(?:/[^\s]*)?", package_base_url):
@@ -162,7 +185,10 @@ def main() -> int:
     parser.add_argument("--tag", required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--source-url-base")
-    parser.add_argument("--test-fixture-version", choices=["0.0.0"])
+    package_source = parser.add_mutually_exclusive_group()
+    package_source.add_argument("--test-fixture-version", choices=["0.0.0"])
+    package_source.add_argument("--tested-repository", type=Path,
+                                help="Reuse the lifecycle-tested catalog ZIP without rebuilding it.")
     args = parser.parse_args()
 
     version, _ = _project_versions()
@@ -170,7 +196,7 @@ def main() -> int:
     expected_tag = f"v{package_version}"
     if args.tag != expected_tag:
         parser.error(f"tag must be {expected_tag}")
-    dll_path = _build_plugin(args.test_fixture_version)
+    dll_path = None if args.tested_repository is not None else _build_plugin(args.test_fixture_version)
     timestamp = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     write_release_assets(
         dll_path=dll_path,
@@ -181,6 +207,7 @@ def main() -> int:
         timestamp=timestamp,
         source_url_base=args.source_url_base,
         version_override=f"{package_version}.0" if args.test_fixture_version else None,
+        tested_repository=args.tested_repository,
     )
     return 0
 
