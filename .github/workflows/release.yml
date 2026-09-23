@@ -6,6 +6,9 @@ on:
     tags:
       - "v*.*.*"
 
+env:
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+
 permissions:
   contents: read
 
@@ -37,6 +40,8 @@ jobs:
         uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
       - name: Validate release commit and version
         id: version
         env:
@@ -65,7 +70,7 @@ jobs:
           META_TAGGER_DOCKER_CONTEXT: ""
           META_TAGGER_REPOSITORY_BIND_ADDRESS: "0.0.0.0"
         run: ./scripts/test-release-lifecycle.sh
-      - name: Build release assets
+      - name: Prepare release assets from tested ZIP
         env:
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
           RELEASE_REPOSITORY: ${{ github.server_url }}/${{ github.repository }}
@@ -73,6 +78,7 @@ jobs:
           python3 scripts/package_release.py
           --repository "$RELEASE_REPOSITORY"
           --tag "$RELEASE_TAG"
+          --tested-repository .jellyfin-test/repository
           --output artifacts
       - name: Confirm the tested ZIP is the published ZIP
         run: cmp artifacts/meta-tagger_*.zip .jellyfin-test/repository/meta-tagger_*.zip

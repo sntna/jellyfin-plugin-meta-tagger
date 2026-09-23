@@ -6,6 +6,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+env:
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+
 permissions:
   contents: read
 
@@ -35,6 +38,8 @@ jobs:
         uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
       - name: Verify
         run: ./scripts/build-and-test.sh
       - name: Test release ZIP lifecycle on Linux Docker
@@ -44,3 +49,11 @@ jobs:
         run: |
           python3 scripts/disposable-jellyfin.py create
           ./scripts/test-release-lifecycle.sh
+      - name: Verify release assets reuse the tested ZIP
+        run: |
+          release_tag="$(PYTHONPATH=scripts python3 -c 'from package_release import _project_versions; print("v" + _project_versions()[0])')"
+          python3 scripts/package_release.py \
+            --repository "https://github.com/$GITHUB_REPOSITORY" \
+            --tag "$release_tag" --tested-repository .jellyfin-test/repository \
+            --output artifacts/release-check
+          cmp artifacts/release-check/meta-tagger_*.zip .jellyfin-test/repository/meta-tagger_*.zip
