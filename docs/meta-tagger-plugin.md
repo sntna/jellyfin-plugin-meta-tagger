@@ -47,7 +47,7 @@ the list. Recorded results never grant approval to apply tags.
 without saving settings or changing tags. It sits beside the form on wide screens
 and below it on narrow screens. Leaving Settings stops searches and calculations
 while retaining the query and selected item. Returning uses the latest draft.
-See the [dashboard guide](../README.md#dashboard) for scope, approval, and
+See the [dashboard guide](dashboard.md) for scope, approval, and
 history limits.
 
 ## Settings guide
@@ -261,12 +261,36 @@ too recent; it does not queue that run for later.
 - Completed full scans and record rebuilds remove records for items no longer
   returned by Jellyfin. Runs stopped by a limit keep those records.
 
-## Verification
+## Data handling and logs
 
-```bash
-./scripts/build-and-test.sh
-```
+Meta Tagger reads the selected Jellyfin item's ID, name, path, type, tags,
+genres, custom or official parental rating, studios, production countries,
+provider names and IDs, production year, locks, recorded audio and subtitle
+languages, and optional parent-series metadata. Provider IDs help detect
+metadata changes, but generated provider tags contain the provider name only.
 
-Real-server verification uses a disposable OrbStack container and generated
-movie, series, and anime fixtures. Never point the verification scripts at a
-live Jellyfin server.
+The plugin writes only the item's Jellyfin Tags field. It also stores its XML
+configuration and JSON files for tag ownership, previews, summaries, and run
+history in Jellyfin's plugin data directories. Those JSON records can contain
+item IDs, names, paths, and tag values. Treat the Jellyfin configuration and
+backup directories as private data.
+
+Routine logs always include operational counts and may include item IDs. When
+**Hide item names and tag values in routine logs** is off, logs can also contain
+item names and previewed tag values. Exceptions raised by Jellyfin or another
+component may contain more context than the plugin's routine messages. Review
+and redact logs before sharing them.
+
+Uninstalling the plugin never edits media tags. Run the confirmed removal
+workflow before uninstalling if you want recorded plugin tags removed. Settings
+and plugin data persist across restart, disable, enable, and upgrade. Retention
+after uninstall depends on Jellyfin and is not part of the plugin's contract. A
+reinstall remains preview-first.
+
+## Support boundaries
+
+The dashboard supports Jellyfin's built-in Light and Dark themes and responsive
+layouts. Third-party themes and server Custom CSS are best-effort only; report a
+problem after reproducing it with a built-in theme. Unsupported Jellyfin server
+versions, modified server builds, and manual packages that do not match a
+published checksum fall outside the support boundary.
