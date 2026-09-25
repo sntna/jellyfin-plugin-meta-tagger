@@ -15,6 +15,7 @@ python3 scripts/disposable-jellyfin.py create
 release_output="artifacts/release/${release_tag}"
 python3 scripts/package_release.py \
   --repository https://github.com/sntna/jellyfin-plugin-meta-tagger \
+  --tested-repository .jellyfin-test/repository \
   --tag "$release_tag" --output "$release_output"
 cmp "$release_output"/meta-tagger_*.zip .jellyfin-test/repository/meta-tagger_*.zip
 if [[ "$(git rev-parse HEAD)" != "$release_commit" ]]; then

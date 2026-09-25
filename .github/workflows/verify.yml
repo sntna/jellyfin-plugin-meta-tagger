@@ -6,6 +6,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+env:
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+
 permissions:
   contents: read
 
@@ -20,7 +23,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Check out repository
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Set up Node.js
@@ -28,12 +31,29 @@ jobs:
         with:
           node-version: "20"
       - name: Set up Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.13"
       - name: Set up .NET
-        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
       - name: Verify
         run: ./scripts/build-and-test.sh
+      - name: Test release ZIP lifecycle on Linux Docker
+        env:
+          META_TAGGER_DOCKER_CONTEXT: ""
+          META_TAGGER_REPOSITORY_BIND_ADDRESS: "0.0.0.0"
+        run: |
+          python3 scripts/disposable-jellyfin.py create
+          ./scripts/test-release-lifecycle.sh
+      - name: Verify release assets reuse the tested ZIP
+        run: |
+          release_tag="$(PYTHONPATH=scripts python3 -c 'from package_release import _project_versions; print("v" + _project_versions()[0])')"
+          python3 scripts/package_release.py \
+            --repository "https://github.com/$GITHUB_REPOSITORY" \
+            --tag "$release_tag" --tested-repository .jellyfin-test/repository \
+            --output artifacts/release-check
+          cmp artifacts/release-check/meta-tagger_*.zip .jellyfin-test/repository/meta-tagger_*.zip
