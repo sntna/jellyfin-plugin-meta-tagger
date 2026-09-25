@@ -69,7 +69,9 @@ credentials.json
 # Development evidence and scratch artifacts
 *.log
 *.patch
+.scratch/
 docs/prototypes/
+docs/specs/
 docs/**/*-evidence/
 docs/**/*-plan.md
 docs/**/*-spec.md

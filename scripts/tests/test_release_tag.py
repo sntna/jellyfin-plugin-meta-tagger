@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -22,7 +23,11 @@ class ReleaseTagTests(unittest.TestCase):
         ):
             target = self.root / name
             target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(ROOT / name, target)
+            text = (ROOT / name).read_text()
+            if not name.startswith('scripts/'):
+                version = ET.parse(ROOT / 'Jellyfin.Plugin.MetaTagger/Jellyfin.Plugin.MetaTagger.csproj').getroot().findtext('.//Version')
+                text = text.replace(version, '0.1.0')
+            target.write_text(text)
         (self.root / ".gitignore").write_text("__pycache__/\n")
         self.git("init", "-b", "main")
         self.git("config", "user.name", "sntna")

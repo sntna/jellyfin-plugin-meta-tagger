@@ -122,18 +122,19 @@ class TestedPackageTests(unittest.TestCase):
         self.output = self.root / "release"
         self.dll = self.root / "Jellyfin.Plugin.MetaTagger.dll"
         self.dll.write_bytes(b"tested-dll")
+        self.tag = "v" + PACKAGE_RELEASE._project_versions()[0]
         self.assets = PACKAGE_RELEASE.write_release_assets(
             dll_path=self.dll, manifest_path=PACKAGE_RELEASE.MANIFEST_PATH,
             output_dir=self.tested,
             repository="https://github.com/sntna/jellyfin-plugin-meta-tagger",
-            tag="v0.1.0", timestamp="2026-09-23T00:00:00Z",
+            tag=self.tag, timestamp="2026-09-23T00:00:00Z",
             source_url_base="http://host.docker.internal:8098",
         )
 
     def publish(self):
         arguments = ["package_release.py", "--repository",
                      "https://github.com/sntna/jellyfin-plugin-meta-tagger",
-                     "--tag", "v0.1.0", "--tested-repository", str(self.tested),
+                     "--tag", self.tag, "--tested-repository", str(self.tested),
                      "--output", str(self.output)]
         with patch.object(sys, "argv", arguments), \
                 patch.object(PACKAGE_RELEASE, "_build_plugin", side_effect=AssertionError("Must not rebuild")):
@@ -147,7 +148,7 @@ class TestedPackageTests(unittest.TestCase):
         self.assertEqual(original_zip, (self.output / self.assets.package_path.name).read_bytes())
         self.assertEqual(original_manifest, self.assets.manifest_path.read_bytes())
         entry = json.loads((self.output / "manifest.json").read_text())[0]
-        base = "https://github.com/sntna/jellyfin-plugin-meta-tagger/releases/download/v0.1.0/"
+        base = f"https://github.com/sntna/jellyfin-plugin-meta-tagger/releases/download/{self.tag}/"
         self.assertEqual(base + self.assets.package_path.name, entry["versions"][0]["sourceUrl"])
         self.assertEqual(base + "meta-tagger.png", entry["imageUrl"])
         self.assertEqual(hashlib.md5(original_zip).hexdigest(), entry["versions"][0]["checksum"])
