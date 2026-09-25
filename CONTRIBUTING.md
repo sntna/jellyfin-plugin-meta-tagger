@@ -49,14 +49,45 @@ The public version uses `major.minor.patch`. Jellyfin manifest, assembly, and fi
 
 Releases use `v*.*.*` tags that match the committed project version. Configure tag protection in GitHub to limit release creation to maintainers and the release workflow. Never move a published tag.
 
-To release from GitHub, push the version changes to `main`, then select **Actions → Release → Run workflow** with branch `main`. The workflow reads the version from the project, runs verification and the disposable Jellyfin ZIP lifecycle test, creates the tag at the selected commit, and publishes the GitHub Release. An existing tag is accepted only if it points to that same commit. Tag creation and publication run in the same workflow because pushes made with `GITHUB_TOKEN` do not trigger another release run.
+Prepare release metadata before publishing. From a clean checkout with release
+tags fetched, run:
 
-To prepare locally, commit the version changes on `main` and run:
+```sh
+python3 scripts/prepare_release.py
+```
+
+The command reads squash-merged Conventional Commit titles since the previous
+release tag, updates all version fields, and drafts the dated changelog section
+and comparison links. It edits the working tree without committing, pushing,
+creating tags, or publishing. Review the diff, edit the notes, and submit a pull
+request. See [release preparation](docs/release-builds.md#release-preparation)
+for overrides and dependency releases.
+
+To prepare on GitHub, select **Actions → Prepare release → Run workflow** on
+`main`. It runs the same command and opens or updates a draft release preparation
+pull request. A repository-scoped GitHub App token starts the normal Verify
+checks automatically. The required App setup is documented in
+[release builds](docs/release-builds.md#github-app-setup).
+
+After the preparation pull request merges, select **Actions → Release → Run
+workflow** on `main`. The workflow reads the committed version, runs verification
+and the disposable Jellyfin ZIP lifecycle test, creates or validates the tag at
+the selected commit, and publishes the tested assets. GitHub Release notes come
+from the reviewed changelog section. Publication is always a separate manual
+step.
+
+To create a release tag locally after merging the preparation pull request,
+update your clean `main` checkout and run:
 
 ```sh
 ./scripts/release.sh
 ```
 
-This requires the development dependencies and Docker or OrbStack. It runs the same checks, writes the ZIP, manifest, image, and `SHA256SUMS` to `artifacts/release/v<version>/`, then creates an annotated local tag. It does not push. Push `main` and then the specific tag printed by the script. The tag push runs the GitHub release workflow, which rebuilds, tests, and publishes its own assets and checksums.
+This requires the development dependencies and Docker or OrbStack. It runs the
+same checks, writes the ZIP, manifest, image, and `SHA256SUMS` to
+`artifacts/release/v<version>/`, writes the reviewed notes beside that directory,
+then creates an annotated local tag. It does not push. Push `main` and then the
+specific tag printed by the script. The tag push runs the GitHub Release
+workflow, which verifies and publishes its own tested assets and checksums.
 
-Both entry points reject a tag that points to another commit. For an unpublished initial release only, delete the stale local tag before preparing the replacement. Later releases must increment all version fields together. A failed run after tag creation can be retried at the same commit; an already published release is never overwritten.
+Both entry points reject a tag that points to another commit. Do not move or delete a release tag. Prepare a new version when the release commit changes. A failed run after tag creation can be retried at the same commit. Upload failures leave a draft that a retry can complete; an already published release is never overwritten.

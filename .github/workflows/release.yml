@@ -59,6 +59,8 @@ jobs:
             exit 1
           fi
           echo "tag=$release_tag" >> "$GITHUB_OUTPUT"
+      - name: Extract reviewed release notes
+        run: python3 scripts/release_notes.py > "$RUNNER_TEMP/release-notes.md"
       - name: Verify
         run: ./scripts/build-and-test.sh
       - name: Create disposable Jellyfin server
@@ -92,12 +94,14 @@ jobs:
             gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
               -f "ref=refs/tags/$RELEASE_TAG" -f "sha=$GITHUB_SHA"
           fi
+      - name: Validate remote release tag
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          git fetch origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+          test "$(python3 scripts/release_tag.py)" = "$RELEASE_TAG"
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
-        run: >-
-          gh release create "$RELEASE_TAG" artifacts/*
-          --verify-tag
-          --generate-notes
-          --title "$RELEASE_TAG"
+        run: ./scripts/publish_release.sh "$RELEASE_TAG" artifacts "$RUNNER_TEMP/release-notes.md"
