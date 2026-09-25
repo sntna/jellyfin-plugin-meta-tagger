@@ -25,6 +25,13 @@ after changing source, tests, project files, dashboard code, or packaging.
 
 Agent-authored pull requests must remain drafts until a maintainer reviews the diff. Agents do not approve or merge their own work.
 
+The `pr-title` check validates Conventional Commit syntax and reruns when the title
+changes. Keep the final squash commit title equal to the validated PR title.
+Dependabot uses `chore(deps):` titles and may rebase its own PR branches. These
+updates must pass the same required checks as other pull requests.
+
+Maintainers should apply the [GitHub repository settings](github-settings.md).
+
 ## Releases
 
 Follow the [release guide](releasing.md) to choose a version, update every version
