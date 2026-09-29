@@ -156,11 +156,11 @@ def blockers_complete(issue, merged, root):
     return True
 
 
-def run_process(args, cwd, log, lock_fd, seconds, stdin=None):
+def run_process(args, cwd, log, lock_fd, seconds, stdin=None, env=None):
     with log.open("w") as output:
         process = subprocess.Popen(args, cwd=cwd, stdin=subprocess.PIPE if stdin else subprocess.DEVNULL,
             stdout=output, stderr=subprocess.STDOUT, text=True, start_new_session=True,
-            pass_fds=(lock_fd,))
+            pass_fds=(lock_fd,), env=env)
         try:
             process.communicate(stdin, timeout=seconds)
             if process.returncode:
@@ -174,6 +174,28 @@ def run_process(args, cwd, log, lock_fd, seconds, stdin=None):
             except ProcessLookupError:
                 pass
             process.wait()
+
+
+def verification_command(worktree):
+    # Keep generated test/build code within an explicit execution boundary, even
+    # when the trusted dispatcher itself runs from an unrestricted local terminal.
+    settings = [
+        'permissions.agent-verify.extends=":workspace"',
+        'permissions.agent-verify.network.enabled=true',
+        # VSTest uses raw TCP to its loopback test host, not an HTTP/SOCKS proxy.
+        'features.network_proxy=false',
+    ]
+    denied = ("~/.ssh", "~/.config/gh", "~/.codex/auth.json", "~/Library/Keychains")
+    settings.append("permissions.agent-verify.filesystem={" +
+                    ",".join(f'{json.dumps(path)}="deny"' for path in denied) + "}")
+    args = ["codex", "sandbox", "-P", "agent-verify", "-C", str(worktree)]
+    for setting in settings:
+        args.extend(["-c", setting])
+    return args + ["--", "./scripts/build-and-test.sh"]
+
+
+def review_limit(prs):
+    return sum(pr["headRefName"].startswith("codex/issue-") for pr in prs) >= 2
 
 
 def implement(issue, root, state, records, fd):
@@ -209,7 +231,11 @@ def implement(issue, root, state, records, fd):
         if not paths or any(path.startswith(PROTECTED) for path in paths):
             raise RuntimeError("Empty change or protected automation/policy path changed")
         verified_head = command(["git", "rev-parse", "HEAD"], worktree)
-        run_process(["./scripts/build-and-test.sh"], worktree, run / "verify.log", fd, 1200)
+        verify_env = {key: os.environ[key] for key in ("PATH", "HOME", "TMPDIR", "LANG") if key in os.environ}
+        verify_env.update(NUGET_PACKAGES=str(worktree / ".nuget/packages"),
+                          DOTNET_CLI_HOME=str(worktree / ".scratch/dotnet"),
+                          DOTNET_CLI_TELEMETRY_OPTOUT="1")
+        run_process(verification_command(worktree), worktree, run / "verify.log", fd, 1200, env=verify_env)
         if (command(["git", "status", "--porcelain"], worktree) or
                 command(["git", "rev-parse", "HEAD"], worktree) != verified_head):
             raise RuntimeError("Verification changed the working tree or commit")
@@ -226,6 +252,8 @@ def implement(issue, root, state, records, fd):
             f"Verification: dispatcher reran `./scripts/build-and-test.sh` successfully.\n\n"
             f"Worker verification report:\n{result['verification']}\n\n"
             "Agent-authored draft. A maintainer must review and merge.\n")
+        if review_limit(pull_requests("open")):
+            raise RuntimeError("Review backlog filled during implementation; verified work preserved")
         command(["git", "push", "origin", f"HEAD:refs/heads/{branch}"], worktree)
         url = command(["gh", "pr", "create", "--repo", REPO, "--base", "main", "--head", branch,
                        "--draft", "--title", title, "--body-file", str(body)], worktree)
@@ -286,7 +314,7 @@ def main():
         if any(run["status"] == "running" for run in records.values()):
             raise RuntimeError("Unfinished run exists; inspect saved state and surviving processes")
         prs = pull_requests("open")
-        if sum(pr["headRefName"].startswith("codex/issue-") for pr in prs) >= 2:
+        if review_limit(prs):
             print('{"status":"review-limit"}')
             return
         candidates = flatten(f"repos/{REPO}/issues?state=open&labels=agent%3Aready&per_page=100")

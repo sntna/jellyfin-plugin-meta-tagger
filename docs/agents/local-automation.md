@@ -55,7 +55,13 @@ the dispatcher owns push and draft PR creation. This is a workflow boundary,
 not credential isolation from code running under your local user account.
 Policy, automation, and workflow edits require supervised work.
 
-The dispatcher runs the final build-and-test command independently. Workers run
+The dispatcher runs the final build-and-test command independently inside
+`codex sandbox`, with workspace write limits, credential-file read exclusions,
+and a minimal environment without publishing tokens. Network access remains
+enabled for restore and VSTest's raw TCP connection to its loopback test host.
+This profile restricts filesystem access, not network destinations; never expose
+live Jellyfin credentials to this checkout. Missing sandbox support blocks
+publication instead of falling back to unrestricted execution. Workers run
 applicable disposable Jellyfin smoke and lifecycle checks and report outcomes.
 The existing PR CI remains required. Tests and local scopes cannot prove the
 implementation is correct; a maintainer reviews the draft and merges it.

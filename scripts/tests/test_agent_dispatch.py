@@ -112,7 +112,7 @@ class QueueTests(unittest.TestCase):
 class PipelineTests(unittest.TestCase):
     """Real Git/worktrees/processes, with disposable Codex and GitHub executables."""
 
-    def run_pipeline(self, verification_exit):
+    def run_pipeline(self, verification_exit, backlog=False):
         with tempfile.TemporaryDirectory() as temp:
             temp = Path(temp)
             root, remote, binaries = temp / "repo", temp / "remote.git", temp / "bin"
@@ -138,6 +138,8 @@ class PipelineTests(unittest.TestCase):
             git("push", "origin", "main")
             codex = binaries / "codex"
             codex.write_text("#!/usr/bin/env python3\nimport json, pathlib, subprocess, sys\n"
+                "if sys.argv[1]=='sandbox':\n"
+                " sys.exit(subprocess.run(sys.argv[sys.argv.index('--')+1:]).returncode)\n"
                 "sys.stdin.read()\npathlib.Path('value.txt').write_text('after\\n')\n"
                 "subprocess.run(['git','commit','-am','fix: update fixture'],check=True)\n"
                 "pathlib.Path(sys.argv[sys.argv.index('-o')+1]).write_text(json.dumps("
@@ -158,13 +160,15 @@ class PipelineTests(unittest.TestCase):
             with patch.dict(os.environ, {"PATH": str(binaries) + os.pathsep + os.environ["PATH"],
                                         "FIXTURE_GH_LOG": str(temp / "gh.log")}), \
                  patch.object(dispatcher, "snapshot", return_value=current), dispatcher.lock(state / "lock") as fd:
-                if verification_exit:
-                    with self.assertRaisesRegex(RuntimeError, "Command failed"):
+                with patch.object(dispatcher, "pull_requests", return_value=[{"headRefName": "codex/issue-1"},
+                            {"headRefName": "codex/issue-2"}] if backlog else []):
+                    if verification_exit or backlog:
+                        with self.assertRaisesRegex(RuntimeError, "Command failed|Review backlog filled"):
+                            dispatcher.implement(issue, root, state, records, fd)
+                    else:
                         dispatcher.implement(issue, root, state, records, fd)
-                else:
-                    dispatcher.implement(issue, root, state, records, fd)
             log = (temp / "gh.log").read_text()
-            if verification_exit:
+            if verification_exit or backlog:
                 self.assertNotIn("'pr', 'create'", log)
                 self.assertEqual(records["12"]["status"], "blocked")
                 remote_result = subprocess.run(["git", "--git-dir", str(remote), "rev-parse", "--verify",
@@ -183,6 +187,9 @@ class PipelineTests(unittest.TestCase):
 
     def test_failed_verification_keeps_work_local(self):
         self.run_pipeline(1)
+
+    def test_backlog_filling_during_implementation_keeps_work_local(self):
+        self.run_pipeline(0, backlog=True)
 
 
 if __name__ == "__main__":
