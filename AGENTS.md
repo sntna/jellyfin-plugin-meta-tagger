@@ -24,3 +24,13 @@
 - Keep `net10.0`, Jellyfin packages `12.0.0`, server image `jellyfin/jellyfin:12.0`, and target ABI `12.0.0.0` compatible.
 - Change the plugin, package, manifest, assembly, and file versions together.
 - Keep GitHub workflows least-privileged and pin actions to full commit SHAs.
+
+## Agent skills
+
+- Tickets are units of work hosted as GitHub Issues in this repository. See
+  [issue tracker instructions](docs/agents/issue-tracker.md).
+- Use the [triage label mapping](docs/agents/triage-labels.md). Approved tickets
+  produced by `/to-tickets` do not need another triage pass.
+- Read [domain documentation instructions](docs/agents/domain.md) before exploring.
+- Follow the [local automation workflow](docs/agents/local-automation.md) when
+  approving or dispatching tickets. Scheduled workers never merge or release.
