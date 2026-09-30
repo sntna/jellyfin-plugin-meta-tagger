@@ -10,5 +10,6 @@
 
 - [Build, live reload, and disposable Jellyfin checks](development.md)
 - [Contribution and pull request requirements](contributing.md)
+- [Local agent ticket automation](agents/local-automation.md)
 - [Versioning, packaging, and releases](releasing.md)
 - [Artwork](brand/README.md)
