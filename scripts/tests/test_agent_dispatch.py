@@ -112,7 +112,7 @@ class QueueTests(unittest.TestCase):
 class PipelineTests(unittest.TestCase):
     """Real Git/worktrees/processes, with disposable Codex and GitHub executables."""
 
-    def run_pipeline(self, verification_exit, backlog=False):
+    def run_pipeline(self, verification_exit, backlog=False, change="ordinary", existing_pr=None):
         with tempfile.TemporaryDirectory() as temp:
             temp = Path(temp)
             root, remote, binaries = temp / "repo", temp / "remote.git", temp / "bin"
@@ -126,6 +126,7 @@ class PipelineTests(unittest.TestCase):
             git("config", "commit.gpgsign", "false")
             (root / "docs/agents").mkdir(parents=True)
             (root / "docs/agents/worker.md").write_text("Implement the fixture")
+            (root / "AGENTS.md").write_text("Supervised policy\n")
             (root / "scripts").mkdir()
             check = root / "scripts/build-and-test.sh"
             check.write_text(f"#!/bin/sh\nexit {verification_exit}\n")
@@ -136,12 +137,20 @@ class PipelineTests(unittest.TestCase):
             dispatcher.command(["git", "init", "--bare", str(remote)])
             git("remote", "add", "origin", str(remote))
             git("push", "origin", "main")
+            worker_changes = {
+                "ordinary": "pathlib.Path('value.txt').write_text('after\\n')\n",
+                "policy-rename": "pathlib.Path('AGENTS.md').rename('docs/policy.md')\n",
+                "quoted-path": "p=pathlib.Path('.github/workflows/café.yml'); p.parent.mkdir(parents=True); p.write_text('changed\\n')\n",
+                "newline-path": "p=pathlib.Path('.github/workflows/new\\nworkflow.yml'); p.parent.mkdir(parents=True); p.write_text('changed\\n')\n",
+                "ordinary-rename": "pathlib.Path('value.txt').rename('renamed.txt')\n",
+            }
             codex = binaries / "codex"
             codex.write_text("#!/usr/bin/env python3\nimport json, pathlib, subprocess, sys\n"
                 "if sys.argv[1]=='sandbox':\n"
                 " sys.exit(subprocess.run(sys.argv[sys.argv.index('--')+1:]).returncode)\n"
-                "sys.stdin.read()\npathlib.Path('value.txt').write_text('after\\n')\n"
-                "subprocess.run(['git','commit','-am','fix: update fixture'],check=True)\n"
+                "sys.stdin.read()\n" + worker_changes[change] +
+                "subprocess.run(['git','add','-A'],check=True)\n"
+                "subprocess.run(['git','commit','-m','fix: update fixture'],check=True)\n"
                 "pathlib.Path(sys.argv[sys.argv.index('-o')+1]).write_text(json.dumps("
                 "{'status':'ready','summary':'Updated fixture','verification':'fixture check passed'}))\n")
             codex.chmod(0o755)
@@ -157,28 +166,35 @@ class PipelineTests(unittest.TestCase):
             current = copy.deepcopy(issue)
             current["labels"] = [{"name": "agent:running"}]
             records = {}
+            blocked = verification_exit or backlog or existing_pr or change in {
+                "policy-rename", "quoted-path", "newline-path"}
             with patch.dict(os.environ, {"PATH": str(binaries) + os.pathsep + os.environ["PATH"],
                                         "FIXTURE_GH_LOG": str(temp / "gh.log")}), \
                  patch.object(dispatcher, "snapshot", return_value=current), dispatcher.lock(state / "lock") as fd:
-                with patch.object(dispatcher, "pull_requests", return_value=[{"headRefName": "codex/issue-1"},
-                            {"headRefName": "codex/issue-2"}] if backlog else []):
-                    if verification_exit or backlog:
-                        with self.assertRaisesRegex(RuntimeError, "Command failed|Review backlog filled"):
+                prs = ([{"headRefName": f"codex/issue-{n}", "closingIssuesReferences": []}
+                        for n in (1, 2)] if backlog else [existing_pr] if existing_pr else [])
+                with patch.object(dispatcher, "pull_requests", return_value=prs):
+                    if blocked:
+                        with self.assertRaisesRegex(RuntimeError, "Command failed|Review backlog filled|protected automation/policy|Another implementation PR"):
                             dispatcher.implement(issue, root, state, records, fd)
                     else:
                         dispatcher.implement(issue, root, state, records, fd)
             log = (temp / "gh.log").read_text()
-            if verification_exit or backlog:
+            if blocked:
                 self.assertNotIn("'pr', 'create'", log)
                 self.assertEqual(records["12"]["status"], "blocked")
                 remote_result = subprocess.run(["git", "--git-dir", str(remote), "rev-parse", "--verify",
                     "refs/heads/codex/issue-12"], capture_output=True)
                 self.assertNotEqual(remote_result.returncode, 0)
+                if change != "ordinary" or existing_pr:
+                    self.assertEqual(dispatcher.command(["git", "-C", records["12"]["worktree"],
+                        "log", "-1", "--format=%s"]), "fix: update fixture")
             else:
                 self.assertIn("'--draft'", log)
                 self.assertEqual(records["12"]["status"], "review")
+                path = "renamed.txt" if change == "ordinary-rename" else "value.txt"
                 self.assertEqual(dispatcher.command(["git", "--git-dir", str(remote), "show",
-                    "refs/heads/codex/issue-12:value.txt"]), "after")
+                    f"refs/heads/codex/issue-12:{path}"]), "before" if change == "ordinary-rename" else "after")
             self.assertEqual(git("branch", "--show-current"), "main")
             self.assertEqual((root / "value.txt").read_text(), "before\n")
 
@@ -190,6 +206,25 @@ class PipelineTests(unittest.TestCase):
 
     def test_backlog_filling_during_implementation_keeps_work_local(self):
         self.run_pipeline(0, backlog=True)
+
+    def test_protected_rename_source_keeps_work_local(self):
+        self.run_pipeline(0, change="policy-rename")
+
+    def test_git_quoted_protected_path_keeps_work_local(self):
+        self.run_pipeline(0, change="quoted-path")
+
+    def test_protected_path_with_newline_keeps_work_local(self):
+        self.run_pipeline(0, change="newline-path")
+
+    def test_ordinary_rename_can_publish(self):
+        self.run_pipeline(0, change="ordinary-rename")
+
+    def test_closing_pr_appearing_during_implementation_keeps_work_local(self):
+        self.run_pipeline(0, existing_pr={"headRefName": "manual-fix",
+            "closingIssuesReferences": [{"url": ticket()["html_url"]}]})
+
+    def test_branch_pr_appearing_during_implementation_keeps_work_local(self):
+        self.run_pipeline(0, existing_pr={"headRefName": "codex/issue-12", "closingIssuesReferences": []})
 
 
 if __name__ == "__main__":

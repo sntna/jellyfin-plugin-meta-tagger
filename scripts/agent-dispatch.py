@@ -109,6 +109,12 @@ def fingerprint(issue):
     return hashlib.sha256(json.dumps(content, sort_keys=True).encode()).hexdigest()
 
 
+def has_implementation_pr(issue, prs):
+    return any(pr["headRefName"] == f"codex/issue-{issue['number']}" or
+               any(ref["url"] == issue["html_url"] for ref in pr["closingIssuesReferences"])
+               for pr in prs)
+
+
 def eligible(issue, approved, prs, runs):
     labels = {label["name"] for label in issue["labels"]}
     number = issue["number"]
@@ -120,9 +126,7 @@ def eligible(issue, approved, prs, runs):
         return False
     if str(number) in runs:
         return False  # Never automatically retry or overwrite an earlier attempt.
-    return not any(pr["headRefName"] == f"codex/issue-{number}" or
-                   any(ref["url"] == issue["html_url"] for ref in pr["closingIssuesReferences"])
-                   for pr in prs)
+    return not has_implementation_pr(issue, prs)
 
 
 def edit(number, add, remove=()):
@@ -227,7 +231,10 @@ def implement(issue, root, state, records, fd):
             raise RuntimeError("Worker changed branch")
         if command(["git", "status", "--porcelain"], worktree):
             raise RuntimeError("Worker left uncommitted files")
-        paths = command(["git", "diff", "--name-only", base, "HEAD"], worktree).splitlines()
+        # Include deleted rename sources and literal paths, even with newlines or
+        # characters Git would normally quote in its human-readable output.
+        paths = [path for path in command(["git", "diff", "--no-renames", "--name-only", "-z",
+                                          base, "HEAD"], worktree).split("\0") if path]
         if not paths or any(path.startswith(PROTECTED) for path in paths):
             raise RuntimeError("Empty change or protected automation/policy path changed")
         verified_head = command(["git", "rev-parse", "HEAD"], worktree)
@@ -252,7 +259,10 @@ def implement(issue, root, state, records, fd):
             f"Verification: dispatcher reran `./scripts/build-and-test.sh` successfully.\n\n"
             f"Worker verification report:\n{result['verification']}\n\n"
             "Agent-authored draft. A maintainer must review and merge.\n")
-        if review_limit(pull_requests("open")):
+        prs = pull_requests("open")
+        if has_implementation_pr(issue, prs):
+            raise RuntimeError("Another implementation PR appeared; verified work preserved")
+        if review_limit(prs):
             raise RuntimeError("Review backlog filled during implementation; verified work preserved")
         command(["git", "push", "origin", f"HEAD:refs/heads/{branch}"], worktree)
         url = command(["gh", "pr", "create", "--repo", REPO, "--base", "main", "--head", branch,

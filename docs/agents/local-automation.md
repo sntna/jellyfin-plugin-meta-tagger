@@ -104,3 +104,25 @@ Use a new, explicitly approved follow-up ticket when a fresh attempt is needed.
 
 Notify only for a new draft PR, a failure, a changed approved scope, or required
 input. Empty queues, active workers and unchanged review backlogs stay quiet.
+
+## PR review pickup
+
+The implementation dispatcher does not review open PRs. A separate local Codex
+heartbeat, `Review Jellyfin PRs`, checks this repository every 30 minutes and
+includes both draft and ready PRs. Draft status does not prevent review. The
+pickup invokes the installed `code-review` skill, which uses separate fresh
+Standards and Spec reviewers. It reviews at most one PR per invocation, oldest
+unreviewed first, against its pinned base and head commits.
+
+Review state and reports live under `<git-common-dir>/agent-review/`. Completed
+reviews are keyed by PR number, base commit and head commit, so an unchanged
+comparison is skipped and new commits become eligible again. Failures are
+recorded separately and require attention rather than an automatic retry loop.
+Reviewers use isolated detached worktrees and never switch the user's checkout.
+They read the linked issue for the Spec axis, or report that no spec is available.
+
+Reports remain local and appear in the heartbeat's chat with separate Standards
+and Spec results and an independent impact assessment. The pickup never posts
+GitHub comments or reviews, changes code, approves, merges, or releases. Notify
+only for a completed review, a new failure, or required input; empty queues and
+unchanged failures stay quiet. Pause `Review Jellyfin PRs` to stop future pickup.
