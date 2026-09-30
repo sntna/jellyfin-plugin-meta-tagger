@@ -63,6 +63,28 @@ class QueueTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 dispatcher.snapshot(12)
 
+    def test_blocker_lists_preserve_every_complete_reference(self):
+        for blockers, expected in [("None", []), ("NONE", []), ("#3", [3]), ("#3, #4", [3, 4]),
+                ("#3 #4", [3, 4]), ("- #3\n- #4", [3, 4]), ("* #3\n\n* #4", [3, 4]),
+                ("#3\n#4", [3, 4]), ("#3, #3, #4", [3, 4])]:
+            with self.subTest(blockers=blockers):
+                issue = copy.deepcopy(self.issue)
+                issue["body"] = issue["body"].replace("\nNone\n", f"\n{blockers}\n")
+                with patch.object(dispatcher, "api", return_value=issue), \
+                     patch.object(dispatcher, "flatten", return_value=[]):
+                    self.assertEqual(dispatcher.snapshot(12)["blockers"], expected)
+
+    def test_partial_blocker_references_are_rejected_instead_of_dropped(self):
+        for blockers in ("3, #4", "#3, 4", "- 3\n- #4", "#3-#4", "#3#4", "#3,", "#0, #4",
+                         "#3, None", "#3 trailing", "#3, ##4", "#3, #４", "3"):
+            with self.subTest(blockers=blockers):
+                issue = copy.deepcopy(self.issue)
+                issue["body"] = issue["body"].replace("\nNone\n", f"\n{blockers}\n")
+                with patch.object(dispatcher, "api", return_value=issue), \
+                     patch.object(dispatcher, "flatten", return_value=[]):
+                    with self.assertRaisesRegex(ValueError, "#NUMBER"):
+                        dispatcher.snapshot(12)
+
     def test_dependency_api_failure_does_not_mean_no_blockers(self):
         with patch.object(dispatcher, "api", return_value=self.issue), patch.object(dispatcher, "flatten", side_effect=RuntimeError("offline")):
             with self.assertRaises(RuntimeError):
@@ -112,7 +134,8 @@ class QueueTests(unittest.TestCase):
 class PipelineTests(unittest.TestCase):
     """Real Git/worktrees/processes, with disposable Codex and GitHub executables."""
 
-    def run_pipeline(self, verification_exit, backlog=False, change="ordinary", existing_pr=None):
+    def run_pipeline(self, verification_exit, backlog=False, change="ordinary", existing_pr=None,
+                     protected_path=None, current_changes=None):
         with tempfile.TemporaryDirectory() as temp:
             temp = Path(temp)
             root, remote, binaries = temp / "repo", temp / "remote.git", temp / "bin"
@@ -131,6 +154,11 @@ class PipelineTests(unittest.TestCase):
             check = root / "scripts/build-and-test.sh"
             check.write_text(f"#!/bin/sh\nexit {verification_exit}\n")
             check.chmod(0o755)
+            if protected_path:
+                protected = root / protected_path
+                protected.parent.mkdir(parents=True, exist_ok=True)
+                if not protected.exists():
+                    protected.write_text("Supervised policy or automation\n")
             (root / "value.txt").write_text("before\n")
             git("add", ".")
             git("commit", "-m", "chore: fixture")
@@ -143,12 +171,15 @@ class PipelineTests(unittest.TestCase):
                 "quoted-path": "p=pathlib.Path('.github/workflows/café.yml'); p.parent.mkdir(parents=True); p.write_text('changed\\n')\n",
                 "newline-path": "p=pathlib.Path('.github/workflows/new\\nworkflow.yml'); p.parent.mkdir(parents=True); p.write_text('changed\\n')\n",
                 "ordinary-rename": "pathlib.Path('value.txt').rename('renamed.txt')\n",
+                "script-test": "pathlib.Path('value.txt').write_text('after\\n')\np=pathlib.Path('scripts/tests/test_fixture.py'); p.parent.mkdir(parents=True); p.write_text('assert True\\n')\n",
             }
+            worker_change = (f"pathlib.Path({protected_path!r}).write_text('#!/bin/sh\\nexit 0\\n')\n"
+                             if protected_path else worker_changes[change])
             codex = binaries / "codex"
             codex.write_text("#!/usr/bin/env python3\nimport json, pathlib, subprocess, sys\n"
                 "if sys.argv[1]=='sandbox':\n"
                 " sys.exit(subprocess.run(sys.argv[sys.argv.index('--')+1:]).returncode)\n"
-                "sys.stdin.read()\n" + worker_changes[change] +
+                "sys.stdin.read()\n" + worker_change +
                 "subprocess.run(['git','add','-A'],check=True)\n"
                 "subprocess.run(['git','commit','-m','fix: update fixture'],check=True)\n"
                 "pathlib.Path(sys.argv[sys.argv.index('-o')+1]).write_text(json.dumps("
@@ -165,8 +196,9 @@ class PipelineTests(unittest.TestCase):
             issue = ticket()
             current = copy.deepcopy(issue)
             current["labels"] = [{"name": "agent:running"}]
+            current.update(current_changes or {})
             records = {}
-            blocked = verification_exit or backlog or existing_pr or change in {
+            blocked = verification_exit or backlog or existing_pr or protected_path or current_changes or change in {
                 "policy-rename", "quoted-path", "newline-path"}
             with patch.dict(os.environ, {"PATH": str(binaries) + os.pathsep + os.environ["PATH"],
                                         "FIXTURE_GH_LOG": str(temp / "gh.log")}), \
@@ -175,7 +207,7 @@ class PipelineTests(unittest.TestCase):
                         for n in (1, 2)] if backlog else [existing_pr] if existing_pr else [])
                 with patch.object(dispatcher, "pull_requests", return_value=prs):
                     if blocked:
-                        with self.assertRaisesRegex(RuntimeError, "Command failed|Review backlog filled|protected automation/policy|Another implementation PR"):
+                        with self.assertRaisesRegex(RuntimeError, "Command failed|Review backlog filled|protected automation/policy|Another implementation PR|Ticket approval, assignment or scope changed"):
                             dispatcher.implement(issue, root, state, records, fd)
                     else:
                         dispatcher.implement(issue, root, state, records, fd)
@@ -186,9 +218,10 @@ class PipelineTests(unittest.TestCase):
                 remote_result = subprocess.run(["git", "--git-dir", str(remote), "rev-parse", "--verify",
                     "refs/heads/codex/issue-12"], capture_output=True)
                 self.assertNotEqual(remote_result.returncode, 0)
-                if change != "ordinary" or existing_pr:
-                    self.assertEqual(dispatcher.command(["git", "-C", records["12"]["worktree"],
-                        "log", "-1", "--format=%s"]), "fix: update fixture")
+                self.assertEqual(dispatcher.command(["git", "-C", records["12"]["worktree"],
+                    "log", "-1", "--format=%s"]), "fix: update fixture")
+                if protected_path:
+                    self.assertFalse((state / "runs/12/verify.log").exists())
             else:
                 self.assertIn("'--draft'", log)
                 self.assertEqual(records["12"]["status"], "review")
@@ -225,6 +258,35 @@ class PipelineTests(unittest.TestCase):
 
     def test_branch_pr_appearing_during_implementation_keeps_work_local(self):
         self.run_pipeline(0, existing_pr={"headRefName": "codex/issue-12", "closingIssuesReferences": []})
+
+    def test_substantive_policy_documents_require_supervision(self):
+        for path in ("docs/contributing.md", "docs/development.md", "docs/releasing.md",
+                     "docs/release-builds.md", "docs/github-settings.md"):
+            with self.subTest(path=path):
+                self.run_pipeline(0, protected_path=path)
+
+    def test_verification_entrypoint_cannot_be_replaced_to_hide_failure(self):
+        self.run_pipeline(1, protected_path="scripts/build-and-test.sh")
+
+    def test_other_automation_scripts_require_supervision(self):
+        for path in ("scripts/check-public-tree.sh", "scripts/build.sh", "scripts/dev.py"):
+            with self.subTest(path=path):
+                self.run_pipeline(0, protected_path=path)
+
+    def test_scoped_agent_policy_requires_supervision_even_inside_tests(self):
+        self.run_pipeline(0, protected_path="scripts/tests/AGENTS.override.md")
+
+    def test_script_behavior_tests_remain_available_to_workers(self):
+        self.run_pipeline(0, change="script-test")
+
+    def test_assignment_during_implementation_keeps_work_local(self):
+        self.run_pipeline(0, current_changes={"assignees": [{"login": "maintainer"}]})
+
+    def test_changed_scope_or_queue_state_during_implementation_keeps_work_local(self):
+        for changes in ({"body": ticket()["body"] + "\nChanged scope"}, {"state": "closed"},
+                        {"labels": []}, {"labels": [{"name": "agent:running"}, {"name": "needs-triage"}]}):
+            with self.subTest(changes=changes):
+                self.run_pipeline(0, current_changes=changes)
 
 
 if __name__ == "__main__":

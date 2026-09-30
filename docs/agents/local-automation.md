@@ -38,6 +38,11 @@ unblocked tickets qualify. An existing closing PR or saved attempt prevents
 duplicate work. Dependencies must have a merged closing PR included in main.
 The native dependency endpoint must work; API errors stop dispatch rather than
 silently treating dependencies as empty.
+Text blockers must be complete positive `#NUMBER` references, separated by commas,
+spaces or lines, optionally with `-` or `*` list bullets. Malformed references are
+rejected rather than omitted. Immediately before publication the ticket must
+still have its approved scope, be open and unassigned, and carry `agent:running`
+without an excluded queue label.
 
 ## Worker environment
 
@@ -54,6 +59,10 @@ worktree, and a fresh `codex exec` process. Workers cannot publish by instructio
 the dispatcher owns push and draft PR creation. This is a workflow boundary,
 not credential isolation from code running under your local user account.
 Policy, automation, and workflow edits require supervised work.
+The publication guard protects the substantive contribution, development,
+release and repository-settings guides, scoped agent instructions, and scripts
+outside `scripts/tests/`, including the verification entrypoint. Behavioral tests
+under `scripts/tests/` remain available to implementation workers.
 
 The dispatcher runs the final build-and-test command independently inside
 `codex sandbox`, with workspace write limits, credential-file read exclusions,

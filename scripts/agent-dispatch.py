@@ -28,7 +28,9 @@ LABELS = {
 EXCLUDED = {"needs-triage", "needs-info", "ready-for-human", "wontfix",
             "agent:running", "agent:review", "agent:blocked"}
 PROTECTED = (".github/", "docs/agents/", "scripts/agent-dispatch.py", "AGENTS.md",
-             "CONTRIBUTING.md", ".codex/", ".agents/", ".env")
+             "CONTRIBUTING.md", "docs/contributing.md", "docs/development.md",
+             "docs/releasing.md", "docs/release-builds.md", "docs/github-settings.md",
+             ".codex/", ".agents/", ".env")
 SCHEMA = {"type": "object", "properties": {
     "status": {"type": "string", "enum": ["ready", "blocked"]},
     "summary": {"type": "string"}, "verification": {"type": "string"}},
@@ -80,11 +82,15 @@ def snapshot(number):
     blockers = section(body, "Blocked by")
     if not blockers:
         raise ValueError(f"Ticket #{number} needs a Blocked by section")
-    if blockers.lower() != "none" and not re.fullmatch(r"[\s,#\d*\-]+", blockers):
-        raise ValueError(f"Ticket #{number}: use only #NUMBER references or None for blockers")
-    references = {int(n) for n in re.findall(r"#(\d+)", blockers)}
-    if blockers.lower() != "none" and not references:
-        raise ValueError("Invalid Blocked by section")
+    references = set()
+    if blockers.lower() != "none":
+        for line in blockers.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            if not re.fullmatch(r"(?:[-*][ \t]+)?#[1-9][0-9]*(?:(?:[ \t]*,[ \t]*|[ \t]+)#[1-9][0-9]*)*", line):
+                raise ValueError(f"Ticket #{number}: use only #NUMBER references or None for blockers")
+            references.update(int(n) for n in re.findall(r"#([1-9][0-9]*)", line))
     for blocker in native:
         if not blocker["url"].startswith(f"https://api.github.com/repos/{REPO}/issues/"):
             raise ValueError("Cross-repository dependencies require supervised work")
@@ -115,14 +121,16 @@ def has_implementation_pr(issue, prs):
                for pr in prs)
 
 
-def eligible(issue, approved, prs, runs):
+def ticket_is_available(issue, approved_fingerprint, expected_label):
     labels = {label["name"] for label in issue["labels"]}
+    return (issue["state"] == "open" and "pull_request" not in issue and not issue.get("assignees") and
+            expected_label in labels and not labels & (EXCLUDED - {expected_label}) and
+            approved_fingerprint == fingerprint(issue))
+
+
+def eligible(issue, approved, prs, runs):
     number = issue["number"]
-    if issue["state"] != "open" or "pull_request" in issue or issue.get("assignees"):
-        return False
-    if "agent:ready" not in labels or labels & EXCLUDED:
-        return False
-    if approved.get(str(number)) != fingerprint(issue):
+    if not ticket_is_available(issue, approved.get(str(number)), "agent:ready"):
         return False
     if str(number) in runs:
         return False  # Never automatically retry or overwrite an earlier attempt.
@@ -202,6 +210,13 @@ def review_limit(prs):
     return sum(pr["headRefName"].startswith("codex/issue-") for pr in prs) >= 2
 
 
+def protected_path(path):
+    # Tests remain an implementation surface; executable automation and scoped
+    # agent instructions require a supervised session.
+    return (path.startswith(PROTECTED) or Path(path).name in {"AGENTS.md", "AGENTS.override.md"} or
+            (path.startswith("scripts/") and not path.startswith("scripts/tests/")))
+
+
 def implement(issue, root, state, records, fd):
     number = str(issue["number"])
     branch = f"codex/issue-{number}"
@@ -235,7 +250,7 @@ def implement(issue, root, state, records, fd):
         # characters Git would normally quote in its human-readable output.
         paths = [path for path in command(["git", "diff", "--no-renames", "--name-only", "-z",
                                           base, "HEAD"], worktree).split("\0") if path]
-        if not paths or any(path.startswith(PROTECTED) for path in paths):
+        if not paths or any(protected_path(path) for path in paths):
             raise RuntimeError("Empty change or protected automation/policy path changed")
         verified_head = command(["git", "rev-parse", "HEAD"], worktree)
         verify_env = {key: os.environ[key] for key in ("PATH", "HOME", "TMPDIR", "LANG") if key in os.environ}
@@ -247,10 +262,8 @@ def implement(issue, root, state, records, fd):
                 command(["git", "rev-parse", "HEAD"], worktree) != verified_head):
             raise RuntimeError("Verification changed the working tree or commit")
         current = snapshot(int(number))
-        current_labels = {label["name"] for label in current["labels"]}
-        if (fingerprint(current) != fingerprint(issue) or current["state"] != "open" or
-                "agent:running" not in current_labels or current_labels & (EXCLUDED - {"agent:running"})):
-            raise RuntimeError("Ticket approval or scope changed during implementation")
+        if not ticket_is_available(current, fingerprint(issue), "agent:running"):
+            raise RuntimeError("Ticket approval, assignment or scope changed during implementation")
         title = command(["git", "log", "-1", "--format=%s"], worktree)
         if not re.match(r"^(feat|fix|docs|test|chore|refactor|perf|build|ci)(\([^\n]+\))?!?: .+", title):
             raise RuntimeError("Commit subject must use Conventional Commit syntax")
