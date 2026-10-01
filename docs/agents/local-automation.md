@@ -1,7 +1,8 @@
 # Local ticket automation
 
 Tickets live as GitHub Issues in `sntna/jellyfin-plugin-meta-tagger`. The local
-dispatcher checks the queue every 30 minutes through a Codex scheduled task.
+dispatcher checks the queue through a Codex scheduled task. The task's configured
+schedule controls the cadence; inspect it in Codex when diagnosing missed pickup.
 Keep the Mac on, Codex running, and OrbStack available for integration checks.
 The schedule starts dispatching only after this setup is merged into main.
 
@@ -38,6 +39,10 @@ unblocked tickets qualify. An existing closing PR or saved attempt prevents
 duplicate work. Dependencies must have a merged closing PR included in main.
 The native dependency endpoint must work; API errors stop dispatch rather than
 silently treating dependencies as empty.
+An `idle` result means no eligible ticket, even when issues carry `agent:ready`.
+Read `skipped` for missing local approvals, supervised labels, changed scope,
+saved attempts, existing PRs and incomplete dependencies. Use `status` to inspect
+saved blocked attempts whose labels no longer put them in the ready queue.
 Text blockers must be complete positive `#NUMBER` references, separated by commas,
 spaces or lines, optionally with `-` or `*` list bullets. Malformed references are
 rejected rather than omitted. Immediately before publication the ticket must
@@ -53,6 +58,9 @@ referenced resources. The worker uses existing Codex authentication and model
 configuration. It runs with workspace-write sandboxing and automatic approval
 review; unavailable permissions produce a blocked attempt rather than disabling
 the sandbox. The first meaningful ticket should be small and closely reviewed.
+The worker uses `codex exec --approve-for-me`, which selects workspace-write
+itself. Do not combine it with `--sandbox`; the CLI rejects that combination
+before implementation begins.
 
 Every ticket gets a `codex/issue-NUMBER` branch from fetched main, an isolated
 worktree, and a fresh `codex exec` process. Workers cannot publish by instruction;

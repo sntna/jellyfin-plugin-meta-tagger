@@ -1,11 +1,14 @@
 """Queue and execution behavior at the dispatcher boundary, without live GitHub."""
 
 import copy
+import contextlib
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -130,6 +133,35 @@ class QueueTests(unittest.TestCase):
                 self.assertFalse(any("push" in call.args[0] for call in cmd.call_args_list))
                 self.assertEqual(edit.call_args.args[1], "agent:blocked")
 
+    def test_dry_run_explains_why_approved_queue_cannot_start(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            state = root / "agent-dispatch"
+            state.mkdir()
+            issues = [copy.deepcopy(self.issue) for _ in range(3)]
+            for number, issue in zip((12, 13, 14), issues):
+                issue["number"] = number
+            issues[0]["blockers"] = [20]
+            issues[1]["labels"].append({"name": "ready-for-human"})
+            dispatcher.save(state / "approvals.json", {
+                str(issue["number"]): dispatcher.fingerprint(issue) for issue in issues[:2]})
+            output = io.StringIO()
+            with patch.object(sys, "argv", ["agent-dispatch.py", "dry-run"]), \
+                 patch.object(dispatcher, "command", return_value=str(root)), \
+                 patch.object(dispatcher, "pull_requests", return_value=[]), \
+                 patch.object(dispatcher, "flatten", return_value=issues), \
+                 patch.object(dispatcher, "snapshot", side_effect=lambda n: next(i for i in issues if i["number"] == n)), \
+                 patch.object(dispatcher, "blockers_complete", return_value=False), \
+                 patch.object(dispatcher, "implement") as implement, contextlib.redirect_stdout(output):
+                dispatcher.main()
+            result = json.loads(output.getvalue())
+            self.assertEqual(result["status"], "idle")
+            self.assertEqual(result["tickets"], [])
+            self.assertTrue(any("#12" in reason and "#20" in reason for reason in result["skipped"]))
+            self.assertTrue(any("#13" in reason and "ready-for-human" in reason for reason in result["skipped"]))
+            self.assertTrue(any("#14" in reason and "approval" in reason for reason in result["skipped"]))
+            implement.assert_not_called()
+
 
 class PipelineTests(unittest.TestCase):
     """Real Git/worktrees/processes, with disposable Codex and GitHub executables."""
@@ -179,6 +211,8 @@ class PipelineTests(unittest.TestCase):
             codex.write_text("#!/usr/bin/env python3\nimport json, pathlib, subprocess, sys\n"
                 "if sys.argv[1]=='sandbox':\n"
                 " sys.exit(subprocess.run(sys.argv[sys.argv.index('--')+1:]).returncode)\n"
+                "if '--approve-for-me' not in sys.argv or '--sandbox' in sys.argv:\n"
+                " sys.exit('Use automatic approval review without the conflicting sandbox flag')\n"
                 "sys.stdin.read()\n" + worker_change +
                 "subprocess.run(['git','add','-A'],check=True)\n"
                 "subprocess.run(['git','commit','-m','fix: update fixture'],check=True)\n"

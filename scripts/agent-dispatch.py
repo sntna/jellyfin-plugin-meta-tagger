@@ -128,13 +128,30 @@ def ticket_is_available(issue, approved_fingerprint, expected_label):
             approved_fingerprint == fingerprint(issue))
 
 
-def eligible(issue, approved, prs, runs):
+def ineligibility_reason(issue, approved, prs, runs):
     number = issue["number"]
-    if not ticket_is_available(issue, approved.get(str(number)), "agent:ready"):
-        return False
+    if str(number) not in approved:
+        return "no local approval snapshot; labels alone do not authorize execution"
+    if approved[str(number)] != fingerprint(issue):
+        return "approved scope changed; review and approve again"
+    if issue["state"] != "open" or "pull_request" in issue:
+        return "not an open implementation issue"
+    if issue.get("assignees"):
+        return "already assigned"
+    labels = {label["name"] for label in issue["labels"]}
+    if labels & EXCLUDED:
+        return "excluded queue labels: " + ", ".join(sorted(labels & EXCLUDED))
+    if "agent:ready" not in labels:
+        return "missing agent:ready"
     if str(number) in runs:
-        return False  # Never automatically retry or overwrite an earlier attempt.
-    return not has_implementation_pr(issue, prs)
+        return f"saved {runs[str(number)]['status']} attempt; inspect preserved work manually"
+    if has_implementation_pr(issue, prs):
+        return "an implementation PR already exists"
+    return None
+
+
+def eligible(issue, approved, prs, runs):
+    return ineligibility_reason(issue, approved, prs, runs) is None
 
 
 def edit(number, add, remove=()):
@@ -235,7 +252,8 @@ def implement(issue, root, state, records, fd):
         save(run / "schema.json", SCHEMA)
         prompt = (root / "docs/agents/worker.md").read_text()
         prompt += f"\nBase commit: {base}\nTicket requirements JSON:\n{json.dumps(issue)}"
-        run_process(["codex", "exec", "--approve-for-me", "--sandbox", "workspace-write",
+        # --approve-for-me selects workspace-write and conflicts with --sandbox.
+        run_process(["codex", "exec", "--approve-for-me",
                      "-C", str(worktree), "--output-schema", str(run / "schema.json"),
                      "-o", str(run / "result.json"), "--json", "-"],
                     worktree, run / "worker.log", fd, 3600, prompt)
@@ -346,20 +364,24 @@ def main():
         merged = None
         for candidate in candidates:
             if str(candidate["number"]) not in approvals:
+                skipped.append(f"Ticket #{candidate['number']}: no local approval snapshot; labels alone do not authorize execution")
                 continue
             try:
                 issue = snapshot(candidate["number"])
             except ValueError as error:
                 skipped.append(str(error))
                 continue
-            if not eligible(issue, approvals, prs, records):
-                if approvals.get(str(issue["number"])) != fingerprint(issue):
-                    skipped.append(f"Ticket #{issue['number']}: approved scope changed; review and approve again")
+            reason = ineligibility_reason(issue, approvals, prs, records)
+            if reason:
+                skipped.append(f"Ticket #{issue['number']}: {reason}")
                 continue
             if issue["blockers"] and merged is None:
                 merged = pull_requests("merged")
             if blockers_complete(issue, merged or [], root):
                 selected.append(issue)
+            else:
+                references = ", ".join(f"#{number}" for number in issue["blockers"])
+                skipped.append(f"Ticket #{issue['number']}: dependencies are not complete in main; check {references}")
         selected.sort(key=lambda issue: (issue["priority"], issue["created_at"], issue["number"]))
         if args.action == "dry-run" or not selected:
             print(json.dumps({"status": "eligible" if selected else "idle",
