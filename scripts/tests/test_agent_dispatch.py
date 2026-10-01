@@ -117,21 +117,27 @@ class QueueTests(unittest.TestCase):
             with dispatcher.lock(path):
                 pass
 
-    def test_worker_failure_preserves_attempt_and_never_pushes(self):
+    def test_claim_failure_preserves_attempt_without_launching_a_worker(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            (root / "docs/agents").mkdir(parents=True)
-            (root / "docs/agents/worker.md").write_text("Trusted worker instructions")
+            state = root / ".git/agent-dispatch"
+            state.mkdir(parents=True)
             records = {}
-            with patch.object(dispatcher, "command", return_value="base") as cmd, \
-                 patch.object(dispatcher, "edit") as edit, \
-                 patch.object(dispatcher, "run_process", side_effect=RuntimeError("worker failed")):
-                with self.assertRaisesRegex(RuntimeError, "worker failed"):
-                    dispatcher.implement(self.issue, root, root, records, 1)
-                self.assertEqual(json.loads((root / "runs.json").read_text())["12"]["status"], "blocked")
-                self.assertTrue((root / "runs/12/ticket.json").exists())
+            def command(args, cwd=None):
+                if args[:3] == ["git", "worktree", "add"]:
+                    raise RuntimeError("worktree failed")
+                return "base"
+            with patch.object(dispatcher, "command", side_effect=command) as cmd, \
+                 patch.object(dispatcher, "edit") as edit, patch.object(dispatcher, "run_process") as process:
+                with self.assertRaisesRegex(RuntimeError, "worktree failed"):
+                    dispatcher.claim(self.issue, root, state, records)
+                self.assertEqual(json.loads((state / "runs.json").read_text())["12"]["status"], "blocked")
+                self.assertTrue((state / "runs/12/ticket.json").exists())
                 self.assertFalse(any("push" in call.args[0] for call in cmd.call_args_list))
                 self.assertEqual(edit.call_args.args[1], "agent:blocked")
+                process.assert_not_called()
+                with self.assertRaisesRegex(RuntimeError, "Prior run exists"):
+                    dispatcher.claim(self.issue, root, state, records)
 
     def test_dry_run_explains_why_approved_queue_cannot_start(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -152,7 +158,7 @@ class QueueTests(unittest.TestCase):
                  patch.object(dispatcher, "flatten", return_value=issues), \
                  patch.object(dispatcher, "snapshot", side_effect=lambda n: next(i for i in issues if i["number"] == n)), \
                  patch.object(dispatcher, "blockers_complete", return_value=False), \
-                 patch.object(dispatcher, "implement") as implement, contextlib.redirect_stdout(output):
+                 patch.object(dispatcher, "claim") as claim, contextlib.redirect_stdout(output):
                 dispatcher.main()
             result = json.loads(output.getvalue())
             self.assertEqual(result["status"], "idle")
@@ -160,14 +166,68 @@ class QueueTests(unittest.TestCase):
             self.assertTrue(any("#12" in reason and "#20" in reason for reason in result["skipped"]))
             self.assertTrue(any("#13" in reason and "ready-for-human" in reason for reason in result["skipped"]))
             self.assertTrue(any("#14" in reason and "approval" in reason for reason in result["skipped"]))
-            implement.assert_not_called()
+            claim.assert_not_called()
+
+    def test_running_app_claim_survives_process_exit_and_reports_busy(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            state = root / "agent-dispatch"
+            state.mkdir()
+            records = {"12": {"status": "running", "execution": "app", "claim_id": "owner",
+                              "started": dispatcher.time.time()}}
+            dispatcher.save(state / "runs.json", records)
+            output = io.StringIO()
+            with patch.object(sys, "argv", ["agent-dispatch.py", "claim"]), \
+                 patch.object(dispatcher, "command", return_value=str(root)), \
+                 patch.object(dispatcher, "pull_requests") as prs, \
+                 patch.object(dispatcher, "claim") as claim, contextlib.redirect_stdout(output):
+                dispatcher.main()
+            self.assertEqual(json.loads(output.getvalue())["status"], "busy")
+            prs.assert_not_called()
+            claim.assert_not_called()
+            self.assertEqual(json.loads((state / "runs.json").read_text()), records)
+
+    def test_abandoned_app_or_legacy_claim_requires_manual_recovery(self):
+        for execution in ("app", "cli"):
+            with self.subTest(execution=execution), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                state = root / "agent-dispatch"
+                state.mkdir()
+                records = {"12": {"status": "running", "execution": execution,
+                                  "started": dispatcher.time.time() - 4801}}
+                dispatcher.save(state / "runs.json", records)
+                with patch.object(sys, "argv", ["agent-dispatch.py", "claim"]), \
+                     patch.object(dispatcher, "command", return_value=str(root)), \
+                     patch.object(dispatcher, "claim") as claim:
+                    with self.assertRaisesRegex(RuntimeError, "Unfinished run"):
+                        dispatcher.main()
+                    claim.assert_not_called()
+                self.assertEqual(json.loads((state / "runs.json").read_text()), records)
+
+    def test_app_can_report_failure_through_block_command(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            state = root / "agent-dispatch"
+            state.mkdir()
+            dispatcher.save(state / "runs.json", {"12": {
+                "status": "running", "execution": "app", "claim_id": "owner", "worktree": "preserved"}})
+            with patch.object(sys, "argv", ["agent-dispatch.py", "block", "12", "--claim-id", "owner",
+                                            "--reason", "Browser capability unavailable"]), \
+                 patch.object(dispatcher, "command", return_value=str(root)), \
+                 patch.object(dispatcher, "edit") as edit, contextlib.redirect_stdout(io.StringIO()):
+                dispatcher.main()
+            record = json.loads((state / "runs.json").read_text())["12"]
+            self.assertEqual(record["status"], "blocked")
+            self.assertEqual(record["error"], "Browser capability unavailable")
+            self.assertEqual(record["worktree"], "preserved")
+            edit.assert_called_once_with(12, "agent:blocked", ("agent:running", "agent:ready"))
 
 
 class PipelineTests(unittest.TestCase):
     """Real Git/worktrees/processes, with disposable Codex and GitHub executables."""
 
     def run_pipeline(self, verification_exit, backlog=False, change="ordinary", existing_pr=None,
-                     protected_path=None, current_changes=None):
+                     protected_path=None, current_changes=None, finish_error=None):
         with tempfile.TemporaryDirectory() as temp:
             temp = Path(temp)
             root, remote, binaries = temp / "repo", temp / "remote.git", temp / "bin"
@@ -182,6 +242,7 @@ class PipelineTests(unittest.TestCase):
             (root / "docs/agents").mkdir(parents=True)
             (root / "docs/agents/worker.md").write_text("Implement the fixture")
             (root / "AGENTS.md").write_text("Supervised policy\n")
+            (root / ".gitignore").write_text(".scratch/\n.worktrees/\n")
             (root / "scripts").mkdir()
             check = root / "scripts/build-and-test.sh"
             check.write_text(f"#!/bin/sh\nexit {verification_exit}\n")
@@ -208,16 +269,10 @@ class PipelineTests(unittest.TestCase):
             worker_change = (f"pathlib.Path({protected_path!r}).write_text('#!/bin/sh\\nexit 0\\n')\n"
                              if protected_path else worker_changes[change])
             codex = binaries / "codex"
-            codex.write_text("#!/usr/bin/env python3\nimport json, pathlib, subprocess, sys\n"
+            codex.write_text("#!/usr/bin/env python3\nimport subprocess, sys\n"
                 "if sys.argv[1]=='sandbox':\n"
                 " sys.exit(subprocess.run(sys.argv[sys.argv.index('--')+1:]).returncode)\n"
-                "if '--approve-for-me' not in sys.argv or '--sandbox' in sys.argv:\n"
-                " sys.exit('Use automatic approval review without the conflicting sandbox flag')\n"
-                "sys.stdin.read()\n" + worker_change +
-                "subprocess.run(['git','add','-A'],check=True)\n"
-                "subprocess.run(['git','commit','-m','fix: update fixture'],check=True)\n"
-                "pathlib.Path(sys.argv[sys.argv.index('-o')+1]).write_text(json.dumps("
-                "{'status':'ready','summary':'Updated fixture','verification':'fixture check passed'}))\n")
+                "sys.exit('Implementation must stay in the app; no CLI model session is allowed')\n")
             codex.chmod(0o755)
             gh = binaries / "gh"
             gh.write_text("#!/usr/bin/env python3\nimport os, pathlib, sys\n"
@@ -232,23 +287,52 @@ class PipelineTests(unittest.TestCase):
             current["labels"] = [{"name": "agent:running"}]
             current.update(current_changes or {})
             records = {}
-            blocked = verification_exit or backlog or existing_pr or protected_path or current_changes or change in {
+            blocked = verification_exit or backlog or existing_pr or protected_path or current_changes or finish_error or change in {
                 "policy-rename", "quoted-path", "newline-path"}
             with patch.dict(os.environ, {"PATH": str(binaries) + os.pathsep + os.environ["PATH"],
                                         "FIXTURE_GH_LOG": str(temp / "gh.log")}), \
-                 patch.object(dispatcher, "snapshot", return_value=current), dispatcher.lock(state / "lock") as fd:
+                 patch.object(dispatcher, "snapshot", return_value=current):
+                # Claim ends its process lock and hands off to this app session.
+                output = io.StringIO()
+                with dispatcher.lock(state / "lock"), contextlib.redirect_stdout(output):
+                    dispatcher.claim(issue, root, state, records)
+                handoff = json.loads(output.getvalue())
+                self.assertEqual(handoff["status"], "claimed")
+                self.assertTrue(Path(handoff["instructions"]).exists())
+                self.assertTrue(Path(handoff["worktree"]).is_relative_to(root / ".worktrees"))
+                self.assertEqual(records["12"]["execution"], "app")
+                self.assertNotIn("'pr', 'create'", (temp / "gh.log").read_text())
+                with self.assertRaisesRegex(RuntimeError, "Unfinished run exists"):
+                    dispatcher.claim(dict(issue, number=13), root, state, records)
+                # Simulate edits by the app, without a Codex CLI implementation subprocess.
+                dispatcher.command([sys.executable, "-c", "import pathlib\n" + worker_change], handoff["worktree"])
+                dispatcher.command(["git", "add", "-A"], handoff["worktree"])
+                dispatcher.command(["git", "commit", "-m", "fix: update fixture"], handoff["worktree"])
+                result = {"status": "ready", "summary": "Updated fixture", "verification": "fixture check passed"}
+                claim_id = handoff["claim_id"]
+                if finish_error == "wrong claim":
+                    claim_id = "another-app-session"
+                elif finish_error == "time budget":
+                    records["12"]["started"] -= 3601
+                elif finish_error == "result schema":
+                    result["verification"] = 42
+                elif finish_error == "app blocked":
+                    result.update(status="blocked", summary="app blocked")
+                Path(handoff["result"]).write_text(json.dumps(result))
                 prs = ([{"headRefName": f"codex/issue-{n}", "closingIssuesReferences": []}
                         for n in (1, 2)] if backlog else [existing_pr] if existing_pr else [])
-                with patch.object(dispatcher, "pull_requests", return_value=prs):
+                with patch.object(dispatcher, "pull_requests", return_value=prs), dispatcher.lock(state / "lock") as fd:
                     if blocked:
-                        with self.assertRaisesRegex(RuntimeError, "Command failed|Review backlog filled|protected automation/policy|Another implementation PR|Ticket approval, assignment or scope changed"):
-                            dispatcher.implement(issue, root, state, records, fd)
+                        with self.assertRaisesRegex((RuntimeError, ValueError), "Command failed|Review backlog filled|protected automation/policy|Another implementation PR|Ticket approval, assignment or scope changed|Claim ID|time budget|result schema|app blocked"):
+                            dispatcher.finish(12, claim_id, root, state, records,
+                                              {"12": dispatcher.fingerprint(issue)}, fd)
                     else:
-                        dispatcher.implement(issue, root, state, records, fd)
+                        dispatcher.finish(12, claim_id, root, state, records,
+                                          {"12": dispatcher.fingerprint(issue)}, fd)
             log = (temp / "gh.log").read_text()
             if blocked:
                 self.assertNotIn("'pr', 'create'", log)
-                self.assertEqual(records["12"]["status"], "blocked")
+                self.assertEqual(records["12"]["status"], "running" if finish_error == "wrong claim" else "blocked")
                 remote_result = subprocess.run(["git", "--git-dir", str(remote), "rev-parse", "--verify",
                     "refs/heads/codex/issue-12"], capture_output=True)
                 self.assertNotEqual(remote_result.returncode, 0)
@@ -267,6 +351,18 @@ class PipelineTests(unittest.TestCase):
 
     def test_verified_worker_publishes_draft_from_isolated_worktree(self):
         self.run_pipeline(0)
+
+    def test_other_app_session_cannot_finish_an_existing_claim(self):
+        self.run_pipeline(0, finish_error="wrong claim")
+
+    def test_expired_app_claim_preserves_work_and_cannot_publish(self):
+        self.run_pipeline(0, finish_error="time budget")
+
+    def test_invalid_app_result_cannot_publish(self):
+        self.run_pipeline(0, finish_error="result schema")
+
+    def test_app_reported_blocker_preserves_work(self):
+        self.run_pipeline(0, finish_error="app blocked")
 
     def test_failed_verification_keeps_work_local(self):
         self.run_pipeline(1)

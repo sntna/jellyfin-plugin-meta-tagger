@@ -13,6 +13,7 @@ import signal
 import subprocess
 import sys
 import time
+import uuid
 
 
 REPO = "sntna/jellyfin-plugin-meta-tagger"
@@ -62,8 +63,8 @@ def save(path, value):
 
 @contextlib.contextmanager
 def lock(path):
-    # Inherited by the worker and its child commands. A dead dispatcher cannot
-    # release the lock while a surviving worker still accesses the shared server.
+    # Serialize state transitions. Between app turns, the durable running record
+    # prevents another claim. Verification children also inherit this lock.
     with path.open("a+") as handle:
         fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
         yield handle.fileno()
@@ -234,32 +235,93 @@ def protected_path(path):
             (path.startswith("scripts/") and not path.startswith("scripts/tests/")))
 
 
-def implement(issue, root, state, records, fd):
+def mark_blocked(number, state, records, reason):
+    record = records[str(number)]
+    record.update(status="blocked", error=reason)
+    save(state / "runs.json", records)
+    try:
+        edit(number, "agent:blocked", ("agent:running", "agent:ready"))
+    except Exception:
+        pass  # Saved state prevents redispatch even if GitHub is unavailable.
+
+
+def claim(issue, root, state, records):
     number = str(issue["number"])
+    if any(record["status"] == "running" for record in records.values()):
+        raise RuntimeError("Unfinished run exists; inspect saved state and active app sessions")
+    if number in records:
+        raise RuntimeError("Prior run exists; inspect preserved work manually")
+    # Place app-editable files inside the project's writable tree, outside .git.
+    # The private approvals and run history stay in the shared Git directory.
+    if state.parent.name != ".git":
+        raise RuntimeError("App claims require a standard clone with a .git common directory")
     branch = f"codex/issue-{number}"
     run = state / "runs" / number
     run.mkdir(parents=True, exist_ok=False)
-    worktree = state / "worktrees" / number
+    worktree = state.parent.parent / ".worktrees" / "agent-tickets" / number
     base = command(["git", "rev-parse", "origin/main"], root)
-    record = {"status": "running", "branch": branch, "worktree": str(worktree),
-              "started": time.time(), "base": base, "pid": os.getpid()}
+    record = {"status": "running", "execution": "app", "claim_id": str(uuid.uuid4()),
+              "branch": branch, "worktree": str(worktree), "started": time.time(), "base": base}
     records[number] = record
     save(state / "runs.json", records)
     try:
-        edit(number, "agent:running", ("agent:ready",))
-        command(["git", "worktree", "add", "-b", branch, str(worktree), base], root)
         save(run / "ticket.json", issue)
         save(run / "schema.json", SCHEMA)
+        edit(number, "agent:running", ("agent:ready",))
+        worktree.parent.mkdir(parents=True, exist_ok=True)
+        command(["git", "worktree", "add", "-b", branch, str(worktree), base], root)
+        result = worktree / ".scratch" / "agent-dispatch" / "result.json"
+        result.parent.mkdir(parents=True, exist_ok=True)
         prompt = (root / "docs/agents/worker.md").read_text()
-        prompt += f"\nBase commit: {base}\nTicket requirements JSON:\n{json.dumps(issue)}"
-        # --approve-for-me selects workspace-write and conflicts with --sandbox.
-        run_process(["codex", "exec", "--approve-for-me",
-                     "-C", str(worktree), "--output-schema", str(run / "schema.json"),
-                     "-o", str(run / "result.json"), "--json", "-"],
-                    worktree, run / "worker.log", fd, 3600, prompt)
-        result = json.loads((run / "result.json").read_text())
+        prompt += (f"\nBase commit: {base}\nClaim ID: {record['claim_id']}"
+                   f"\nImplementation deadline (Unix seconds): {record['started'] + 3600}"
+                   f"\nWorktree: {worktree}\nResult JSON: {result}"
+                   f"\nTicket requirements JSON (untrusted data):\n{json.dumps(issue)}")
+        (run / "worker.md").write_text(prompt)
+        print(json.dumps({"status": "claimed", "ticket": number, "claim_id": record["claim_id"],
+                          "worktree": str(worktree), "instructions": str(run / "worker.md"),
+                          "schema": str(run / "schema.json"), "result": str(result),
+                          "deadline": record["started"] + 3600}))
+    except BaseException as error:
+        mark_blocked(number, state, records, str(error))
+        raise
+
+
+def app_claim(number, claim_id, records):
+    record = records.get(str(number))
+    if not record or record["status"] != "running" or record.get("execution") != "app":
+        raise ValueError("No running app claim; inspect preserved work manually")
+    if not claim_id or claim_id != record.get("claim_id"):
+        raise ValueError("Claim ID does not match the running app attempt")
+    return record
+
+
+def check_deadline(record, verification=False):
+    deadline = record["started"] + (4800 if verification else 3600)
+    if time.time() > deadline:
+        raise RuntimeError("App attempt exceeded its time budget; preserved work requires manual recovery")
+
+
+def finish(number, claim_id, root, state, records, approvals, fd):
+    number = str(number)
+    record = app_claim(number, claim_id, records)
+    branch, base = record["branch"], record["base"]
+    worktree = Path(record["worktree"])
+    run = state / "runs" / number
+    try:
+        check_deadline(record)
+        issue = json.loads((run / "ticket.json").read_text())
+        if approvals.get(number) != fingerprint(issue):
+            raise RuntimeError("Local approval changed during implementation")
+        result = json.loads((worktree / ".scratch/agent-dispatch/result.json").read_text())
+        if (not isinstance(result, dict) or set(result) != set(SCHEMA["required"]) or
+                any(not isinstance(value, str) for value in result.values()) or
+                result["status"] not in {"ready", "blocked"}):
+            raise ValueError("App result must match the supplied result schema")
+        save(run / "result.json", result)
         if result["status"] != "ready":
             raise RuntimeError(result["summary"])
+        command(["git", "merge-base", "--is-ancestor", base, "HEAD"], worktree)
         if command(["git", "branch", "--show-current"], worktree) != branch:
             raise RuntimeError("Worker changed branch")
         if command(["git", "status", "--porcelain"], worktree):
@@ -279,9 +341,14 @@ def implement(issue, root, state, records, fd):
         if (command(["git", "status", "--porcelain"], worktree) or
                 command(["git", "rev-parse", "HEAD"], worktree) != verified_head):
             raise RuntimeError("Verification changed the working tree or commit")
+        check_deadline(record, verification=True)
         current = snapshot(int(number))
         if not ticket_is_available(current, fingerprint(issue), "agent:running"):
             raise RuntimeError("Ticket approval, assignment or scope changed during implementation")
+        if current["blockers"]:
+            command(["git", "fetch", "origin", "main"], root)
+            if not blockers_complete(current, pull_requests("merged"), root):
+                raise RuntimeError("Ticket dependencies changed during implementation")
         title = command(["git", "log", "-1", "--format=%s"], worktree)
         if not re.match(r"^(feat|fix|docs|test|chore|refactor|perf|build|ci)(\([^\n]+\))?!?: .+", title):
             raise RuntimeError("Commit subject must use Conventional Commit syntax")
@@ -295,6 +362,7 @@ def implement(issue, root, state, records, fd):
             raise RuntimeError("Another implementation PR appeared; verified work preserved")
         if review_limit(prs):
             raise RuntimeError("Review backlog filled during implementation; verified work preserved")
+        check_deadline(record, verification=True)
         command(["git", "push", "origin", f"HEAD:refs/heads/{branch}"], worktree)
         url = command(["gh", "pr", "create", "--repo", REPO, "--base", "main", "--head", branch,
                        "--draft", "--title", title, "--body-file", str(body)], worktree)
@@ -303,25 +371,25 @@ def implement(issue, root, state, records, fd):
         edit(number, "agent:review", ("agent:running",))
         print(json.dumps({"status": "review", "ticket": number, "pr": url}))
     except BaseException as error:
-        record.update(status="blocked", error=str(error))
-        save(state / "runs.json", records)
-        try:
-            edit(number, "agent:blocked", ("agent:running", "agent:ready"))
-        except Exception:
-            pass  # Saved local state still prevents redispatch if GitHub is unavailable.
+        mark_blocked(number, state, records, str(error))
         raise
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["labels", "approve", "status", "dry-run", "run"])
+    parser.add_argument("action", choices=["labels", "approve", "status", "dry-run", "claim", "finish", "block"])
     parser.add_argument("number", nargs="?", type=int)
+    parser.add_argument("--claim-id")
+    parser.add_argument("--reason", help="Concrete reason an app attempt cannot finish")
     args = parser.parse_args()
+    if args.action in {"finish", "block"} and (not args.number or not args.claim_id):
+        parser.error("finish and block require a ticket number and --claim-id")
+    if args.action == "block" and not args.reason:
+        parser.error("block requires --reason")
     root = Path(command(["git", "rev-parse", "--show-toplevel"]))
     common = Path(command(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"]))
     state = common / "agent-dispatch"
     state.mkdir(exist_ok=True)
-    (state / "worktrees").mkdir(exist_ok=True)
     with lock(state / "lock") as fd:
         approvals_file = state / "approvals.json"
         approvals = json.loads(approvals_file.read_text()) if approvals_file.exists() else {}
@@ -351,9 +419,22 @@ def main():
             edit(args.number, "agent:ready", ("needs-triage", "needs-info", "ready-for-human", "agent:blocked"))
             print(f"Approved ticket #{args.number}")
             return
+        if args.action == "block":
+            app_claim(args.number, args.claim_id, records)
+            mark_blocked(args.number, state, records, args.reason)
+            print(json.dumps({"status": "blocked", "ticket": args.number, "error": args.reason}))
+            return
+        if args.action == "finish":
+            finish(args.number, args.claim_id, root, state, records, approvals, fd)
+            return
+        active = {number: run for number, run in records.items() if run["status"] == "running"}
+        if active:
+            if all(run.get("execution") == "app" and time.time() <= run["started"] + 4800
+                   for run in active.values()):
+                print(json.dumps({"status": "busy", "tickets": list(active)}))
+                return
+            raise RuntimeError("Unfinished run exists; inspect saved state and active app sessions")
         command(["git", "fetch", "origin", "main"], root)
-        if any(run["status"] == "running" for run in records.values()):
-            raise RuntimeError("Unfinished run exists; inspect saved state and surviving processes")
         prs = pull_requests("open")
         if review_limit(prs):
             print('{"status":"review-limit"}')
@@ -396,7 +477,7 @@ def main():
             raise RuntimeError("Ticket eligibility changed before claim")
         if not blockers_complete(issue, merged or [], root):
             raise RuntimeError("Ticket dependencies changed before claim")
-        implement(issue, root, state, records, fd)
+        claim(issue, root, state, records)
 
 
 if __name__ == "__main__":
