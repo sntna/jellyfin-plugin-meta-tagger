@@ -124,6 +124,12 @@ retry or unbounded repair loop. Workers may fix checks within their 60-minute
 run. Pausing the scheduled task stops future pickup; interrupt the active
 scheduled app session separately to stop work already underway.
 
+Verification, branch push and PR creation are bounded by the remaining attempt
+budget. The dispatcher checks the budget again after push before creating the
+PR. A publication timeout preserves the attempt for supervised recovery; inspect
+the remote branch and PR before continuing because the server may have accepted
+the request before its response was lost.
+
 State lives at `<git-common-dir>/agent-dispatch/`, outside the public tree:
 
 - `approvals.json` stores approved ticket content hashes.

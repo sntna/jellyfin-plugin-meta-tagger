@@ -223,6 +223,115 @@ class QueueTests(unittest.TestCase):
             edit.assert_called_once_with(12, "agent:blocked", ("agent:running", "agent:ready"))
 
 
+class CompletionBudgetTests(unittest.TestCase):
+    def finish_with_clock(self, push_seconds=0, pr_seconds=0, preparation_seconds=0,
+                          elapsed=3599, expect_error=None):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            state = root / ".git/agent-dispatch"
+            run = state / "runs/12"
+            run.mkdir(parents=True)
+            worktree = root / ".worktrees/agent-tickets/12"
+            result_path = worktree / ".scratch/agent-dispatch/result.json"
+            result_path.parent.mkdir(parents=True)
+            issue = ticket()
+            dispatcher.save(run / "ticket.json", issue)
+            dispatcher.save(result_path, {"status": "ready", "summary": "Updated fixture",
+                                          "verification": "fixture check passed"})
+            records = {"12": {"status": "running", "execution": "app", "claim_id": "owner",
+                              "branch": "codex/issue-12", "base": "base", "started": 1000,
+                              "worktree": str(worktree)}}
+            current = copy.deepcopy(issue)
+            current["labels"] = [{"name": "agent:running"}]
+            now = [1000 + elapsed]
+            calls, verification = [], []
+
+            def delay(args, seconds, timeout):
+                now[0] += min(seconds, timeout)
+                if seconds > timeout:
+                    raise subprocess.TimeoutExpired(args, timeout)
+
+            def command(args, cwd=None, timeout=120):
+                calls.append((args, timeout, now[0]))
+                if args[:2] == ["git", "diff"]:
+                    now[0] += preparation_seconds
+                    return "value.txt\0"
+                if args == ["git", "branch", "--show-current"]:
+                    return "codex/issue-12"
+                if args == ["git", "rev-parse", "HEAD"]:
+                    return "verified-head"
+                if args[:2] == ["git", "log"]:
+                    return "fix: update fixture"
+                if args[:2] == ["git", "push"]:
+                    delay(args, push_seconds, timeout)
+                if args[:3] == ["gh", "pr", "create"]:
+                    delay(args, pr_seconds, timeout)
+                    return "https://github.com/example/repo/pull/1"
+                return ""
+
+            def verify(args, cwd, log, fd, seconds, env=None):
+                verification.append((seconds, now[0]))
+                # Leave five seconds for publication without sleeping in the test.
+                duration = max(0, 5795 - now[0])
+                delay(args, duration, seconds)
+
+            with patch.object(dispatcher.time, "time", side_effect=lambda: now[0]), \
+                 patch.object(dispatcher, "command", side_effect=command), \
+                 patch.object(dispatcher, "run_process", side_effect=verify), \
+                 patch.object(dispatcher, "snapshot", return_value=current), \
+                 patch.object(dispatcher, "pull_requests", return_value=[]), \
+                 contextlib.redirect_stdout(io.StringIO()):
+                if expect_error:
+                    with self.assertRaisesRegex((RuntimeError, subprocess.TimeoutExpired), expect_error):
+                        dispatcher.finish(12, "owner", root, state, records,
+                                          {"12": dispatcher.fingerprint(issue)}, 0)
+                else:
+                    dispatcher.finish(12, "owner", root, state, records,
+                                      {"12": dispatcher.fingerprint(issue)}, 0)
+            saved = json.loads((state / "runs.json").read_text())["12"]
+            self.assertEqual(saved["worktree"], str(worktree))
+            self.assertEqual(saved["status"], "blocked" if expect_error else "review")
+            return calls, verification, saved
+
+    def test_push_timeout_preserves_attempt_and_prevents_pr_creation(self):
+        calls, _, _ = self.finish_with_clock(push_seconds=6, expect_error="timed out")
+        self.assertFalse(any(args[:3] == ["gh", "pr", "create"] for args, _, _ in calls))
+
+    def test_push_consuming_remaining_budget_prevents_pr_creation(self):
+        calls, _, _ = self.finish_with_clock(push_seconds=5, expect_error="time budget")
+        self.assertFalse(any(args[:3] == ["gh", "pr", "create"] for args, _, _ in calls))
+
+    def test_pr_creation_timeout_preserves_attempt_for_manual_recovery(self):
+        _, _, saved = self.finish_with_clock(push_seconds=3, pr_seconds=3, expect_error="timed out")
+        self.assertNotIn("pr", saved)
+
+    def test_publication_uses_remaining_budget_after_push(self):
+        calls, _, saved = self.finish_with_clock(push_seconds=2, pr_seconds=2)
+        publication = [(args, timeout, started) for args, timeout, started in calls
+                       if args[:2] == ["git", "push"] or args[:3] == ["gh", "pr", "create"]]
+        self.assertEqual(len(publication), 2)
+        for _, timeout, started in publication:
+            self.assertLessEqual(timeout, 5800 - started)
+        self.assertEqual(saved["pr"], "https://github.com/example/repo/pull/1")
+
+    def test_verification_is_capped_by_remaining_attempt_budget(self):
+        _, verification, _ = self.finish_with_clock(preparation_seconds=1100)
+        self.assertEqual(len(verification), 1)
+        timeout, started = verification[0]
+        self.assertLessEqual(timeout, min(1200, 5800 - started))
+
+    def test_expired_attempt_does_not_start_verification(self):
+        calls, verification, _ = self.finish_with_clock(preparation_seconds=1202,
+                                                        expect_error="time budget")
+        self.assertEqual(verification, [])
+        self.assertFalse(any(args[:2] == ["git", "push"] for args, _, _ in calls))
+
+    def test_implementation_deadline_is_exclusive(self):
+        calls, verification, _ = self.finish_with_clock(elapsed=3600, expect_error="time budget")
+        self.assertEqual(verification, [])
+        self.assertFalse(any(args[:2] == ["git", "push"] for args, _, _ in calls))
+
+
 class PipelineTests(unittest.TestCase):
     """Real Git/worktrees/processes, with disposable Codex and GitHub executables."""
 

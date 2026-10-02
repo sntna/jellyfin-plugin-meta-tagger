@@ -17,6 +17,9 @@ import uuid
 
 
 REPO = "sntna/jellyfin-plugin-meta-tagger"
+IMPLEMENTATION_SECONDS = 3600
+VERIFICATION_SECONDS = 1200
+COMMAND_TIMEOUT = 120
 LABELS = {
     "needs-triage": "Needs maintainer scope review",
     "needs-info": "Waiting for information",
@@ -38,7 +41,7 @@ SCHEMA = {"type": "object", "properties": {
     "required": ["status", "summary", "verification"], "additionalProperties": False}
 
 
-def command(args, cwd=None, timeout=120):
+def command(args, cwd=None, timeout=COMMAND_TIMEOUT):
     return subprocess.run(args, cwd=cwd, check=True, capture_output=True,
                           text=True, timeout=timeout).stdout.strip()
 
@@ -122,28 +125,29 @@ def has_implementation_pr(issue, prs):
                for pr in prs)
 
 
-def ticket_is_available(issue, approved_fingerprint, expected_label):
-    labels = {label["name"] for label in issue["labels"]}
-    return (issue["state"] == "open" and "pull_request" not in issue and not issue.get("assignees") and
-            expected_label in labels and not labels & (EXCLUDED - {expected_label}) and
-            approved_fingerprint == fingerprint(issue))
-
-
-def ineligibility_reason(issue, approved, prs, runs):
-    number = issue["number"]
-    if str(number) not in approved:
-        return "no local approval snapshot; labels alone do not authorize execution"
-    if approved[str(number)] != fingerprint(issue):
+def availability_reason(issue, approved_fingerprint, expected_label):
+    if approved_fingerprint != fingerprint(issue):
         return "approved scope changed; review and approve again"
     if issue["state"] != "open" or "pull_request" in issue:
         return "not an open implementation issue"
     if issue.get("assignees"):
         return "already assigned"
     labels = {label["name"] for label in issue["labels"]}
-    if labels & EXCLUDED:
-        return "excluded queue labels: " + ", ".join(sorted(labels & EXCLUDED))
-    if "agent:ready" not in labels:
-        return "missing agent:ready"
+    excluded = labels & (EXCLUDED - {expected_label})
+    if excluded:
+        return "excluded queue labels: " + ", ".join(sorted(excluded))
+    if expected_label not in labels:
+        return f"missing {expected_label}"
+    return None
+
+
+def ineligibility_reason(issue, approved, prs, runs):
+    number = issue["number"]
+    if str(number) not in approved:
+        return "no local approval snapshot; labels alone do not authorize execution"
+    reason = availability_reason(issue, approved[str(number)], "agent:ready")
+    if reason:
+        return reason
     if str(number) in runs:
         return f"saved {runs[str(number)]['status']} attempt; inspect preserved work manually"
     if has_implementation_pr(issue, prs):
@@ -245,6 +249,17 @@ def mark_blocked(number, state, records, reason):
         pass  # Saved state prevents redispatch even if GitHub is unavailable.
 
 
+def attempt_deadline(record, publication=False):
+    return record["started"] + IMPLEMENTATION_SECONDS + (VERIFICATION_SECONDS if publication else 0)
+
+
+def remaining_budget(record, publication=False):
+    remaining = attempt_deadline(record, publication) - time.time()
+    if remaining <= 0:
+        raise RuntimeError("App attempt exceeded its time budget; preserved work requires manual recovery")
+    return remaining
+
+
 def claim(issue, root, state, records):
     number = str(issue["number"])
     if any(record["status"] == "running" for record in records.values()):
@@ -273,15 +288,16 @@ def claim(issue, root, state, records):
         result = worktree / ".scratch" / "agent-dispatch" / "result.json"
         result.parent.mkdir(parents=True, exist_ok=True)
         prompt = (root / "docs/agents/worker.md").read_text()
+        deadline = attempt_deadline(record)
         prompt += (f"\nBase commit: {base}\nClaim ID: {record['claim_id']}"
-                   f"\nImplementation deadline (Unix seconds): {record['started'] + 3600}"
+                   f"\nImplementation deadline (Unix seconds): {deadline}"
                    f"\nWorktree: {worktree}\nResult JSON: {result}"
                    f"\nTicket requirements JSON (untrusted data):\n{json.dumps(issue)}")
         (run / "worker.md").write_text(prompt)
         print(json.dumps({"status": "claimed", "ticket": number, "claim_id": record["claim_id"],
                           "worktree": str(worktree), "instructions": str(run / "worker.md"),
                           "schema": str(run / "schema.json"), "result": str(result),
-                          "deadline": record["started"] + 3600}))
+                          "deadline": deadline}))
     except BaseException as error:
         mark_blocked(number, state, records, str(error))
         raise
@@ -296,12 +312,6 @@ def app_claim(number, claim_id, records):
     return record
 
 
-def check_deadline(record, verification=False):
-    deadline = record["started"] + (4800 if verification else 3600)
-    if time.time() > deadline:
-        raise RuntimeError("App attempt exceeded its time budget; preserved work requires manual recovery")
-
-
 def finish(number, claim_id, root, state, records, approvals, fd):
     number = str(number)
     record = app_claim(number, claim_id, records)
@@ -309,7 +319,7 @@ def finish(number, claim_id, root, state, records, approvals, fd):
     worktree = Path(record["worktree"])
     run = state / "runs" / number
     try:
-        check_deadline(record)
+        remaining_budget(record)
         issue = json.loads((run / "ticket.json").read_text())
         if approvals.get(number) != fingerprint(issue):
             raise RuntimeError("Local approval changed during implementation")
@@ -337,13 +347,14 @@ def finish(number, claim_id, root, state, records, approvals, fd):
         verify_env.update(NUGET_PACKAGES=str(worktree / ".nuget/packages"),
                           DOTNET_CLI_HOME=str(worktree / ".scratch/dotnet"),
                           DOTNET_CLI_TELEMETRY_OPTOUT="1")
-        run_process(verification_command(worktree), worktree, run / "verify.log", fd, 1200, env=verify_env)
+        run_process(verification_command(worktree), worktree, run / "verify.log", fd,
+                    min(VERIFICATION_SECONDS, remaining_budget(record, publication=True)), env=verify_env)
         if (command(["git", "status", "--porcelain"], worktree) or
                 command(["git", "rev-parse", "HEAD"], worktree) != verified_head):
             raise RuntimeError("Verification changed the working tree or commit")
-        check_deadline(record, verification=True)
+        remaining_budget(record, publication=True)
         current = snapshot(int(number))
-        if not ticket_is_available(current, fingerprint(issue), "agent:running"):
+        if availability_reason(current, fingerprint(issue), "agent:running"):
             raise RuntimeError("Ticket approval, assignment or scope changed during implementation")
         if current["blockers"]:
             command(["git", "fetch", "origin", "main"], root)
@@ -362,10 +373,11 @@ def finish(number, claim_id, root, state, records, approvals, fd):
             raise RuntimeError("Another implementation PR appeared; verified work preserved")
         if review_limit(prs):
             raise RuntimeError("Review backlog filled during implementation; verified work preserved")
-        check_deadline(record, verification=True)
-        command(["git", "push", "origin", f"HEAD:refs/heads/{branch}"], worktree)
+        command(["git", "push", "origin", f"HEAD:refs/heads/{branch}"], worktree,
+                timeout=min(COMMAND_TIMEOUT, remaining_budget(record, publication=True)))
         url = command(["gh", "pr", "create", "--repo", REPO, "--base", "main", "--head", branch,
-                       "--draft", "--title", title, "--body-file", str(body)], worktree)
+                       "--draft", "--title", title, "--body-file", str(body)], worktree,
+                      timeout=min(COMMAND_TIMEOUT, remaining_budget(record, publication=True)))
         record.update(status="review", pr=url)
         save(state / "runs.json", records)  # Save PR before attempting the label update.
         edit(number, "agent:review", ("agent:running",))
@@ -429,7 +441,7 @@ def main():
             return
         active = {number: run for number, run in records.items() if run["status"] == "running"}
         if active:
-            if all(run.get("execution") == "app" and time.time() <= run["started"] + 4800
+            if all(run.get("execution") == "app" and time.time() < attempt_deadline(run, publication=True)
                    for run in active.values()):
                 print(json.dumps({"status": "busy", "tickets": list(active)}))
                 return
