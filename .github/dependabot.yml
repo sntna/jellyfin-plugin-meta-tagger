@@ -11,6 +11,10 @@ updates:
       - dependencies
   - package-ecosystem: github-actions
     directory: /
+    groups:
+      codeql:
+        patterns:
+          - "github/codeql-action/*"
     commit-message:
       prefix: "chore"
       include: "scope"
