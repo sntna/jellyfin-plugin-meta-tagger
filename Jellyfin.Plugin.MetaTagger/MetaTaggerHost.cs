@@ -123,7 +123,12 @@ internal sealed class JellyfinMetaTaggerHost : IMetaTaggerHost
 
     public PluginConfiguration GetConfiguration()
     {
-        return Plugin.Instance?.Configuration ?? new PluginConfiguration();
+        var configuration = Plugin.Instance?.Configuration;
+        if (configuration?.Installation is null)
+        {
+            throw new InvalidOperationException("Meta Tagger installation is unavailable. Resolve the initialization failure and restart Jellyfin before generating tags.");
+        }
+        return configuration;
     }
 
     public IReadOnlyList<BaseItem> GetItems(BaseItemKind[] includedItemTypes)

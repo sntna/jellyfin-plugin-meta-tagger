@@ -6,6 +6,7 @@ using Jellyfin.Plugin.MetaTagger.Configuration;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
+using MediaBrowser.Controller.Library;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Serialization;
 using Xunit;
@@ -361,6 +362,109 @@ public sealed partial class MetaTaggerRunnerTests
         Assert.Contains("meta:genre:drama", item.Tags);
     }
 
+    [Theory]
+    [InlineData("incomplete", false)]
+    [InlineData("incomplete", true)]
+    [InlineData("save-failure", false)]
+    [InlineData("save-failure", true)]
+    public async Task Migration_FailedInitialization_BlocksSurvivingApplyTask(string failure, bool isEnabled)
+    {
+        var path = WriteLegacyConfiguration(previewOnly: false);
+        var serializer = new PersistedXmlSerializer();
+        var saved = (PluginConfiguration)serializer.DeserializeFromFile(typeof(PluginConfiguration), path);
+        saved.IsEnabled = isEnabled;
+        saved.IncludeMovies = false;
+        saved.IncludeEpisodes = true;
+        if (failure == "incomplete")
+        {
+            saved.Installation = new InstallationState { InstallationId = Guid.NewGuid(), Origin = InstallationOrigin.Established };
+        }
+        serializer.SerializeToFile(saved, path);
+        var original = File.ReadAllText(path);
+        serializer.FailWrites = failure == "save-failure";
+        var taskPath = Path.Combine(_directory, "configuration", "ScheduledTasks", "0c909423-90d1-b9bf-307b-c427d7ce7591.js");
+        Directory.CreateDirectory(Path.GetDirectoryName(taskPath)!);
+        const string triggers = "[{\"Type\":\"WeeklyTrigger\",\"DayOfWeek\":\"Sunday\",\"TimeOfDayTicks\":828000000000}]";
+        File.WriteAllText(taskPath, triggers);
+        var movie = new MigrationRecordingMovie { Id = Guid.NewGuid(), Genres = ["Drama"], Tags = ["manual:keep", "unmanaged"] };
+        var library = DispatchProxy.Create<ILibraryManager, MigrationLibraryManager>();
+        var proxy = (MigrationLibraryManager)(object)library;
+        proxy.Items = [movie];
+        var media = DispatchProxy.Create<IMediaSourceManager, MigrationMediaSourceManager>();
+        var store = new MetaTaggerStateStore(_directory);
+        await store.SaveAsync(new MetaTaggerState(), CancellationToken.None);
+        var originalState = File.ReadAllText(Path.Combine(_directory, "meta-tagger-state.json"));
+        var instance = typeof(Plugin).GetProperty(nameof(Plugin.Instance))!;
+        var previous = Plugin.Instance;
+        instance.SetValue(null, null);
+        try
+        {
+            if (failure == "incomplete")
+            {
+                Assert.Throws<InvalidDataException>(() => CreatePersistedPlugin(serializer));
+            }
+            else
+            {
+                Assert.Throws<IOException>(() => CreatePersistedPlugin(serializer));
+            }
+            Assert.Null(Plugin.Instance);
+
+            // Jellyfin can instantiate and execute task exports after the plugin constructor fails.
+            var runner = CreateRunner(new JellyfinMetaTaggerHost(library, media), store);
+            var exception = await Record.ExceptionAsync(() => new ApplyMetadataTagTask(runner)
+                .ExecuteAsync(new NoOpProgress(), CancellationToken.None));
+
+            Assert.Equal(0, movie.Writes);
+            Assert.IsType<InvalidOperationException>(exception);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => runner.RunAsync(new NoOpProgress(), CancellationToken.None));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => runner.PreviewItemAsync(movie.Id, CancellationToken.None));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => new LibraryPostScanTask(runner, store, new MetaTaggerClock())
+                .Run(new NoOpProgress(), CancellationToken.None));
+            Assert.Equal(0, movie.Writes);
+            Assert.Equal(["manual:keep", "unmanaged"], movie.Tags);
+            Assert.Empty(proxy.Queries);
+            Assert.Equal(original, File.ReadAllText(path));
+            Assert.Equal(triggers, File.ReadAllText(taskPath));
+            Assert.Equal(originalState, File.ReadAllText(Path.Combine(_directory, "meta-tagger-state.json")));
+        }
+        finally
+        {
+            instance.SetValue(null, previous);
+        }
+    }
+
+    [Fact]
+    public async Task Migration_SuccessfulInitialization_AllowsApplyTaskUsingThePublishedPolicy()
+    {
+        var path = WriteLegacyConfiguration(previewOnly: false);
+        var serializer = new PersistedXmlSerializer();
+        var previous = Plugin.Instance;
+        var instance = typeof(Plugin).GetProperty(nameof(Plugin.Instance))!;
+        instance.SetValue(null, null);
+        try
+        {
+            Assert.Throws<IOException>(() => CreatePersistedPlugin(new PersistedXmlSerializer { FailWrites = true }));
+            var plugin = CreatePersistedPlugin(serializer);
+            var movie = new MigrationRecordingMovie { Id = Guid.NewGuid(), Genres = ["Drama"], Tags = ["manual:keep", "unmanaged"] };
+            var library = DispatchProxy.Create<ILibraryManager, MigrationLibraryManager>();
+            ((MigrationLibraryManager)(object)library).Items = [movie];
+            var media = DispatchProxy.Create<IMediaSourceManager, MigrationMediaSourceManager>();
+            var runner = CreateRunner(new JellyfinMetaTaggerHost(library, media));
+
+            await new ApplyMetadataTagTask(runner).ExecuteAsync(new NoOpProgress(), CancellationToken.None);
+
+            Assert.Same(plugin, Plugin.Instance);
+            Assert.Equal(1, movie.Writes);
+            Assert.Equal(["manual:keep", "unmanaged", "meta:genre:drama"], movie.Tags);
+            Assert.Equal(InstallationOrigin.Established, plugin.Configuration.Installation!.Origin);
+            Assert.Contains("<Installation>", File.ReadAllText(path));
+        }
+        finally
+        {
+            instance.SetValue(null, previous);
+        }
+    }
+
     private string WriteLegacyConfiguration(bool previewOnly)
     {
         var path = Path.Combine(_directory, "configuration", "Jellyfin.Plugin.MetaTagger.xml");
@@ -466,6 +570,45 @@ public sealed partial class MetaTaggerRunnerTests
             var mutation = publication.ApplyTo(plugin.Configuration);
             try { plugin.SaveConfiguration(); }
             catch { mutation.RestoreAcknowledgedActions(); throw; }
+        }
+    }
+
+    public class MigrationLibraryManager : DispatchProxy
+    {
+        public IReadOnlyList<BaseItem> Items { get; set; } = [];
+
+        public List<InternalItemsQuery> Queries { get; } = [];
+
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+        {
+            if (targetMethod?.Name == nameof(ILibraryManager.GetItemList) && args is [InternalItemsQuery query])
+            {
+                Queries.Add(query);
+                return Items.Where(item => (query.ItemIds.Length == 0 || query.ItemIds.Contains(item.Id))
+                    && (query.IncludeItemTypes.Length == 0 || query.IncludeItemTypes.Contains(BaseItemKind.Movie)))
+                    .ToArray();
+            }
+            throw new NotSupportedException(targetMethod?.Name);
+        }
+    }
+
+    public class MigrationMediaSourceManager : DispatchProxy
+    {
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+            => targetMethod?.Name == nameof(IMediaSourceManager.GetMediaStreams)
+                ? new List<MediaStream>()
+                : throw new NotSupportedException(targetMethod?.Name);
+    }
+
+    private sealed class MigrationRecordingMovie : Movie
+    {
+        public int Writes { get; private set; }
+
+        public override Task UpdateToRepositoryAsync(ItemUpdateType updateReason, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Writes++;
+            return Task.CompletedTask;
         }
     }
 }
