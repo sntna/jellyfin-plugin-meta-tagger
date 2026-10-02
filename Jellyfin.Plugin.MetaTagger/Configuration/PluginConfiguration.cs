@@ -5,6 +5,8 @@ namespace Jellyfin.Plugin.MetaTagger.Configuration;
 
 public sealed class PluginConfiguration : BasePluginConfiguration
 {
+    public InstallationState? Installation { get; set; }
+
     public string ConfigurationRevision { get; set; } = Guid.NewGuid().ToString("N");
 
     public bool IsEnabled { get; set; } = true;

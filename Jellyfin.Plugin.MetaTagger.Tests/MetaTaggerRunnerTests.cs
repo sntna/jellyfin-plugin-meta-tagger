@@ -10,7 +10,8 @@ using Xunit;
 
 namespace Jellyfin.Plugin.MetaTagger.Tests;
 
-public sealed class MetaTaggerRunnerTests : IDisposable
+[Collection("Plugin instance")]
+public sealed partial class MetaTaggerRunnerTests : IDisposable
 {
     private static readonly TimeSpan AsyncTestTimeout = TimeSpan.FromSeconds(5);
     private static readonly JsonSerializerOptions StateSnapshotJsonOptions = new(JsonSerializerDefaults.Web);

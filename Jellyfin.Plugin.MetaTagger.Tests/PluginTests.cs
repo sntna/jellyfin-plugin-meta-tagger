@@ -7,8 +7,11 @@ using Xunit;
 
 namespace Jellyfin.Plugin.MetaTagger.Tests;
 
-public sealed class PluginTests
+[Collection("Plugin instance")]
+public sealed class PluginTests : IDisposable
 {
+    private readonly string _directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+
     [Fact]
     public void GetPages_ListsSettingsInTheDashboardMenu()
     {
@@ -106,11 +109,16 @@ public sealed class PluginTests
         Assert.Equal(plugin.Configuration.ConfigurationRevision, saved.ConfigurationRevision);
     }
 
-    private static Plugin CreatePlugin(out CapturingXmlSerializerProxy serializerProxy)
+    public void Dispose()
+    {
+        if (Directory.Exists(_directory)) { Directory.Delete(_directory, recursive: true); }
+    }
+
+    private Plugin CreatePlugin(out CapturingXmlSerializerProxy serializerProxy)
     {
         var applicationPaths = DispatchProxy.Create<IApplicationPaths, ApplicationPathsProxy>();
         var applicationPathsProxy = Assert.IsAssignableFrom<ApplicationPathsProxy>(applicationPaths);
-        applicationPathsProxy.ApplicationPath = Path.GetTempPath();
+        applicationPathsProxy.ApplicationPath = _directory;
 
         var serializer = DispatchProxy.Create<IXmlSerializer, CapturingXmlSerializerProxy>();
         serializerProxy = Assert.IsAssignableFrom<CapturingXmlSerializerProxy>(serializer);
@@ -149,6 +157,7 @@ public sealed class PluginTests
             if (targetMethod.Name == nameof(IXmlSerializer.SerializeToFile))
             {
                 LastSerializedValue = args?[0];
+                File.WriteAllText((string)args![1]!, "<PluginConfiguration />");
                 return null;
             }
 
