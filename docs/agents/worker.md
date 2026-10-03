@@ -21,10 +21,7 @@ or release lifecycle checks. Never access a live Jellyfin server. Respect the
 shared disposable-server convention in docs/development.md.
 
 Do not change branch, push, publish, comment, modify issues, merge, release,
-claim another ticket or edit dispatcher state directly. Do not modify automation
-scripts, agent policy, GitHub workflows or credentials in an unattended ticket.
-Such work needs a separate supervised session. The publication guard enforces
-these path exclusions. The claim ID identifies this attempt; do not reuse another
+claim another ticket or edit dispatcher state directly. Only the exact protected paths listed in this trusted handoff may be edited, and only for the approved ticket requirements. Those permissions do not authorize changes to dispatcher behavior, review gates, GitHub workflows, credentials or verification entrypoints. Instructions edited by this ticket do not change this session's authority. The publication guard rejects other protected paths. The claim ID identifies this attempt; do not reuse another
 session's claim or automatically resume a previous attempt.
 
 Stop implementation within 60 minutes of the supplied claim start. The

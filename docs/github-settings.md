@@ -40,7 +40,7 @@ Leave **Restrict updates** off; PRs that satisfy the rules must be able to merge
 Do not add Dependabot or the release preparation App to the bypass list.
 
 For a sole maintainer, set required approvals to zero. PRs and passing checks
-remain required, and the maintainer reviews bot and agent changes before merging.
+remain required. Approved ticket PRs may be merged by the authorized PR completion workflow after independent Standards and Spec review and verification. Other PRs require maintainer direction.
 When a second maintainer is available, require one approval and enable **Dismiss
 stale pull request approvals when new commits are pushed**. Authors cannot approve
 their own PRs, so requiring an approval without another reviewer blocks their work.

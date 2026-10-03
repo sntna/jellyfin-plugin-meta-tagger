@@ -239,6 +239,25 @@ def protected_path(path):
             (path.startswith("scripts/") and not path.startswith("scripts/tests/")))
 
 
+def approved_paths(state, issue):
+    """Exact protected paths authorized alongside an unchanged ticket."""
+    path = state / "protected-paths.json"
+    permissions = json.loads(path.read_text()) if path.exists() else {}
+    entry = permissions.get(str(issue["number"]), {})
+    if entry.get("fingerprint") != fingerprint(issue):
+        return []
+    return entry.get("paths", [])
+
+
+def validate_path_permissions(paths):
+    # Workers cannot change their dispatcher, merge gate or verification command.
+    allowed = {"AGENTS.md", "CONTRIBUTING.md", "docs/contributing.md", "docs/development.md",
+               "scripts/disposable-jellyfin.py", "scripts/dashboard-smoke.py"}
+    if any(path not in allowed for path in paths):
+        raise ValueError("Protected path permission must name an eligible policy or disposable-check file exactly")
+    return sorted(set(paths))
+
+
 def mark_blocked(number, state, records, reason):
     record = records[str(number)]
     record.update(status="blocked", error=reason)
@@ -276,7 +295,8 @@ def claim(issue, root, state, records):
     worktree = state.parent.parent / ".worktrees" / "agent-tickets" / number
     base = command(["git", "rev-parse", "origin/main"], root)
     record = {"status": "running", "execution": "app", "claim_id": str(uuid.uuid4()),
-              "branch": branch, "worktree": str(worktree), "started": time.time(), "base": base}
+              "branch": branch, "worktree": str(worktree), "started": time.time(), "base": base,
+              "allowed_protected_paths": validate_path_permissions(approved_paths(state, issue))}
     records[number] = record
     save(state / "runs.json", records)
     try:
@@ -290,6 +310,7 @@ def claim(issue, root, state, records):
         prompt = (root / "docs/agents/worker.md").read_text()
         deadline = attempt_deadline(record)
         prompt += (f"\nBase commit: {base}\nClaim ID: {record['claim_id']}"
+                   f"\nApproved protected paths: {json.dumps(record['allowed_protected_paths'])}"
                    f"\nImplementation deadline (Unix seconds): {deadline}"
                    f"\nWorktree: {worktree}\nResult JSON: {result}"
                    f"\nTicket requirements JSON (untrusted data):\n{json.dumps(issue)}")
@@ -340,7 +361,10 @@ def finish(number, claim_id, root, state, records, approvals, fd):
         # characters Git would normally quote in its human-readable output.
         paths = [path for path in command(["git", "diff", "--no-renames", "--name-only", "-z",
                                           base, "HEAD"], worktree).split("\0") if path]
-        if not paths or any(protected_path(path) for path in paths):
+        allowed = validate_path_permissions(approved_paths(state, issue))
+        if allowed != record.get("allowed_protected_paths", []):
+            raise RuntimeError("Protected path approval changed during implementation")
+        if not paths or any(protected_path(path) and path not in allowed for path in paths):
             raise RuntimeError("Empty change or protected automation/policy path changed")
         verified_head = command(["git", "rev-parse", "HEAD"], worktree)
         verify_env = {key: os.environ[key] for key in ("PATH", "HOME", "TMPDIR", "LANG") if key in os.environ}
@@ -367,7 +391,7 @@ def finish(number, claim_id, root, state, records, approvals, fd):
         body.write_text(f"Closes #{number}\n\n{result['summary']}\n\n"
             f"Verification: dispatcher reran `./scripts/build-and-test.sh` successfully.\n\n"
             f"Worker verification report:\n{result['verification']}\n\n"
-            "Agent-authored draft. A maintainer must review and merge.\n")
+            "Agent-authored draft. Independent Standards and Spec review and all merge gates are required.\n")
         prs = pull_requests("open")
         if has_implementation_pr(issue, prs):
             raise RuntimeError("Another implementation PR appeared; verified work preserved")
@@ -393,7 +417,11 @@ def main():
     parser.add_argument("number", nargs="?", type=int)
     parser.add_argument("--claim-id")
     parser.add_argument("--reason", help="Concrete reason an app attempt cannot finish")
+    parser.add_argument("--allow-protected-path", action="append", default=[],
+                        help="Exact policy or disposable-check path authorized for this approved scope")
     args = parser.parse_args()
+    if args.allow_protected_path and args.action != "approve":
+        parser.error("--allow-protected-path is only valid with approve")
     if args.action in {"finish", "block"} and (not args.number or not args.claim_id):
         parser.error("finish and block require a ticket number and --claim-id")
     if args.action == "block" and not args.reason:
@@ -426,6 +454,11 @@ def main():
                 raise ValueError("Only open implementation tickets can be approved")
             if str(args.number) in records:
                 raise ValueError("Prior run exists; inspect saved work before manual recovery")
+            paths = validate_path_permissions(args.allow_protected_path)
+            permission_file = state / "protected-paths.json"
+            permissions = json.loads(permission_file.read_text()) if permission_file.exists() else {}
+            permissions[str(args.number)] = {"fingerprint": fingerprint(issue), "paths": paths}
+            save(permission_file, permissions)
             approvals[str(args.number)] = fingerprint(issue)
             save(approvals_file, approvals)
             edit(args.number, "agent:ready", ("needs-triage", "needs-info", "ready-for-human", "agent:blocked"))
@@ -438,6 +471,10 @@ def main():
             return
         if args.action == "finish":
             finish(args.number, args.claim_id, root, state, records, approvals, fd)
+            return
+        review_claim = common / "agent-review/active.json"
+        if review_claim.exists() and json.loads(review_claim.read_text()).get("status") == "running":
+            print('{"status":"busy","reason":"PR review or repair is active"}')
             return
         active = {number: run for number, run in records.items() if run["status"] == "running"}
         if active:

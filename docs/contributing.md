@@ -23,7 +23,7 @@ after changing source, tests, project files, dashboard code, or packaging.
 - Call out changes to dependencies, workflows, permissions, compatibility, persistence, or release metadata.
 - Use a Conventional Commit-style pull request title such as `feat:`, `fix:`, `docs:`, `test:`, or `chore:`. The repository uses squash merges, so the pull request title becomes the public commit message.
 
-Agent-authored pull requests must remain drafts until a maintainer reviews the diff. Agents do not approve or merge their own work.
+Agent-authored pull requests start as drafts. The authorized PR completion workflow may mark them ready and squash-merge after fresh, independent Standards and Spec reviewers pass, verification succeeds, and GitHub rules permit the merge. The implementation worker cannot approve its own work. Same-account PRs use a recorded independent review pass because GitHub does not allow author self-approval.
 
 The `pr-title` check validates Conventional Commit syntax and reruns when the title
 changes. Keep the final squash commit title equal to the validated PR title.

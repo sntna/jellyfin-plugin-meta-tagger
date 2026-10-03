@@ -31,6 +31,31 @@ class QueueTests(unittest.TestCase):
         self.issue = ticket()
         self.approvals = {"12": dispatcher.fingerprint(self.issue)}
 
+    def test_path_permissions_are_bound_to_scope_and_cannot_relax_control_scripts(self):
+        with tempfile.TemporaryDirectory() as temp:
+            state = Path(temp)
+            dispatcher.save(state / "protected-paths.json", {"12": {
+                "fingerprint": dispatcher.fingerprint(self.issue), "paths": ["scripts/dashboard-smoke.py"]}})
+            self.assertEqual(dispatcher.approved_paths(state, self.issue), ["scripts/dashboard-smoke.py"])
+            self.assertEqual(dispatcher.approved_paths(state, dict(self.issue, body="Changed")), [])
+        for path in ("scripts/agent-dispatch.py", "scripts/agent-merge.py", "scripts/build-and-test.sh",
+                     "scripts/*", "./AGENTS.md", "../AGENTS.md", ".github/workflows/ci.yml"):
+            with self.assertRaises(ValueError):
+                dispatcher.validate_path_permissions([path])
+
+    def test_active_review_prevents_implementation_pickup(self):
+        with tempfile.TemporaryDirectory() as temp:
+            common = Path(temp)
+            (common / "agent-review").mkdir()
+            dispatcher.save(common / "agent-review/active.json", {"status": "running", "pr": 31})
+            output = io.StringIO()
+            with patch.object(sys, "argv", ["agent-dispatch.py", "claim"]), \
+                 patch.object(dispatcher, "command", return_value=str(common)) as command, \
+                 contextlib.redirect_stdout(output):
+                dispatcher.main()
+            self.assertEqual(json.loads(output.getvalue())["status"], "busy")
+            self.assertFalse(any(call.args[0][:2] == ["git", "fetch"] for call in command.call_args_list))
+
     def test_only_approved_unchanged_unclaimed_ticket_is_eligible(self):
         self.assertTrue(dispatcher.eligible(self.issue, self.approvals, [], {}))
         self.assertFalse(dispatcher.eligible(self.issue, {}, [], {}))
@@ -336,7 +361,7 @@ class PipelineTests(unittest.TestCase):
     """Real Git/worktrees/processes, with disposable Codex and GitHub executables."""
 
     def run_pipeline(self, verification_exit, backlog=False, change="ordinary", existing_pr=None,
-                     protected_path=None, current_changes=None, finish_error=None):
+                     protected_path=None, current_changes=None, finish_error=None, allowed_paths=(), revoke_paths=False):
         with tempfile.TemporaryDirectory() as temp:
             temp = Path(temp)
             root, remote, binaries = temp / "repo", temp / "remote.git", temp / "bin"
@@ -396,7 +421,8 @@ class PipelineTests(unittest.TestCase):
             current["labels"] = [{"name": "agent:running"}]
             current.update(current_changes or {})
             records = {}
-            blocked = verification_exit or backlog or existing_pr or protected_path or current_changes or finish_error or change in {
+            dispatcher.save(state / "protected-paths.json", {"12": {"fingerprint": dispatcher.fingerprint(issue), "paths": list(allowed_paths)}})
+            blocked = verification_exit or backlog or existing_pr or (protected_path and protected_path not in allowed_paths) or revoke_paths or current_changes or finish_error or change in {
                 "policy-rename", "quoted-path", "newline-path"}
             with patch.dict(os.environ, {"PATH": str(binaries) + os.pathsep + os.environ["PATH"],
                                         "FIXTURE_GH_LOG": str(temp / "gh.log")}), \
@@ -428,11 +454,13 @@ class PipelineTests(unittest.TestCase):
                 elif finish_error == "app blocked":
                     result.update(status="blocked", summary="app blocked")
                 Path(handoff["result"]).write_text(json.dumps(result))
+                if revoke_paths:
+                    dispatcher.save(state / "protected-paths.json", {})
                 prs = ([{"headRefName": f"codex/issue-{n}", "closingIssuesReferences": []}
                         for n in (1, 2)] if backlog else [existing_pr] if existing_pr else [])
                 with patch.object(dispatcher, "pull_requests", return_value=prs), dispatcher.lock(state / "lock") as fd:
                     if blocked:
-                        with self.assertRaisesRegex((RuntimeError, ValueError), "Command failed|Review backlog filled|protected automation/policy|Another implementation PR|Ticket approval, assignment or scope changed|Claim ID|time budget|result schema|app blocked"):
+                        with self.assertRaisesRegex((RuntimeError, ValueError), "Command failed|Review backlog filled|protected automation/policy|Protected path approval changed|Another implementation PR|Ticket approval, assignment or scope changed|Claim ID|time budget|result schema|app blocked"):
                             dispatcher.finish(12, claim_id, root, state, records,
                                               {"12": dispatcher.fingerprint(issue)}, fd)
                     else:
@@ -454,9 +482,21 @@ class PipelineTests(unittest.TestCase):
                 self.assertEqual(records["12"]["status"], "review")
                 path = "renamed.txt" if change == "ordinary-rename" else "value.txt"
                 self.assertEqual(dispatcher.command(["git", "--git-dir", str(remote), "show",
-                    f"refs/heads/codex/issue-12:{path}"]), "before" if change == "ordinary-rename" else "after")
+                    f"refs/heads/codex/issue-12:{path}"]), "before" if change == "ordinary-rename" or protected_path else "after")
             self.assertEqual(git("branch", "--show-current"), "main")
             self.assertEqual((root / "value.txt").read_text(), "before\n")
+
+    def test_explicitly_approved_disposable_script_can_publish(self):
+        self.run_pipeline(0, protected_path="scripts/dashboard-smoke.py",
+                          allowed_paths=("scripts/dashboard-smoke.py",))
+
+    def test_revoking_path_permission_before_publication_blocks(self):
+        self.run_pipeline(0, protected_path="scripts/dashboard-smoke.py",
+                          allowed_paths=("scripts/dashboard-smoke.py",), revoke_paths=True)
+
+    def test_permission_does_not_allow_another_protected_file(self):
+        self.run_pipeline(0, protected_path="scripts/build.sh",
+                          allowed_paths=("scripts/dashboard-smoke.py",))
 
     def test_verified_worker_publishes_draft_from_isolated_worktree(self):
         self.run_pipeline(0)
