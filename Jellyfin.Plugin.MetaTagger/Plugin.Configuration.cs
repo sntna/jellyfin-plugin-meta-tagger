@@ -48,6 +48,11 @@ public sealed partial class Plugin
         {
             configuration = new PluginConfiguration();
             origin = HasPriorInstallationState() ? InstallationOrigin.Uncertain : InstallationOrigin.Fresh;
+            if (origin == InstallationOrigin.Fresh)
+            {
+                configuration.PreviewOnly = false;
+                configuration.RunAfterLibraryScan = true;
+            }
         }
 
         if (configuration.Installation is { } installation)

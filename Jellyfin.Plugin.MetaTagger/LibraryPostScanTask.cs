@@ -32,6 +32,7 @@ public sealed class LibraryPostScanTask : ILibraryPostScanTask
             if (summary?.LastRunUtc is { } lastRun
                 && _clock.UtcNow - lastRun < TimeSpan.FromMinutes(settings.MinimumMinutesBetweenAutoRuns))
             {
+                await _runner.RecordPostScanCooldownSkipAsync(cancellationToken).ConfigureAwait(false);
                 return;
             }
         }

@@ -18,7 +18,7 @@ public abstract class MetaTaggerScheduledTaskBase : IScheduledTask
 
     public abstract string Description { get; }
 
-    public string Category => "Library";
+    public string Category => "Meta Tagger";
 
     private protected MetaTaggerRunner Runner => _runner;
 
