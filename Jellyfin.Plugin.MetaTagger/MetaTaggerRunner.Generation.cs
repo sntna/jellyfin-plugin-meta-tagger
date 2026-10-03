@@ -99,13 +99,16 @@ public sealed partial class MetaTaggerRunner
             return;
         }
         var items = _host.GetItems(SupportedGenerationTypes);
+        var selectedTypes = GetIncludedItemTypes(configuration).Select(type => type.ToString()).ToHashSet(StringComparer.Ordinal);
+        var itemsRemaining = items.Where(item => selectedTypes.Contains(GenerationItemType(item)))
+            .Select(item => item.Id).Distinct().Count();
         var ids = new HashSet<string>(installation.Generation?.BaselineItemIds ?? [], StringComparer.OrdinalIgnoreCase);
         foreach (var item in items)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (budget.ShouldStopBeforeItem(summary, _clock.UtcNow, out reason))
             {
-                MarkBudgetLimitReached(summary, reason, 0);
+                MarkBudgetLimitReached(summary, reason, itemsRemaining);
                 return;
             }
             ids.Add(item.Id.ToString("N"));
@@ -121,7 +124,7 @@ public sealed partial class MetaTaggerRunner
         cancellationToken.ThrowIfCancellationRequested();
         if (budget.ShouldStopBeforeItem(summary, _clock.UtcNow, out reason))
         {
-            MarkBudgetLimitReached(summary, reason, 0);
+            MarkBudgetLimitReached(summary, reason, itemsRemaining);
             return;
         }
         configuration.Installation = _host.SaveGenerationState(installation.InstallationId, generation);
@@ -129,32 +132,54 @@ public sealed partial class MetaTaggerRunner
         cancellationToken.ThrowIfCancellationRequested();
         if (budget.ShouldStopBeforeItem(summary, _clock.UtcNow, out reason))
         {
-            MarkBudgetLimitReached(summary, reason, 0);
+            MarkBudgetLimitReached(summary, reason, itemsRemaining);
         }
     }
 
-    private static GenerationItemEligibility GenerationDecision(PluginConfiguration configuration, BaseItem item, RunInvocation invocation)
+    private sealed class GenerationEligibilitySnapshot
     {
-        var installation = configuration.Installation;
-        if (installation is null || installation.Origin == InstallationOrigin.Uncertain) { return GenerationItemEligibility.InstallationUnavailable; }
-        var generation = installation.Generation;
-        if (generation is { IsValid: false }) { return GenerationItemEligibility.AuthorizationUnavailable; }
-        var itemType = GenerationItemType(item);
-        if (generation?.AuthorizedItemTypes?.Contains(itemType, StringComparer.Ordinal) == true
-            || generation?.AuthorizedItemIds?.Contains(item.Id.ToString("N"), StringComparer.OrdinalIgnoreCase) == true)
+        private readonly GenerationItemEligibility? _unavailable;
+        private readonly bool _baselineComplete;
+        private readonly HashSet<string> _authorizedTypes = new(StringComparer.Ordinal);
+        private readonly HashSet<string> _authorizedIds = new(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> _baselineIds = new(StringComparer.OrdinalIgnoreCase);
+
+        internal GenerationEligibilitySnapshot(InstallationState? installation, RunInvocation invocation)
         {
-            return GenerationItemEligibility.Eligible;
+            if (installation is null || installation.Origin == InstallationOrigin.Uncertain)
+            {
+                _unavailable = GenerationItemEligibility.InstallationUnavailable;
+                return;
+            }
+
+            var generation = installation.Generation;
+            if (generation is { IsValid: false })
+            {
+                _unavailable = GenerationItemEligibility.AuthorizationUnavailable;
+                return;
+            }
+
+            _baselineComplete = generation?.BaselineComplete == true;
+            _authorizedTypes.UnionWith(generation?.AuthorizedItemTypes ?? []);
+            _authorizedIds.UnionWith(generation?.AuthorizedItemIds ?? []);
+            if (_baselineComplete) { _baselineIds.UnionWith(generation!.BaselineItemIds!); }
+
+            var prior = installation.PriorGenerationEligibility;
+            var priorApply = invocation == RunInvocation.PostScan ? prior?.PostScanApply
+                : invocation == RunInvocation.ApplyTask ? prior?.ApplyTask : prior?.ConfiguredApply;
+            if (priorApply == true) { _authorizedTypes.UnionWith(prior?.IncludedItemTypes ?? []); }
         }
-        var prior = installation.PriorGenerationEligibility;
-        var priorApply = invocation == RunInvocation.PostScan ? prior?.PostScanApply
-            : invocation == RunInvocation.ApplyTask ? prior?.ApplyTask : prior?.ConfiguredApply;
-        if (priorApply == true && prior?.IncludedItemTypes?.Contains(itemType, StringComparer.Ordinal) == true)
+
+        internal GenerationItemEligibility Decide(BaseItem item)
         {
-            return GenerationItemEligibility.Eligible;
+            if (_unavailable is { } unavailable) { return unavailable; }
+            if (_authorizedTypes.Contains(GenerationItemType(item))) { return GenerationItemEligibility.Eligible; }
+            var itemId = item.Id.ToString("N");
+            if (_authorizedIds.Contains(itemId)) { return GenerationItemEligibility.Eligible; }
+            if (!_baselineComplete) { return GenerationItemEligibility.BaselineUnavailable; }
+            return _baselineIds.Contains(itemId)
+                ? GenerationItemEligibility.BackfillRequired : GenerationItemEligibility.Eligible;
         }
-        if (generation?.BaselineComplete != true) { return GenerationItemEligibility.BaselineUnavailable; }
-        return generation.BaselineItemIds!.Contains(item.Id.ToString("N"), StringComparer.OrdinalIgnoreCase)
-            ? GenerationItemEligibility.BackfillRequired : GenerationItemEligibility.Eligible;
     }
 
     private enum GenerationItemEligibility

@@ -314,6 +314,8 @@ public sealed partial class MetaTaggerRunner
                 if (summary.BudgetLimitReached) { return summary; }
             }
 
+            var generationSnapshot = options.ClearGeneratedTags || options.RunMode == MetadataTagRunMode.RebuildTrackingLedger
+                ? null : new GenerationEligibilitySnapshot(configuration.Installation, invocation);
             var items = _host.GetItems(includedItemTypes);
             var scopedItems = options.CleanupItemId is { } cleanupItemId
                 ? items.Where(item => item.Id == cleanupItemId)
@@ -384,7 +386,7 @@ public sealed partial class MetaTaggerRunner
                             state,
                             cursor,
                             options,
-                            invocation,
+                            generationSnapshot,
                             budget,
                             started,
                             summary,
@@ -510,7 +512,7 @@ public sealed partial class MetaTaggerRunner
         MetaTaggerState state,
         MetaTaggerRunCursor cursor,
         MetaTaggerRunOptions options,
-        RunInvocation invocation,
+        GenerationEligibilitySnapshot? generationSnapshot,
         MetaTaggerRunBudget budget,
         DateTimeOffset started,
         MetaTaggerRunSummary summary,
@@ -554,7 +556,7 @@ public sealed partial class MetaTaggerRunner
 
             if (!options.ClearGeneratedTags && options.RunMode != MetadataTagRunMode.RebuildTrackingLedger)
             {
-                generationEligibility = GenerationDecision(configuration, item, invocation);
+                generationEligibility = generationSnapshot!.Decide(item);
                 if (!options.PreviewOnly && generationEligibility != GenerationItemEligibility.Eligible)
                 {
                     if (generationEligibility == GenerationItemEligibility.BackfillRequired) { summary.ItemsSkippedBaseline++; }
