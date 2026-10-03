@@ -133,29 +133,47 @@ public sealed partial class MetaTaggerRunner
         }
     }
 
-    private static string GenerationDecision(PluginConfiguration configuration, BaseItem item, RunInvocation invocation)
+    private static GenerationItemEligibility GenerationDecision(PluginConfiguration configuration, BaseItem item, RunInvocation invocation)
     {
         var installation = configuration.Installation;
-        if (installation is null || installation.Origin == InstallationOrigin.Uncertain) { return "InstallationUnavailable"; }
+        if (installation is null || installation.Origin == InstallationOrigin.Uncertain) { return GenerationItemEligibility.InstallationUnavailable; }
         var generation = installation.Generation;
-        if (generation is { IsValid: false }) { return "AuthorizationUnavailable"; }
+        if (generation is { IsValid: false }) { return GenerationItemEligibility.AuthorizationUnavailable; }
         var itemType = GenerationItemType(item);
         if (generation?.AuthorizedItemTypes?.Contains(itemType, StringComparer.Ordinal) == true
             || generation?.AuthorizedItemIds?.Contains(item.Id.ToString("N"), StringComparer.OrdinalIgnoreCase) == true)
         {
-            return "Eligible";
+            return GenerationItemEligibility.Eligible;
         }
         var prior = installation.PriorGenerationEligibility;
         var priorApply = invocation == RunInvocation.PostScan ? prior?.PostScanApply
             : invocation == RunInvocation.ApplyTask ? prior?.ApplyTask : prior?.ConfiguredApply;
         if (priorApply == true && prior?.IncludedItemTypes?.Contains(itemType, StringComparer.Ordinal) == true)
         {
-            return "Eligible";
+            return GenerationItemEligibility.Eligible;
         }
-        if (generation?.BaselineComplete != true) { return "BaselineUnavailable"; }
+        if (generation?.BaselineComplete != true) { return GenerationItemEligibility.BaselineUnavailable; }
         return generation.BaselineItemIds!.Contains(item.Id.ToString("N"), StringComparer.OrdinalIgnoreCase)
-            ? "BackfillRequired" : "Eligible";
+            ? GenerationItemEligibility.BackfillRequired : GenerationItemEligibility.Eligible;
     }
+
+    private enum GenerationItemEligibility
+    {
+        NotChecked,
+        Eligible,
+        BackfillRequired,
+        BaselineUnavailable,
+        InstallationUnavailable,
+        AuthorizationUnavailable
+    }
+
+    private static string? GenerationExclusionReason(GenerationItemEligibility? eligibility) => eligibility switch
+    {
+        GenerationItemEligibility.BackfillRequired => "Automatic generation excludes this existing library item until Apply authorizes it.",
+        GenerationItemEligibility.BaselineUnavailable or GenerationItemEligibility.InstallationUnavailable
+            or GenerationItemEligibility.AuthorizationUnavailable => "Automatic generation cannot verify the saved baseline or authorization.",
+        _ => null
+    };
 
     private static string GenerationItemType(BaseItem item) => item switch
     {

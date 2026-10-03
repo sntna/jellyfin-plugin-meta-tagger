@@ -39,9 +39,9 @@ public static class MetaTaggerRunSummaryFormatter
         };
         var generation = summary.RunMode == "ClearGeneratedTags" ? string.Empty : string.Format(
             CultureInfo.InvariantCulture,
-            ", items processed {0}, existing baseline excluded {1}, eligibility unavailable {2}, baseline {3}, backfill authorization granted {4}",
+            ", items processed {0}, existing baseline excluded {1}, eligibility unavailable {2}, baseline {3}, backfill authorization granted {4}, existing baseline previewed {5}",
             summary.ItemsProcessed, summary.ItemsSkippedBaseline, summary.ItemsSkippedEligibilityUnavailable,
-            summary.BaselineStatus, authorization);
+            summary.BaselineStatus, authorization, summary.ItemsPreviewedBaseline);
 
         return string.Format(
             CultureInfo.InvariantCulture,

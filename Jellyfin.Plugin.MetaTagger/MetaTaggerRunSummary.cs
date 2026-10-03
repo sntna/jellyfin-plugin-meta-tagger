@@ -20,6 +20,8 @@ public sealed class MetaTaggerRunSummary
 
     public int ItemsSkippedBaseline { get; set; }
 
+    public int ItemsPreviewedBaseline { get; set; }
+
     public int ItemsSkippedEligibilityUnavailable { get; set; }
 
     public string BackfillAuthorization { get; set; } = "None";

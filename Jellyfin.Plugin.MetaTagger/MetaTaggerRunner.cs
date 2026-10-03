@@ -518,11 +518,13 @@ public sealed partial class MetaTaggerRunner
         CancellationToken cancellationToken,
         List<string>? missingRecordedTags)
     {
+        GenerationItemEligibility? generationEligibility = null;
         void RecordItem(string outcome, string? reason = null, TagMergeResult? merge = null)
         {
             record.AddItem(new MetaTaggerRunItem
             {
-                ItemId = item.Id.ToString("N"), Name = item.Name, ItemType = item.GetType().Name, Outcome = outcome, Reason = reason,
+                ItemId = item.Id.ToString("N"), Name = item.Name, ItemType = item.GetType().Name, Outcome = outcome,
+                Reason = reason ?? GenerationExclusionReason(generationEligibility), GenerationEligibility = generationEligibility?.ToString(),
                 AddedTags = merge?.AddedTags ?? [], RemovedTags = merge?.RemovedTags ?? [], PreviewRemovedTags = merge?.PreviewRemovedTags ?? []
             });
         }
@@ -550,16 +552,14 @@ public sealed partial class MetaTaggerRunner
                 return ItemProcessingResult.Completed();
             }
 
-            if (!options.ClearGeneratedTags && !options.PreviewOnly && options.RunMode != MetadataTagRunMode.RebuildTrackingLedger)
+            if (!options.ClearGeneratedTags && options.RunMode != MetadataTagRunMode.RebuildTrackingLedger)
             {
-                var eligibility = GenerationDecision(configuration, item, invocation);
-                if (eligibility != "Eligible")
+                generationEligibility = GenerationDecision(configuration, item, invocation);
+                if (!options.PreviewOnly && generationEligibility != GenerationItemEligibility.Eligible)
                 {
-                    if (eligibility == "BackfillRequired") { summary.ItemsSkippedBaseline++; }
+                    if (generationEligibility == GenerationItemEligibility.BackfillRequired) { summary.ItemsSkippedBaseline++; }
                     else { summary.ItemsSkippedEligibilityUnavailable++; }
-                    RecordItem(eligibility, eligibility == "BackfillRequired"
-                        ? "This existing library item needs explicit backfill authorization."
-                        : "The existing library baseline or generation authorization is unavailable.");
+                    RecordItem(generationEligibility.Value.ToString());
                     return ItemProcessingResult.Completed();
                 }
             }
@@ -581,6 +581,10 @@ public sealed partial class MetaTaggerRunner
             }
             summary.ItemsProcessed++;
             var result = _processor.Process(input, configuration, state, options, started);
+            if (options.PreviewOnly && generationEligibility == GenerationItemEligibility.BackfillRequired)
+            {
+                summary.ItemsPreviewedBaseline++;
+            }
             if (result.SkipReason is MetadataTagSkipReason.Unchanged)
             {
                 summary.ItemsSkippedUnchanged++;
@@ -636,7 +640,8 @@ public sealed partial class MetaTaggerRunner
                 }
             }
 
-            if (!result.ShouldWriteTags && result.LedgerEntry is not null)
+            if (!result.ShouldWriteTags && result.LedgerEntry is not null
+                && generationEligibility is null or GenerationItemEligibility.Eligible)
             {
                 state.Items[input.ItemId] = result.LedgerEntry;
             }
@@ -649,7 +654,7 @@ public sealed partial class MetaTaggerRunner
             if (!result.ShouldWriteTags) { RecordItem(merge.HasChangesToApply || merge.PreviewRemovedTags.Count > 0 ? "Changes" : "Up to date", merge: merge); }
             var previewChange = options.PreviewOnly
                 && (merge.HasChangesToApply || merge.PreviewRemovedTags.Count > 0)
-                    ? CreatePreviewChange(item, merge)
+                    ? CreatePreviewChange(item, merge, generationEligibility)
                     : null;
             return ItemProcessingResult.Completed(cursorAdvancePersisted, previewChange);
         }
@@ -958,7 +963,7 @@ public sealed partial class MetaTaggerRunner
             string.Join(", ", merge.PreviewRemovedTags));
     }
 
-    private static MetaTaggerPreviewChange CreatePreviewChange(BaseItem item, TagMergeResult merge)
+    private static MetaTaggerPreviewChange CreatePreviewChange(BaseItem item, TagMergeResult merge, GenerationItemEligibility? eligibility)
     {
         return new MetaTaggerPreviewChange
         {
@@ -966,6 +971,7 @@ public sealed partial class MetaTaggerRunner
             ItemName = item.Name,
             ItemPath = item.Path,
             ItemType = item.GetType().Name,
+            GenerationEligibility = eligibility?.ToString(),
             AddedTags = merge.AddedTags,
             RemovedTags = merge.RemovedTags,
             PreviewRemovedTags = merge.PreviewRemovedTags

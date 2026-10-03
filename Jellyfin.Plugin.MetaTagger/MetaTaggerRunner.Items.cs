@@ -51,12 +51,25 @@ public sealed partial class MetaTaggerRunner
                 CaptureGenerationBaseline(configuration, new MetaTaggerRunBudget(configuration, summary.LastRunUtc!.Value),
                     summary, cancellationToken);
             }
+            if (summary.BudgetLimitReached)
+            {
+                summary.ItemsRemaining = 1;
+                var limited = new MetaTaggerItemInspection
+                {
+                    ItemId = itemId, ConfigurationRevision = configuration.ConfigurationRevision,
+                    Status = "Budget limited", GenerationEligibility = GenerationItemEligibility.NotChecked.ToString(),
+                    Reason = "The time limit was reached before this item could be checked. Preview this item again."
+                };
+                record.AddItem(InspectionHistory(limited, "Not checked"));
+                return limited;
+            }
             var plan = await PlanItemAsync(itemId, configuration, cancellationToken).ConfigureAwait(false);
             var inspection = plan.Inspection;
             summary.ItemsScanned = 1;
             if (plan.Result is not null)
             {
                 summary.ItemsProcessed = 1;
+                if (inspection.GenerationEligibility == nameof(GenerationItemEligibility.BackfillRequired)) { summary.ItemsPreviewedBaseline = 1; }
                 AddCounts(summary, plan.Result.Merge, configuration);
                 summary.ItemsChanged = inspection.Status == "Changes" ? 1 : 0;
                 summary.EstimatedWrites = plan.Result.Merge.HasChangesToApply ? 1 : 0;
@@ -155,6 +168,7 @@ public sealed partial class MetaTaggerRunner
                 throw new InvalidOperationException("The item changed before its tags could be saved. Preview this item again.");
             }
             AuthorizeGenerationScope(configuration, [], itemId, summary, cancellationToken);
+            plan.Inspection.GenerationEligibility = GenerationItemEligibility.Eligible.ToString();
             cancellationToken.ThrowIfCancellationRequested();
             if (budget.ShouldStopBeforeItem(new MetaTaggerRunSummary(), _clock.UtcNow, out reason))
             {
@@ -194,10 +208,12 @@ public sealed partial class MetaTaggerRunner
 
     private static MetaTaggerRunItem InspectionHistory(MetaTaggerItemInspection inspection, string? outcome = null)
     {
+        Enum.TryParse<GenerationItemEligibility>(inspection.GenerationEligibility, out var eligibility);
         return new MetaTaggerRunItem
         {
             ItemId = inspection.ItemId.ToString("N"), Name = inspection.Name, ItemType = inspection.ItemType,
-            Outcome = outcome ?? inspection.Status, Reason = inspection.Reason,
+            Outcome = outcome ?? inspection.Status, Reason = inspection.Reason ?? GenerationExclusionReason(eligibility),
+            GenerationEligibility = inspection.GenerationEligibility,
             AddedTags = inspection.AddedTags, RemovedTags = inspection.RemovedTags, PreviewRemovedTags = inspection.PreviewRemovedTags
         };
     }
@@ -228,7 +244,7 @@ public sealed partial class MetaTaggerRunner
         var configuration = CloneConfiguration(source);
         if (draft is not null) { configuration.Installation = _host.GetConfiguration().Installation?.Copy(); }
         inspection.ConfigurationRevision = configuration.ConfigurationRevision;
-        inspection.GenerationEligibility = GenerationDecision(configuration, item, RunInvocation.ConfiguredDefault);
+        inspection.GenerationEligibility = GenerationDecision(configuration, item, RunInvocation.ConfiguredDefault).ToString();
         if (configuration.Installation?.Origin == InstallationOrigin.Uncertain)
         {
             return Unavailable("InstallationUnavailable", "The saved installation policy is unavailable. Restore the plugin configuration before applying tags.");

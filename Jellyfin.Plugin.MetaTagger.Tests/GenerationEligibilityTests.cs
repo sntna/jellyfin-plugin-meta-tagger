@@ -11,6 +11,72 @@ namespace Jellyfin.Plugin.MetaTagger.Tests;
 
 public sealed partial class MetaTaggerRunnerTests
 {
+    [Theory]
+    [InlineData("bulk")]
+    [InlineData("item")]
+    public async Task Generation_PreviewHistory_ReportsAutomaticExclusionAndPreservesExistingOwnership(string operation)
+    {
+        var plugin = CreateFreshGenerationPlugin();
+        var movie = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"], Tags = ["Favorites", "meta:genre:old"] };
+        var store = new MetaTaggerStateStore(_directory);
+        await store.SaveAsync(new MetaTaggerState
+        {
+            Items = new() { [movie.Id.ToString("N")] = new MetaTaggerStateItem
+            {
+                ItemId = movie.Id.ToString("N"), ItemType = "Movie", LastMetadataFingerprint = "existing fingerprint",
+                LastAppliedTags = ["meta:genre:old"]
+            } }
+        }, CancellationToken.None);
+        var runner = CreateRunner(new PersistedConfigurationHost(plugin, [movie]), store);
+        if (operation == "bulk") { await new PreviewMetadataTagTask(runner).ExecuteAsync(new NoOpProgress(), CancellationToken.None); }
+        else { await runner.PreviewItemAsync(movie.Id, CancellationToken.None); }
+
+        var entry = Assert.Single(await store.LoadRunsAsync(CancellationToken.None));
+        var run = await store.LoadRunAsync(entry.RunId, CancellationToken.None);
+        Assert.NotNull(run);
+        var item = Assert.Single(run.Items);
+        Assert.Equal("BackfillRequired", item.GenerationEligibility);
+        Assert.Contains("Automatic generation excludes", item.Reason);
+        Assert.Equal(["meta:genre:drama"], item.AddedTags);
+        Assert.Equal(1, run.Summary.ItemsPreviewedBaseline);
+        Assert.Equal(0, run.Summary.ItemsSkippedBaseline);
+        if (operation == "bulk")
+        {
+            Assert.Equal("BackfillRequired", Assert.Single(await store.LoadPreviewChangesAsync(CancellationToken.None)).GenerationEligibility);
+        }
+        var ownership = (await store.LoadAsync(CancellationToken.None)).Items[movie.Id.ToString("N")];
+        Assert.Equal("existing fingerprint", ownership.LastMetadataFingerprint);
+        Assert.Equal(["meta:genre:old"], ownership.LastAppliedTags);
+        Assert.Equal(["Favorites", "meta:genre:old"], movie.Tags);
+    }
+
+    [Fact]
+    public async Task Generation_SingleItemPreview_StopsWhenBaselineCaptureConsumesTheTimeBudget()
+    {
+        var plugin = CreateFreshGenerationPlugin();
+        plugin.Configuration.MaxRunMinutes = 1;
+        plugin.SaveConfiguration();
+        var movie = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"] };
+        var clock = new ItemApprovalClock();
+        var host = new PersistedConfigurationHost(plugin, [movie])
+        {
+            BeforeQuery = () => clock.UtcNow += TimeSpan.FromMinutes(2)
+        };
+        var store = new MetaTaggerStateStore(_directory);
+        var runner = CreateRunner(host, store, clock);
+        var preview = await runner.PreviewItemAsync(movie.Id, CancellationToken.None);
+
+        Assert.Null(preview.Token);
+        Assert.Equal("Budget limited", preview.Status);
+        Assert.Equal("NotChecked", preview.GenerationEligibility);
+        var record = Assert.Single(await store.LoadRunsAsync(CancellationToken.None));
+        Assert.Equal("Budget limited", record.Outcome);
+        Assert.Equal(0, record.Summary.ItemsProcessed);
+        Assert.Equal(1, record.Summary.ItemsRemaining);
+        Assert.Equal("NotCaptured", (await runner.GetGenerationStatusAsync(CancellationToken.None)).BaselineStatus);
+        Assert.Empty(movie.Tags);
+    }
+
     [Fact]
     public async Task Generation_PartialPreview_StartsANewCycleWhenAuthorizationChanges()
     {
