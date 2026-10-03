@@ -67,6 +67,10 @@ credentials.json
 *.secrets.*
 
 # Development evidence and scratch artifacts
+/CONTEXT.md
+docs/adr/
+docs/plans/
+docs/notes/
 *.log
 *.patch
 .scratch/
