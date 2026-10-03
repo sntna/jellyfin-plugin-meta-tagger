@@ -35,7 +35,7 @@ def validate_review(review, pr, approval):
         raise ValueError("Successful verification evidence must match the reviewed head")
 
 
-def validate_pr(pr, issue, approved):
+def validate_pr(pr, issue, approved, merge_ready=True):
     if (pr["state"] != "open" or pr["base"]["ref"] != "main"
             or pr["base"]["repo"]["full_name"] != REPO
             or pr["head"]["repo"]["full_name"] != REPO
@@ -45,7 +45,7 @@ def validate_pr(pr, issue, approved):
     reason = dispatcher.availability_reason(issue, approved, "agent:review")
     if reason:
         raise ValueError(reason)
-    if pr.get("mergeable") is not True or pr.get("mergeable_state") != "clean":
+    if merge_ready and (pr.get("mergeable") is not True or pr.get("mergeable_state") != "clean"):
         raise ValueError("PR must be conflict-free, current with main, and allowed by GitHub rules")
 
 
@@ -58,7 +58,7 @@ def validate_checks(checks, required):
         raise ValueError("A GitHub check is pending, cancelled or failing")
 
 
-def check(number, review, state):
+def approved_ticket(number, state, merge_ready=True):
     pr = dispatcher.api(f"repos/{REPO}/pulls/{number}")
     match = re.fullmatch(r"codex/issue-([1-9][0-9]*)", pr["head"]["ref"])
     if not match:
@@ -66,8 +66,41 @@ def check(number, review, state):
     issue = dispatcher.snapshot(int(match[1]))
     approvals = json.loads((state / "approvals.json").read_text())
     approval = approvals.get(str(issue["number"]))
-    validate_pr(pr, issue, approval)
+    validate_pr(pr, issue, approval, merge_ready)
+    records = json.loads((state / "runs.json").read_text())
+    record = records.get(str(issue["number"]))
+    if not record or record.get("branch") != pr["head"]["ref"]:
+        raise ValueError("Missing matching implementation claim and path-permission snapshot")
+    return pr, issue, approval, record
+
+
+def check_remote_paths(number, pr, state, issue, record):
+    files = dispatcher.flatten(f"repos/{REPO}/pulls/{number}/files?per_page=100")
+    if len(files) != pr.get("changed_files") or len(files) >= 3000:
+        raise ValueError("Complete PR changed-file list is unavailable")
+    paths = [file[key] for file in files for key in ("filename", "previous_filename") if key in file]
+    dispatcher.validate_publication_paths(paths, state, issue, record)
+    latest = dispatcher.api(f"repos/{REPO}/pulls/{number}")
+    if any(latest[side]["sha"] != pr[side]["sha"] for side in ("head", "base")):
+        raise ValueError("PR revisions changed while reading changed paths")
+
+
+def check_repair_paths(number, worktree, state):
+    pr, issue, _, record = approved_ticket(number, state, merge_ready=False)
+    if (dispatcher.command(["git", "branch", "--show-current"], worktree) != pr["head"]["ref"]
+            or dispatcher.command(["git", "status", "--porcelain"], worktree)):
+        raise ValueError("Repair must be committed on the PR branch with a clean working tree")
+    dispatcher.command(["git", "merge-base", "--is-ancestor", pr["head"]["sha"], "HEAD"], worktree)
+    paths = [path for path in dispatcher.command(
+        ["git", "diff", "--no-renames", "--name-only", "-z", f"{pr['base']['sha']}...HEAD"], worktree).split("\0") if path]
+    dispatcher.validate_publication_paths(paths, state, issue, record)
+    return dispatcher.command(["git", "rev-parse", "HEAD"], worktree)
+
+
+def check(number, review, state):
+    pr, issue, approval, record = approved_ticket(number, state)
     validate_review(review, pr, approval)
+    check_remote_paths(number, pr, state, issue, record)
     if dispatcher.api(f"repos/{REPO}/commits/main")["sha"] != review["base"]:
         raise ValueError("Main changed after review; update the branch and repeat review")
     args = ["gh", "pr", "checks", str(number), "--repo", REPO, "--json", "name,bucket"]
@@ -79,16 +112,25 @@ def check(number, review, state):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["check", "merge"])
+    parser.add_argument("action", choices=["check", "check-paths", "merge"])
     parser.add_argument("number", type=int)
-    parser.add_argument("--review", type=Path, required=True)
+    parser.add_argument("--review", type=Path)
+    parser.add_argument("--worktree", type=Path)
     args = parser.parse_args()
+    if args.action == "check-paths" and not args.worktree:
+        parser.error("check-paths requires --worktree")
+    if args.action != "check-paths" and not args.review:
+        parser.error("check and merge require --review")
     if dispatcher.api("user")["login"].lower() != "sntna":
         raise ValueError("Expected authenticated GitHub account sntna")
     common = Path(dispatcher.command(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"]))
-    review = json.loads(args.review.read_text())
     # Share the dispatch lock so approvals and publication cannot change during merge.
     with dispatcher.lock(common / "agent-dispatch/lock"):
+        if args.action == "check-paths":
+            head = check_repair_paths(args.number, args.worktree, common / "agent-dispatch")
+            print(json.dumps({"status": "passed", "pr": args.number, "head": head}))
+            return
+        review = json.loads(args.review.read_text())
         pr = check(args.number, review, common / "agent-dispatch")
         if args.action == "merge":
             if pr["draft"]:

@@ -258,6 +258,14 @@ def validate_path_permissions(paths):
     return sorted(set(paths))
 
 
+def validate_publication_paths(paths, state, issue, record):
+    allowed = validate_path_permissions(approved_paths(state, issue))
+    if allowed != record.get("allowed_protected_paths", []):
+        raise RuntimeError("Protected path approval changed during implementation")
+    if not paths or any(protected_path(path) and path not in allowed for path in paths):
+        raise RuntimeError("Empty change or protected automation/policy path changed")
+
+
 def mark_blocked(number, state, records, reason):
     record = records[str(number)]
     record.update(status="blocked", error=reason)
@@ -361,11 +369,7 @@ def finish(number, claim_id, root, state, records, approvals, fd):
         # characters Git would normally quote in its human-readable output.
         paths = [path for path in command(["git", "diff", "--no-renames", "--name-only", "-z",
                                           base, "HEAD"], worktree).split("\0") if path]
-        allowed = validate_path_permissions(approved_paths(state, issue))
-        if allowed != record.get("allowed_protected_paths", []):
-            raise RuntimeError("Protected path approval changed during implementation")
-        if not paths or any(protected_path(path) and path not in allowed for path in paths):
-            raise RuntimeError("Empty change or protected automation/policy path changed")
+        validate_publication_paths(paths, state, issue, record)
         verified_head = command(["git", "rev-parse", "HEAD"], worktree)
         verify_env = {key: os.environ[key] for key in ("PATH", "HOME", "TMPDIR", "LANG") if key in os.environ}
         verify_env.update(NUGET_PACKAGES=str(worktree / ".nuget/packages"),

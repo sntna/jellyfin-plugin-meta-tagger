@@ -199,7 +199,13 @@ completed by the previous report-only workflow do not authorize merging.
 
 Fix actionable findings and relevant CI failures in the PR branch, within the
 approved ticket scope and exact protected-path permissions. Preserve unrelated
-changes. Commit and push normally; never force-push. When main advances, merge
+changes. Commit repairs, then run the trusted control worktree's
+`python3 scripts/agent-merge.py check-paths NUMBER --worktree ABSOLUTE_REPAIR_PATH`
+before every repair push. Push only the returned checked commit SHA to the PR
+branch with a normal push; never force-push. This gate compares the complete
+local diff with current permissions and the saved implementation claim. The
+merge gate repeats that check on the complete remote PR file list, including
+rename sources, and rejects revoked permissions. When main advances, merge
 main into the repair branch, resolve scoped conflicts, and repeat verification
 and both reviews. Every new head or base invalidates prior approval. Run the
 complete build-and-test command and applicable existing disposable checks;

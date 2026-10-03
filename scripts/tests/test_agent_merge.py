@@ -85,8 +85,11 @@ class MergeTests(unittest.TestCase):
             merge.validate_pr(self.pr, self.issue, self.approval)
 
 
-class MergeCommandTests(MergeTests):
-    def run_command(self, mutate=None, pending=False):
+class MergeCommandTests(unittest.TestCase):
+    def setUp(self):
+        MergeTests.setUp(self)
+
+    def run_command(self, mutate=None, pending=False, files=None, allowed_paths=(), current_paths=None):
         import contextlib
         import io
         import json
@@ -96,10 +99,16 @@ class MergeCommandTests(MergeTests):
             common = Path(temp)
             (common / 'agent-dispatch').mkdir()
             (common / 'agent-dispatch/approvals.json').write_text(json.dumps({'23': self.approval}))
+            (common / 'agent-dispatch/runs.json').write_text(json.dumps({'23': {
+                'branch': 'codex/issue-23', 'allowed_protected_paths': list(allowed_paths)}}))
+            (common / 'agent-dispatch/protected-paths.json').write_text(json.dumps({'23': {
+                'fingerprint': self.approval, 'paths': list(allowed_paths if current_paths is None else current_paths)}}))
             review_file = common / 'review.json'
             review_file.write_text(json.dumps(self.review))
             pr = copy.deepcopy(self.pr)
             pr['title'] = 'feat: direct Apply'
+            files = files if files is not None else [{'filename': 'plugin.cs'}]
+            pr['changed_files'] = len(files)
             if mutate:
                 mutate(pr)
             calls = []
@@ -129,6 +138,7 @@ class MergeCommandTests(MergeTests):
             with patch.object(merge.sys, 'argv', ['agent-merge.py', 'merge', '31', '--review', str(review_file)]), \
                  patch.object(merge.dispatcher, 'api', side_effect=api), \
                  patch.object(merge.dispatcher, 'snapshot', return_value=self.issue), \
+                 patch.object(merge.dispatcher, 'flatten', return_value=files), \
                  patch.object(merge.dispatcher, 'command', side_effect=command), \
                  contextlib.redirect_stdout(io.StringIO()) as output:
                 error = None
@@ -157,3 +167,42 @@ class MergeCommandTests(MergeTests):
             calls, _, error = self.run_command(**kwargs)
             self.assertIsNotNone(error)
             self.assertFalse(any(args[:3] == ['gh', 'pr', 'merge'] for args in calls))
+
+    def test_repaired_protected_paths_and_revoked_permissions_cannot_reach_merge(self):
+        for kwargs in (
+                {'files': [{'filename': 'scripts/build-and-test.sh'}]},
+                {'files': [{'filename': 'new-policy.md', 'previous_filename': 'AGENTS.md'}]},
+                {'files': [{'filename': 'scripts/dashboard-smoke.py'}],
+                 'allowed_paths': ('scripts/dashboard-smoke.py',), 'current_paths': ()}):
+            calls, _, error = self.run_command(**kwargs)
+            self.assertIsNotNone(error)
+            self.assertFalse(any(args[:3] == ['gh', 'pr', 'merge'] for args in calls))
+
+    def test_explicitly_authorized_smoke_repair_can_merge(self):
+        calls, _, error = self.run_command(files=[{'filename': 'scripts/dashboard-smoke.py'}],
+                                           allowed_paths=('scripts/dashboard-smoke.py',))
+        self.assertIsNone(error)
+        self.assertTrue(any(args[:3] == ['gh', 'pr', 'merge'] for args in calls))
+
+    def test_repair_publication_checks_committed_diff_against_permission_snapshot(self):
+        import tempfile
+        from unittest.mock import patch
+        for changed_path in ('plugin.cs', 'scripts/agent-dispatch.py'):
+            with tempfile.TemporaryDirectory() as temp:
+                state = Path(temp)
+                def command(args, cwd=None):
+                    if args[1] == 'branch':
+                        return 'codex/issue-23'
+                    if args[1] == 'diff':
+                        return changed_path + chr(0)
+                    if args[1] == 'rev-parse':
+                        return 'new-head'
+                    return ''
+                with patch.object(merge, 'approved_ticket', return_value=(self.pr, self.issue, self.approval,
+                                   {'allowed_protected_paths': []})), \
+                     patch.object(merge.dispatcher, 'command', side_effect=command):
+                    if changed_path == 'plugin.cs':
+                        self.assertEqual(merge.check_repair_paths(31, state, state), 'new-head')
+                    else:
+                        with self.assertRaises(RuntimeError):
+                            merge.check_repair_paths(31, state, state)
