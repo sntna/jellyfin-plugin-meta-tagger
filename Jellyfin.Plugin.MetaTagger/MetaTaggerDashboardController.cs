@@ -33,6 +33,10 @@ public sealed class MetaTaggerDashboardController : ControllerBase
     public ActionResult<string> GetConfigurationRevision()
         => new JsonResult(_getConfiguration()?.ConfigurationRevision);
 
+    [HttpGet("GenerationStatus")]
+    public Task<MetaTaggerGenerationStatus> GetGenerationStatusAsync(CancellationToken cancellationToken)
+        => Runner.GetGenerationStatusAsync(cancellationToken);
+
     [HttpGet("Runs")]
     public Task<IReadOnlyList<MetaTaggerRunRecord>> GetRunsAsync(CancellationToken cancellationToken)
         => _stateStore.LoadRunsAsync(cancellationToken);

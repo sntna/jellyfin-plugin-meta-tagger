@@ -548,11 +548,19 @@ public sealed partial class MetaTaggerRunnerTests
 
     private sealed class PersistedConfigurationHost(Plugin plugin, IReadOnlyList<BaseItem> items) : IMetaTaggerHost
     {
+        public Action? BeforeQuery { get; set; }
+
         public PluginConfiguration GetConfiguration() => plugin.Configuration;
 
+        public InstallationState SaveGenerationState(Guid installationId, GenerationState generation)
+            => plugin.SaveGenerationState(installationId, generation);
+
         public IReadOnlyList<BaseItem> GetItems(BaseItemKind[] includedItemTypes)
-            => items.Where(item => includedItemTypes.Length == 0
+        {
+            BeforeQuery?.Invoke();
+            return items.Where(item => includedItemTypes.Length == 0
                 || includedItemTypes.Any(type => type.ToString() == item.GetType().Name)).ToArray();
+        }
 
         public BaseItem? GetItem(Guid itemId) => items.FirstOrDefault(item => item.Id == itemId);
 
@@ -604,9 +612,12 @@ public sealed partial class MetaTaggerRunnerTests
     {
         public int Writes { get; private set; }
 
+        public bool FailWrites { get; set; }
+
         public override Task UpdateToRepositoryAsync(ItemUpdateType updateReason, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (FailWrites) { throw new IOException("Injected Jellyfin item write failure."); }
             Writes++;
             return Task.CompletedTask;
         }

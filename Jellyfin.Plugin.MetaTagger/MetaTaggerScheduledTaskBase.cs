@@ -22,6 +22,8 @@ public abstract class MetaTaggerScheduledTaskBase : IScheduledTask
 
     private protected MetaTaggerRunner Runner => _runner;
 
+    protected virtual bool AuthorizesBackfill => false;
+
     public Task ExecuteAsync(IProgress<double> progress, CancellationToken cancellationToken)
     {
         return ExecuteRunnerAsync(progress, cancellationToken);
@@ -36,7 +38,8 @@ public abstract class MetaTaggerScheduledTaskBase : IScheduledTask
     {
         var options = CreateOptions();
         if (options is not null) { options.Invocation = Key; }
-        return _runner.RunAsync(progress, cancellationToken, options);
+        return options is null ? _runner.RunAsync(progress, cancellationToken)
+            : _runner.RunTaskAsync(progress, cancellationToken, options, AuthorizesBackfill);
     }
 
     protected abstract MetaTaggerRunOptions? CreateOptions();

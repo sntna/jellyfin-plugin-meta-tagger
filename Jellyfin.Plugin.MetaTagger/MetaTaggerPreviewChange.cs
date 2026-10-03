@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Jellyfin.Plugin.MetaTagger;
 
 public sealed class MetaTaggerPreviewChange
@@ -9,6 +11,9 @@ public sealed class MetaTaggerPreviewChange
     public string? ItemPath { get; init; }
 
     public string? ItemType { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? GenerationEligibility { get; init; }
 
     public IReadOnlyCollection<string> AddedTags { get; init; } = [];
 

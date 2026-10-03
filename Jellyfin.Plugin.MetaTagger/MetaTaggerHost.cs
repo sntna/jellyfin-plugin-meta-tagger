@@ -82,6 +82,9 @@ internal interface IMetaTaggerHost
 {
     PluginConfiguration GetConfiguration();
 
+    InstallationState SaveGenerationState(Guid installationId, GenerationState generation)
+        => throw new InvalidOperationException("Generation state persistence is unavailable.");
+
     IReadOnlyList<BaseItem> GetItems(BaseItemKind[] includedItemTypes);
 
     BaseItem? GetItem(Guid itemId);
@@ -106,6 +109,10 @@ internal sealed class JellyfinMetaTaggerHost : IMetaTaggerHost
 {
     private readonly ILibraryManager _libraryManager;
     private readonly IMediaSourceManager? _mediaSourceManager;
+
+    public InstallationState SaveGenerationState(Guid installationId, GenerationState generation)
+        => (Plugin.Instance ?? throw new InvalidOperationException("The installation is unavailable."))
+            .SaveGenerationState(installationId, generation);
 
     public JellyfinMetaTaggerHost(ILibraryManager libraryManager, IMediaSourceManager? mediaSourceManager = null)
     {
