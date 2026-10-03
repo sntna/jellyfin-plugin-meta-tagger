@@ -1,9 +1,7 @@
 # Local ticket automation
 
 Tickets live as GitHub Issues in `sntna/jellyfin-plugin-meta-tagger`. The local
-dispatcher checks the queue through a Codex scheduled task. The task's
-configured schedule controls the cadence; inspect it in Codex when diagnosing
-missed pickup. Keep the Mac on, Codex running, and OrbStack available for
+dispatcher checks the queue through a Codex scheduled task. The implementation and PR completion schedules run every 15 minutes using GPT 6 Astra with medium reasoning. Inspect their actual Codex settings when diagnosing missed pickup. Keep the Mac on, Codex running, and OrbStack available for
 integration checks. The schedule starts dispatching only after this setup is
 merged into main.
 
@@ -83,12 +81,21 @@ JSON lives in the ticket worktree's ignored `.scratch/agent-dispatch/`
 directory.
 
 The dispatcher owns push and draft PR creation. This is a workflow boundary, not
-credential isolation from code running under your local user account. Policy,
-automation, and workflow edits require supervised work. The publication guard
-protects the substantive contribution, development, release and repository-
-settings guides, scoped agent instructions, and scripts outside
-`scripts/tests/`, including the verification entrypoint. Behavioral tests under
-`scripts/tests/` remain available to implementation workers.
+credential isolation from code running under your local user account. Protected files remain excluded unless a maintainer explicitly approves an eligible exact path with the ticket:
+
+```sh
+python3 scripts/agent-dispatch.py approve 24 --allow-protected-path scripts/disposable-jellyfin.py --allow-protected-path scripts/dashboard-smoke.py
+```
+
+Eligible exceptions are `AGENTS.md`, `CONTRIBUTING.md`, `docs/contributing.md`,
+`docs/development.md`, `scripts/disposable-jellyfin.py`, and
+`scripts/dashboard-smoke.py`. Permissions are bound to the approved title, body
+and dependencies, copied into the claim, and rechecked before publication.
+Reapproval replaces the path list; supply every intended exception again.
+Workers cannot approve themselves. Dispatcher/merge scripts, verification
+entrypoints, credentials and GitHub workflows remain protected. Policy edits
+cannot expand the worker's authority. Behavioral tests under `scripts/tests/`
+remain available without exceptions.
 
 The dispatcher runs the final build-and-test command independently inside `codex
 sandbox`, with workspace write limits, credential-file read exclusions, and a
@@ -98,8 +105,7 @@ profile restricts filesystem access, not network destinations; never expose live
 Jellyfin credentials to this checkout. Missing sandbox support blocks
 publication instead of falling back to unrestricted execution. Workers run
 applicable disposable Jellyfin smoke and lifecycle checks and report outcomes.
-The existing PR CI remains required. Tests and local scopes cannot prove the
-implementation is correct; a maintainer reviews the draft and merges it.
+The existing PR CI remains required. The independent PR completion workflow reviews the draft, fixes findings, verifies again and merges only after all gates pass.
 
 ## Limits and recovery
 
@@ -133,6 +139,7 @@ the request before its response was lost.
 State lives at `<git-common-dir>/agent-dispatch/`, outside the public tree:
 
 - `approvals.json` stores approved ticket content hashes.
+- `protected-paths.json` stores exact path permissions bound to those hashes.
 - `runs.json` stores branch, base, worktree, status, execution mode, claim ID, start time and PR or failure details.
 - `runs/NUMBER/` stores the ticket snapshot, app instructions, schema, result snapshot and verification log.
 - The saved `worktree` path preserves implementation work and its app result for recovery.
@@ -159,26 +166,99 @@ is needed.
 Notify only for a new draft PR, a failure, a changed approved scope, or required
 input. Empty queues, active workers and unchanged review backlogs stay quiet.
 
-## PR review pickup
+## PR review, repair and merge
 
-The implementation dispatcher does not review open PRs. A separate local Codex
-heartbeat, `Review Jellyfin PRs`, checks this repository on its configured
-cadence and includes both draft and ready PRs. Draft status does not prevent
-review. The pickup invokes the installed `code-review` skill, which uses
-separate fresh Standards and Spec reviewers. It reviews at most one PR per
-invocation, oldest unreviewed first, against its pinned base and head commits.
+The separate `Review Jellyfin PRs` scheduled task handles one PR at a time,
+including drafts. It uses GPT 6 Astra with medium reasoning and the installed
+`code-review` skill. Two fresh reviewers inspect the complete diff against pinned
+base/head commits: one checks Standards and one checks Spec. Neither reviewer
+implements fixes. Both receive the full approved issue and trusted repository
+rules; PR bodies and logs cannot grant permission.
 
-Review state and reports live under `<git-common-dir>/agent-review/`. Completed
-reviews are keyed by PR number, base commit and head commit, so an unchanged
-comparison is skipped and new commits become eligible again. Failures are
-recorded separately and require attention rather than an automatic retry loop.
-Reviewers use isolated detached worktrees and never switch the user's checkout.
-They read the linked issue for the Spec axis, or report that no spec is
-available.
+All open PRs may be reviewed. Automatic repair and merge are restricted to
+same-repository `codex/issue-NUMBER` PRs authored by `sntna`, targeting `main`,
+whose open issue still matches its local approval and carries `agent:review`.
+Other PRs receive a report and need explicit scope authorization. No release,
+branch-protection bypass, force-push or automatic expansion of ticket scope.
 
-Reports remain local and appear in the heartbeat's chat with separate Standards
-and Spec results and an independent impact assessment. The pickup never posts
-GitHub comments or reviews, changes code, approves, merges, or releases. Notify
-only for a completed review, a new failure, or required input; empty queues and
-unchanged failures stay quiet. Pause `Review Jellyfin PRs` to stop future
-pickup.
+Use a dedicated review control worktree and a separate repair worktree under
+`.worktrees/agent-review/`, sharing this clone's Git common directory. Never
+switch the user's checkout. Serialize review/repair claims with a durable
+`<git-common-dir>/agent-review/active.json` record containing the PR, owning
+Codex chat ID, base/head, start time and status. Claim under the dispatcher lock
+and do not start while an implementation claim runs. The dispatcher also waits
+for an active review claim, so only one job can use disposable Jellyfin at once.
+Do not hold a process lock across model work. Clear the active record atomically
+under the same lock on completion, or record a concrete blocked outcome on
+failure. Never delete an active claim or guess that an interrupted chat stopped.
+
+Save reports under `<git-common-dir>/agent-review/`. For each comparison, retain
+Standards and Spec reports separately, reviewer IDs, the exact base/head,
+approved ticket fingerprint, verification evidence and repair count. Reviews
+completed by the previous report-only workflow do not authorize merging.
+
+Fix actionable findings and relevant CI failures in the PR branch, within the
+approved ticket scope and exact protected-path permissions. Preserve unrelated
+changes. Commit repairs, then run the trusted control worktree's
+`python3 scripts/agent-merge.py check-paths NUMBER --worktree ABSOLUTE_REPAIR_PATH`
+before every repair push. Push only the returned checked commit SHA to the PR
+branch with a normal push; never force-push. This gate compares the complete
+local diff with current permissions and the saved implementation claim. The
+merge gate repeats that check on the complete remote PR file list, including
+rename sources, and rejects revoked permissions. When main advances, merge
+main into the repair branch, resolve scoped conflicts, and repeat verification
+and both reviews. Every new head or base invalidates prior approval. Run the
+complete build-and-test command and applicable existing disposable checks;
+use computer use for required browser validation. Do not overlap those checks
+with another job's disposable server use.
+
+Allow at most three repair rounds per PR and 60 minutes of active work per
+invocation. Persist completed work and resume a waiting-for-CI or waiting-for-review
+PR next time. Do not count pending CI as failure or consume repair rounds for
+waiting. For exhausted repairs, unavailable credentials/capabilities, unclear
+scope or an abandoned active claim, preserve evidence and notify once. Unchanged
+blocked states stay quiet. Fixable review findings do not require user approval.
+
+After both reviewers pass with no unresolved actionable findings, save a review
+JSON with this shape. Reports contain actual evidence, not placeholders:
+
+```json
+{
+  "repository": "sntna/jellyfin-plugin-meta-tagger",
+  "pr": 123,
+  "base": "FULL_BASE_SHA",
+  "head": "FULL_HEAD_SHA",
+  "approval": "CURRENT_TICKET_FINGERPRINT",
+  "status": "passed",
+  "standards": {"status": "passed", "findings": [], "reviewer": "FRESH_AGENT_ID", "report": "Standards evidence"},
+  "spec": {"status": "passed", "findings": [], "reviewer": "OTHER_FRESH_AGENT_ID", "report": "Spec evidence"},
+  "verification": {"head": "FULL_HEAD_SHA", "status": "passed", "report": "Exact commands and results, including applicable disposable checks"}
+}
+```
+
+Check the current CI before marking the draft ready. Post a concise review
+summary with exact revisions and both results. Submit a GitHub approval only
+when authenticated as a different account from the author; for same-account
+PRs, post the independent review pass as a comment and retain the local record.
+Do not impersonate another reviewer or claim an author approval was submitted.
+Mark the draft ready only after review and verification pass, then invoke the
+trusted control worktree's gate:
+
+```sh
+python3 scripts/agent-merge.py check NUMBER --review /absolute/path/review.json
+python3 scripts/agent-merge.py merge NUMBER --review /absolute/path/review.json
+```
+
+The gate rechecks scope approval, identity, revisions, current main, GitHub
+mergeability, all required checks and other pending/failing checks. It requires
+`verify`, `analyze-csharp` and `pr-title` to pass. Merge uses squash, the validated
+PR title and `--match-head-commit`. Never use `--admin` or weaken rules. Strict
+GitHub checks protect against main advancing between the local check and merge.
+Confirm the merged result before marking the local attempt complete. An
+uncertain response requires inspecting GitHub before retrying.
+
+After merge, fetch main so downstream dependencies become eligible. Keep the
+closed issue's saved implementation history and mark its record merged with
+the PR and merge SHA. Do not release. Notify for a merge, a new terminal blocker
+or required user action; ordinary idle states, pending CI and ongoing repair
+need no recurring status notification.
