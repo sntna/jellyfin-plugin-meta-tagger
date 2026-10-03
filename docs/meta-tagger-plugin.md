@@ -24,13 +24,13 @@ The plugin does not generate interpreted policy tags such as `audience:kids`,
 1. Leave **Preview scheduled and post-scan runs** selected.
 2. Choose the Jellyfin details and item types you want to tag.
 3. Save the settings.
-4. Select **Preview tag changes** in Meta Tagger. It always previews the saved item types
-   across all libraries without changing tags and opens **Preview results** when results arrive.
-5. Use a preview item's **Preview this item** action, preview its current changes, confirm
-   them, and apply to that item.
-   An approval lasts 15 minutes and requires a new preview if relevant data
-   changes. Library-wide **Apply metadata tag changes** remains available in
-   Jellyfin **Scheduled Tasks**.
+4. Optionally select **Check changes first** to preview configured item types across
+   all libraries without changing tags.
+5. Select **Apply tags now** for that scope, or select one item in **Browse items**
+   and use **Apply tags now to this item**. No preview or confirmation is required.
+   Apply recalculates current metadata and saved rules. **Stop item run** also cancels
+   queued item work. **Save & apply tags now** saves the submitted draft before
+   library-wide Apply; failed saves prevent generation.
 
 **Overview** shows the latest run, saved tagging settings, scheduled run action,
 and post-scan settings. **Preview results** shows the latest generation

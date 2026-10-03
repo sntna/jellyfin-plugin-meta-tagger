@@ -3,9 +3,9 @@
 Meta Tagger has six primary destinations inside Jellyfin's dashboard:
 
 - **Overview** shows the latest run and saved settings, including the scheduled
-  run action and whether post-scan runs are on. **Preview tag changes** always previews
-  the selected item types across all libraries without saving tags.
-  **Stop preview** requests cancellation. **Edit settings** opens Settings.
+  run action and whether post-scan runs are on. **Apply tags now** processes configured
+  item types across all libraries. **Check changes first** is optional and writes no tags.
+  **Stop run** requests cancellation. **Edit settings** opens Settings.
 - **Preview results** opens the latest available generation-preview differences. Its date,
   run identity, settings freshness, and incomplete or unavailable details remain
   visible. A later Apply or cleanup run does not replace these differences with
@@ -14,9 +14,11 @@ Meta Tagger has six primary destinations inside Jellyfin's dashboard:
 - **Browse items** opens search, library filtering, pages of 25, and the item
   inspector. The visible **Filter** dropdown filters preview status and applies
   only to the loaded page. A preview item's **Preview this item** action selects that item.
-  Selecting an item automatically requests a fresh preview using saved settings.
-  Confirmation becomes available only with a current approval; Apply requires
-  selecting the confirmation checkbox. Unsaved settings must be saved first.
+  Selecting an item does not start a check. **Apply tags now to this item** recalculates
+  its tags from current metadata and saved settings without a preview or confirmation.
+  **Check changes first** optionally shows proposed tag changes. **Stop item run**
+  cancels this request even while it waits behind another run. Progress and the final
+  saved-write count appear beside the action. Unsaved settings must be saved first.
 - **History** shows recorded runs and item results in separate scrolling lists.
   Selecting a run keeps keyboard focus and list position on that run.
   Counts appear separately from status guidance. Preview results and history items include thumbnails.
@@ -44,13 +46,15 @@ and confirmation; leaving Maintenance clears that confirmation. In Browse items,
 **Preview tag removal** opens the removal destination with the selected item and
 requests its removal list. **Remove listed tags** requires separate confirmation.
 
-For library-wide changes, use the visible **Apply changes across all libraries**
-section in Preview results, then **Scheduled Tasks** and choose **Apply metadata tag changes**. The link
-only navigates. That task uses current saved settings and current metadata for
-selected item types across all libraries, subject to protections and run limits.
-It can write tags even when the default action is Preview. Save draft edits first.
-A recorded preview does not authorize this task. Runs after library scans being
-Off does not disable triggers configured separately in Jellyfin Scheduled Tasks.
+For library-wide changes, use **Apply tags now** at the top of the page. It uses
+current saved settings and metadata for configured item types across all libraries,
+subject to protections and run limits. A browsing library filter never narrows this scope.
+**Save & apply tags now** saves the submitted settings first; a failed save prevents
+Apply. Edits made while saving remain a separate unsaved draft. **Check changes first**
+never saves a draft or enables automatic Apply. Jellyfin's **Apply metadata tag changes**
+scheduled task remains available. Explicit Apply can write tags even when automatic
+runs use Preview. Recorded checks and history never authorize writes. Post-scan being
+Off does not disable separate Jellyfin task triggers.
 
 Switching destinations preserves draft edits. Save before running a preview.
 New installations enable genres, parental rating, and audio languages for movies and series. Other sources, episodes, and generic videos start off. Existing saved selections are preserved.
@@ -72,9 +76,10 @@ The main labels distinguish differences from saved changes:
 Checkbox instructions use **select** and **clear**. Saved setting states use
 **On** and **Off**. **Disabled** means a control cannot currently be used.
 
-An item preview can be confirmed and applied once, within 15 minutes. A server
-restart or changes to the item's metadata, tags, locks, plugin tag records, or
-settings require a new preview. Apply rechecks the item before saving. If an
-update cannot be confirmed, check the item and preview again before retrying.
+Item checks are read-only and expire as evidence whenever metadata or settings change.
+Apply always recalculates current data. Item run IDs identify cancellation and status;
+an old run cannot cancel a newer one. Reloading the page recovers the most recent
+retained item run. After a server restart, use History if its live status is unavailable.
+If a write or ownership checkpoint cannot be confirmed, inspect the item before retrying.
 
 See the [settings guide](meta-tagger-plugin.md) for configuration and tag removal.

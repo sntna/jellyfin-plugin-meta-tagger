@@ -38,13 +38,14 @@ Jellyfin. Do not copy the ZIP itself into the plugin directory.
 1. Open Meta Tagger in Jellyfin's plugin settings.
 2. Choose your metadata sources and item types, then save. Leave
    **Preview scheduled and post-scan runs** selected while trying the plugin.
-3. Select **Preview tag changes** to review differences without saving tags.
-4. Choose an item, select **Preview this item**, review its current changes,
-   then confirm and apply them.
+3. Optionally select **Check changes first** to review proposed changes without saving tags.
+4. Select **Apply tags now** for configured item types across all libraries, or
+   choose one item in **Browse items** and use **Apply tags now to this item**.
 
-To apply across your libraries, use **Apply metadata tag changes** in Jellyfin's
-**Scheduled Tasks**. This task writes tags using your saved settings even when
-scheduled and post-scan runs default to Preview. Save any draft settings first.
+Apply recalculates current metadata and saved settings without requiring a preview
+or confirmation. **Save & apply tags now** saves your submitted settings first.
+Explicit Apply writes tags even when automatic runs default to Preview. Use
+**Stop run** or **Stop item run** to request cancellation.
 
 Automatic runs after library scans start off. Once you're happy with previews,
 you can configure automation and run limits in Settings.

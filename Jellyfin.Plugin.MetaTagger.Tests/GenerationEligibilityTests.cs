@@ -11,6 +11,22 @@ namespace Jellyfin.Plugin.MetaTagger.Tests;
 
 public sealed partial class MetaTaggerRunnerTests
 {
+    [Fact]
+    public async Task Generation_DirectItemApply_RecalculatesCurrentDataAndAuthorizesOnlyTarget()
+    {
+        var plugin = CreateFreshGenerationPlugin();
+        var target = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"], Tags = ["Favorites"] };
+        var other = new Movie { Id = Guid.NewGuid(), Genres = ["Comedy"] };
+        var runner = CreateRunner(new PersistedConfigurationHost(plugin, [target, other]));
+        var result = await runner.ApplyItemAsync(target.Id, CancellationToken.None);
+        Assert.Equal(1, result.WritesApplied);
+        Assert.Equal(["Favorites", "meta:genre:drama"], target.Tags);
+        Assert.Empty(other.Tags);
+        var status = await runner.GetGenerationStatusAsync(CancellationToken.None);
+        Assert.Equal([target.Id.ToString("N")], status.AuthorizedItemIds);
+        Assert.Empty(status.AuthorizedItemTypes);
+    }
+
     [Theory]
     [InlineData("bulk")]
     [InlineData("item")]
@@ -89,7 +105,7 @@ public sealed partial class MetaTaggerRunnerTests
         var runner = CreateRunner(new PersistedConfigurationHost(plugin, [first, second]), store);
         await new PreviewMetadataTagTask(runner).ExecuteAsync(new NoOpProgress(), CancellationToken.None);
         var preview = await runner.PreviewItemAsync(second.Id, CancellationToken.None);
-        await runner.ApplyItemAsync(second.Id, preview.Token!, CancellationToken.None);
+        await runner.ApplyItemAsync(second.Id, CancellationToken.None);
         await new PreviewMetadataTagTask(runner).ExecuteAsync(new NoOpProgress(), CancellationToken.None);
 
         var entry = (await store.LoadRunsAsync(CancellationToken.None)).First();
@@ -123,7 +139,6 @@ public sealed partial class MetaTaggerRunnerTests
     }
 
     [Theory]
-    [InlineData("token")]
     [InlineData("scope")]
     [InlineData("lock")]
     [InlineData("persistence")]
@@ -141,7 +156,7 @@ public sealed partial class MetaTaggerRunnerTests
         }
         if (failure == "lock") { movie.IsLocked = true; }
         if (failure == "persistence") { serializer.FailWrites = true; }
-        var apply = runner.ApplyItemAsync(movie.Id, failure == "token" ? "invalid" : preview.Token!, CancellationToken.None);
+        var apply = runner.ApplyItemAsync(movie.Id, CancellationToken.None);
         if (failure == "persistence") { await Assert.ThrowsAsync<IOException>(() => apply); }
         else { await Assert.ThrowsAsync<InvalidOperationException>(() => apply); }
         serializer.FailWrites = false;
@@ -500,7 +515,7 @@ public sealed partial class MetaTaggerRunnerTests
         var items = new List<BaseItem> { target, other };
         var runner = CreateRunner(new PersistedConfigurationHost(plugin, items));
         var preview = await runner.PreviewItemAsync(target.Id, CancellationToken.None);
-        await runner.ApplyItemAsync(target.Id, preview.Token!, CancellationToken.None);
+        await runner.ApplyItemAsync(target.Id, CancellationToken.None);
 
         target.Genres = ["Family"];
         plugin = CreatePersistedPlugin();

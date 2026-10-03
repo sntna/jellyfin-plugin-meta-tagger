@@ -6,6 +6,7 @@ import importlib.util
 import json
 import pathlib
 import secrets
+import time
 import urllib.parse
 import urllib.request
 
@@ -92,7 +93,11 @@ def main():
                      ("/MetaTagger/Runs", None, "GET"), (f"/MetaTagger/Items/{movie_id}", None, "GET"),
                      ("/MetaTagger/Example", {"ItemId": movie_id, "Configuration": original_config}, "POST"),
                      (f"/MetaTagger/Items/{movie_id}/Preview", {}, "POST"),
-                     (f"/MetaTagger/Items/{movie_id}/Apply", {"Token": "invalid"}, "POST"),
+                     (f"/MetaTagger/Items/{movie_id}/Apply", {}, "POST"),
+                     (f"/MetaTagger/Items/{movie_id}/ApplyRuns", {}, "POST"),
+                     ("/MetaTagger/ItemRuns/Current", None, "GET"),
+                     ("/MetaTagger/ItemRuns/00000000-0000-0000-0000-000000000000", None, "GET"),
+                     ("/MetaTagger/ItemRuns/00000000-0000-0000-0000-000000000000", None, "DELETE"),
                      ("/MetaTagger/Cleanup/Preview", {"ItemId": movie_id}, "POST"),
                      ("/MetaTagger/Cleanup/Apply", {"Token": "invalid"}, "POST")]
         task = next(task for task in server.api("/ScheduledTasks") if task["Key"] == "MetaTaggerPreviewTags")
@@ -123,8 +128,8 @@ def main():
         assert not example.get("Token") and any(tag.startswith("ui-check:genre:") for tag in example["GeneratedTags"])
         assert not server.api(config_path)["EnableGenres"] and server.tags() == before
         preview = server.api(f"/MetaTagger/Items/{movie_id}/Preview", {})
-        assert preview["Token"] and server.tags() == before
-        server.api(f"/MetaTagger/Items/{movie_id}/Apply", {"Token": preview["Token"]})
+        assert not preview.get("Token") and server.tags() == before
+        server.api(f"/MetaTagger/Items/{movie_id}/Apply", {})
         server.update_item(movie_id, Name="Dune <literal text>", Genres=["Science Fiction"], OfficialRating="PG-13", CustomRating=None,
                            ProductionYear=2024, Tags=["Favorites", "manual:tagger:force", "ui-check:year:2023"])
         config = server.configure(EnableGenres=True, EnableParentalRating=True, StaleTagMode="Remove")
@@ -136,11 +141,10 @@ def main():
         assert preview["PreservedTags"] == ["Favorites"] and preview["ManualTags"] == ["manual:tagger:force"]
         assert server.tags() == before
         other_id = next(key for key in before if key != movie_id)
-        server.denied(f"/MetaTagger/Items/{other_id}/Apply", {"Token": preview["Token"]}, status=409)
         preview = server.api(f"/MetaTagger/Items/{movie_id}/Preview", {})
-        applied = server.api(f"/MetaTagger/Items/{movie_id}/Apply", {"Token": preview["Token"]})
+        applied = server.api(f"/MetaTagger/Items/{movie_id}/Apply", {})
         assert applied["WritesApplied"] == 1
-        server.denied(f"/MetaTagger/Items/{movie_id}/Apply", {"Token": preview["Token"]}, status=409)
+        assert server.api(f"/MetaTagger/Items/{movie_id}/Apply", {})["WritesApplied"] == 0
         after = server.tags()
         assert after[movie_id] == sorted(["Favorites", "manual:tagger:force"] + preview["AddedTags"])
         assert all(after[key] == tags for key, tags in before.items() if key != movie_id)
@@ -157,7 +161,7 @@ def main():
         assert restoration["AddedTags"] == [missing_tag]
         assert "edited-genre" in restoration["PreservedTags"]
         assert server.tags() == before_restore
-        server.api(f"/MetaTagger/Items/{movie_id}/Apply", {"Token": restoration["Token"]})
+        server.api(f"/MetaTagger/Items/{movie_id}/Apply", {})
         assert not server.api(f"/MetaTagger/Items/{movie_id}")["MissingRecordedTags"]
         server.update_item(movie_id, Tags=after[movie_id])
         passed("missing recorded tag preview is read-only, Apply restores it, and inspection refreshes")
@@ -165,13 +169,45 @@ def main():
         server.update_item(movie_id, ProductionYear=2025)
         preview = server.api(f"/MetaTagger/Items/{movie_id}/Preview", {})
         server.update_item(movie_id, ProductionYear=2026)
-        server.denied(f"/MetaTagger/Items/{movie_id}/Apply", {"Token": preview["Token"]}, status=409)
-        assert server.tags() == after
+        assert server.api(f"/MetaTagger/Items/{movie_id}/Apply", {})["WritesApplied"] == 1
+        assert "ui-check:year:2026" in server.tags()[movie_id]
+        assert "ui-check:year:2025" not in server.tags()[movie_id]
         server.update_item(movie_id, LockData=True)
         locked = server.api(f"/MetaTagger/Items/{movie_id}/Preview", {})
         assert locked["Status"] == "Protected" and not locked.get("Token")
+        server.denied(f"/MetaTagger/Items/{movie_id}/Apply", {}, status=409)
         server.update_item(movie_id, LockData=False)
-        passed("stale metadata and full metadata locks reject item writes")
+        passed("Apply recalculates current metadata and full metadata locks reject item writes")
+
+        server.configure(WriteDelayMilliseconds=10000)
+        server.update_item(movie_id, ProductionYear=2027)
+        before_job = server.tags()
+        authorization = server.api("/MetaTagger/GenerationStatus")
+        job = server.api(f"/MetaTagger/Items/{movie_id}/ApplyRuns", {})
+        run_path = "/MetaTagger/ItemRuns/" + job["RunId"]
+        server.denied(f"/MetaTagger/Items/{movie_id}/ApplyRuns", {}, status=409)
+        deadline = time.monotonic() + 5
+        while "ui-check:year:2027" not in server.tags()[movie_id]:
+            assert time.monotonic() < deadline, "Item generation did not write within its smoke-test bound"
+            time.sleep(0.05)
+        server.api(run_path, method="DELETE")
+        deadline = time.monotonic() + 5
+        while True:
+            final = server.api(run_path)
+            if final.get("Summary") is not None:
+                break
+            assert time.monotonic() < deadline, "Item generation did not finish cancellation"
+            time.sleep(0.05)
+        assert final["State"] == "Cancelled" and final["Summary"]["WritesApplied"] == 1
+        assert server.api("/MetaTagger/ItemRuns/Current")["RunId"] == job["RunId"]
+        server.denied(run_path, method="DELETE", status=404)
+        after_job = server.tags()
+        assert all(after_job[key] == tags for key, tags in before_job.items() if key != movie_id)
+        after_authorization = server.api("/MetaTagger/GenerationStatus")
+        assert after_authorization["AuthorizedItemTypes"] == authorization["AuthorizedItemTypes"]
+        assert set(after_authorization["AuthorizedItemIds"]) - set(authorization["AuthorizedItemIds"]) <= {movie_id.replace("-", "")}
+        server.configure(WriteDelayMilliseconds=0)
+        passed("item run rejects duplicate starts, cancels after a confirmed write, and preserves target-only authorization")
 
         for preview_only in (True, False):
             server.configure(PreviewOnly=preview_only)

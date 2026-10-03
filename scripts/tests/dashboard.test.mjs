@@ -150,6 +150,7 @@ function dashboard() {
         sent(kind) { return requests.filter(request => request.kind === kind || request.kind.startsWith(kind + "?")); },
         async open(configuration = {}) {
             await this.event('MetaTaggerConfigPage', 'pageshow');
+            await this.respond('MetaTagger/ItemRuns/Current', null);
             await this.respond('load-settings', {
                 GeneratedTagPrefix: 'meta', ManualTagPrefix: 'manual', TagSeparator: ':',
                 IsEnabled: true, ConfigurationRevision: 'revision', IncludeMovies: true, PreviewOnly: true, DefaultRunMode: 'Incremental', StaleTagMode: 'Keep', ...configuration
@@ -515,28 +516,30 @@ for (const previewOnly of [true, false]) {
     });
 }
 
-test('item Apply requires its own preview and confirmation and submits only one opaque approval', async () => {
+test('item Apply submits no approval and prevents duplicate starts', async () => {
     const page = await readyDashboard();
     await page.event('ItemSearch', 'keydown', { key: 'Enter' });
     await page.respond('MetaTagger/Items', { totalCount: 1, items: [{ itemId: 'movie', name: 'Dune', itemType: 'Movie' }] });
     await page.activate(page.element('ItemList').children[0]);
-    assert.equal(page.element('ApplyItemButton').textContent, 'Apply changes to this item');
-    assert.equal(page.element('ApplyItemButton').disabled, true);
+    await page.click('PreviewItemButton');
+    assert.equal(page.element('ApplyItemButton').textContent, 'Apply tags now to this item');
+    assert.equal(page.element('ApplyItemButton').disabled, false);
     await page.click('PreviewItemButton');
     await page.respond('MetaTagger/Items/movie/Preview', { token: 'dune-approval', addedTags: ['meta:genre:science-fiction'],
         removedTags: ['meta:year:2023'], preservedTags: ['Favorites'], manualTags: ['manual:tagger:force'],
         sources: [{ tag: 'meta:rating:pg-13', source: 'rating', values: ['PG-13'] }] });
     assert.match(page.element('InspectorDetails').textContent, /Tags to add.*meta:genre:science-fiction/);
     assert.match(page.element('InspectorDetails').textContent, /from Parental rating: PG-13/);
-    assert.equal(page.element('ApplyItemButton').disabled, true);
-    page.element('ConfirmItem').checked = true;
-    await page.event('ConfirmItem', 'change');
+    assert.equal(page.element('ApplyItemButton').disabled, false);
     await page.click('ApplyItemButton');
     await page.click('ApplyItemButton');
-    assert.equal(page.sent('MetaTagger/Items/movie/Apply').length, 1);
-    assert.deepEqual(page.sent('MetaTagger/Items/movie/Apply')[0].body, { token: 'dune-approval' });
-    await page.respond('MetaTagger/Items/movie/Apply', { writesApplied: 1 });
-    assert.equal(page.element('ApplyItemButton').disabled, true);
+    assert.equal(page.sent('MetaTagger/Items/movie/ApplyRuns').length, 1);
+    assert.deepEqual(page.sent('MetaTagger/Items/movie/ApplyRuns')[0].body, {});
+    await page.respond('MetaTagger/Items/movie/ApplyRuns', { runId: 'item-run', itemId: 'movie', state: 'Queued' });
+    await page.tick();
+    await page.respond('MetaTagger/ItemRuns/item-run', { runId: 'item-run', itemId: 'movie', state: 'Completed', summary: { outcome: 'Completed', writesApplied: 1 } });
+    await page.click('PreviewItemButton');
+    assert.equal(page.element('ApplyItemButton').disabled, false);
     await page.respond('MetaTagger/Items/movie/Preview', { name: 'Dune', status: 'Up to date', ownedTags: ['meta:genre:science-fiction'] });
     assert.match(page.element('InspectorDetails').textContent, /meta:genre:science-fiction/);
     await page.click('ClearItemButton');
@@ -633,7 +636,7 @@ test('settings edits during an outstanding task poll still show task completion 
     await page.edit('EnableGenres', false);
     pending.resolve({ State: 'Idle', LastExecutionResult: { StartTimeUtc: '2026-09-13T12:00:00Z', EndTimeUtc: '2026-09-13T12:00:02Z', Status: 'Completed' } });
     await page.event('EnableGenres', 'blur');
-    assert.match(page.element('TaskFeedback').textContent, /older settings/);
+    assert.match(page.element('TaskFeedback').textContent, /later edits remain unsaved/);
     assert.equal(page.element('StopPreviewButton').disabled, true);
     assert.equal(page.element('PanelReview').hidden, true);
 });
@@ -650,7 +653,7 @@ test('editing settings after dispatching a task launch still starts lifecycle po
     await page.respond('ScheduledTasks/task', { State: 'Idle', LastExecutionResult: {
         StartTimeUtc: '2026-09-13T12:00:00Z', EndTimeUtc: '2026-09-13T12:00:02Z', Status: 'Completed'
     } });
-    assert.match(page.element('TaskFeedback').textContent, /older settings/);
+    assert.match(page.element('TaskFeedback').textContent, /later edits remain unsaved/);
     assert.equal(page.element('StopPreviewButton').disabled, true);
 });
 
@@ -923,7 +926,7 @@ test('saved run action stays explicit and editing settings or opening Scheduled 
     await page.click('OpenScheduledTasks');
     assert.equal(page.sent('save-settings').length, 0);
     assert.equal(page.sent('ScheduledTasks').length, 0);
-    assert.equal(page.sent('MetaTagger/Items/movie/Apply').length, 0);
+    assert.equal(page.sent('MetaTagger/Items/movie/ApplyRuns').length, 0);
     await page.edit('IsEnabled', false);
     await page.event('MetaTaggerConfigForm', 'submit');
     await page.respond('load-settings', {});
@@ -996,6 +999,7 @@ test('a preview Inspect action targets its own item without borrowing history ap
     const inspect = article.children.find(child => child.textContent === 'Preview this item');
     assert.ok(inspect, 'preview item offers inspection');
     await page.activate(inspect);
+    await page.click('PreviewItemButton');
     assert.equal(page.element('InspectionPanel').hidden, false);
     assert.equal(page.element('PanelReview').hidden, true);
     assert.equal(page.element('InspectorHeading').textContent, 'Old preview');
@@ -1003,7 +1007,7 @@ test('a preview Inspect action targets its own item without borrowing history ap
     await page.respond('MetaTagger/Items/movie/Preview', { status: 'Unavailable', reason: 'This item was deleted or is unavailable.' });
     assert.match(page.element('InspectorFeedback').textContent, /deleted or is unavailable/);
     assert.equal(page.element('ApplyItemButton').disabled, true);
-    assert.equal(page.element('ConfirmItem').disabled, true);
+    assert.equal(page.element('ApplyItemButton').disabled, true);
     assert.equal(page.sent('MetaTagger/Items/movie/Preview').length, 1);
 });
 
@@ -1164,45 +1168,46 @@ test('page removal cancels example work even when Jellyfin detaches the page bef
     assert.doesNotMatch(page.element('ExampleTags').textContent, /obsolete/);
 });
 
-test('opening a Review item automatically previews it and requires explicit confirmation', async () => {
+test('an explicit item check permits token-free Apply', async () => {
     const page = await readyDashboard();
     await page.activate(page.element('PreviewChanges').children[0].children.at(-1));
-    assert.equal(page.element('ConfirmItem').disabled, true);
-    assert.equal(page.element('ApplyItemButton').disabled, true);
+    await page.click('PreviewItemButton');
+    assert.equal(page.element('ApplyItemButton').disabled, false);
+    assert.equal(page.element('ApplyItemButton').disabled, false);
     await page.respond('MetaTagger/Items/movie/Preview', { token: 'fresh-review', addedTags: ['meta:genre:drama'] });
-    assert.equal(page.element('ConfirmItem').disabled, false);
-    assert.equal(page.element('ApplyItemButton').disabled, true);
-    page.element('ConfirmItem').checked = true;
-    await page.event('ConfirmItem', 'change');
+    assert.equal(page.element('ApplyItemButton').disabled, false);
     await page.click('ApplyItemButton');
-    assert.deepEqual(page.sent('MetaTagger/Items/movie/Apply')[0].body, { token: 'fresh-review' });
+    assert.deepEqual(page.sent('MetaTagger/Items/movie/ApplyRuns')[0].body, {});
 });
 
-test('selecting another item cannot display or approve the previous automatic preview', async () => {
+test('selecting another item cannot display the previous explicit check', async () => {
     const page = await readyDashboard();
     await page.event('ItemSearch', 'keydown', { key: 'Enter' });
     await page.respond('MetaTagger/Items', { totalCount: 2, items: [
         { itemId: 'a', name: 'First' }, { itemId: 'b', name: 'Second' }
     ] });
     await page.activate(page.element('ItemList').children[0]);
+    await page.click('PreviewItemButton');
     await page.activate(page.element('ItemList').children[1]);
+    await page.click('PreviewItemButton');
     await page.respond('MetaTagger/Items/a/Preview', { token: 'obsolete', addedTags: ['old'] });
-    assert.equal(page.element('ConfirmItem').disabled, true);
+    assert.equal(page.element('ApplyItemButton').disabled, false);
     assert.doesNotMatch(page.element('InspectorDetails').textContent, /old/);
     await page.respond('MetaTagger/Items/b/Preview', { token: 'current', addedTags: ['new'] });
-    assert.equal(page.element('ConfirmItem').disabled, false);
+    assert.equal(page.element('ApplyItemButton').disabled, false);
     await page.edit('GeneratedTagPrefix', 'custom');
-    assert.equal(page.element('ConfirmItem').disabled, true);
+    assert.equal(page.element('ApplyItemButton').disabled, true);
 });
 
-test('an automatic preview selected with unsaved settings explains why confirmation is unavailable', async () => {
+test('an item selected with unsaved settings explains why Apply is unavailable', async () => {
     const page = await readyDashboard();
     await page.edit('GeneratedTagPrefix', 'custom');
     await page.event('ItemSearch', 'keydown', { key: 'Enter' });
     await page.respond('MetaTagger/Items', { totalCount: 1, items: [{ itemId: 'a', name: 'First' }] });
     await page.activate(page.element('ItemList').children[0]);
+    await page.click('PreviewItemButton');
     assert.match(page.element('InspectorFeedback').textContent, /Save settings/);
-    assert.equal(page.element('ConfirmItem').disabled, true);
+    assert.equal(page.element('ApplyItemButton').disabled, true);
     assert.equal(page.sent('MetaTagger/Items/a/Preview').length, 0);
 });
 
@@ -1225,6 +1230,7 @@ test('Inspect and History have persistent keyboard tabs and retain browsing cont
 test('Preview tag removal opens a dedicated destination and lists the selected item tags before confirmation', async () => {
     const page = await readyDashboard();
     await page.activate(page.element('PreviewChanges').children[0].children.at(-1));
+    await page.click('PreviewItemButton');
     await page.respond('MetaTagger/Items/movie/Preview', { token: 'generation', addedTags: ['new'] });
     await page.click('ClearItemButton');
     assert.equal(page.element('PanelMaintenance').hidden, false);
@@ -1240,21 +1246,22 @@ test('Preview tag removal opens a dedicated destination and lists the selected i
     assert.deepEqual(page.sent('MetaTagger/Cleanup/Apply')[0].body, { token: 'approved-movie' });
 });
 
-test('failed and no-change automatic previews keep confirmation disabled and permit refresh', async () => {
+test('failed and no-change checks permit direct Apply and refresh', async () => {
     const page = await readyDashboard();
     await page.activate(page.element('PreviewChanges').children[0].children.at(-1));
+    await page.click('PreviewItemButton');
     await page.fail('MetaTagger/Items/movie/Preview');
     assert.match(page.element('InspectorFeedback').textContent, /Could not preview.*Refresh item preview/);
-    assert.equal(page.element('ConfirmItem').disabled, true);
+    assert.equal(page.element('ApplyItemButton').disabled, false);
     await page.click('PreviewItemButton');
     await page.respond('MetaTagger/Items/movie/Preview', { addedTags: [], removedTags: [] });
     assert.match(page.element('InspectorFeedback').textContent, /No tags to add or remove/);
-    assert.equal(page.element('ConfirmItem').disabled, true);
+    assert.equal(page.element('ApplyItemButton').disabled, false);
     await page.click('PreviewItemButton');
     await page.edit('GeneratedTagPrefix', 'new');
     await page.respond('MetaTagger/Items/movie/Preview', { token: 'late', addedTags: ['late'] });
     assert.match(page.element('InspectorFeedback').textContent, /Settings changed/);
-    assert.equal(page.element('ConfirmItem').disabled, true);
+    assert.equal(page.element('ApplyItemButton').disabled, true);
 });
 
 test('Maintenance is a persistent tab and leaving it invalidates removal approval', async () => {
@@ -1292,6 +1299,7 @@ test('namespace conflict identifies both fields and clears their errors after co
 test('Inspect groups missing recorded additions inline and refresh removes the explanation', async () => {
     const page = await readyDashboard();
     await page.activate(page.element('PreviewChanges').children[0].children.at(-1));
+    await page.click('PreviewItemButton');
     await page.respond('MetaTagger/Items/movie/Preview', {
         token: 'restore', addedTags: ['meta:genre:drama', 'meta:year:2024', 'meta:studio:new'],
         missingRecordedTags: ['meta:genre:drama', 'meta:year:2024'], preservedTags: ['edited-drama']
@@ -1300,11 +1308,12 @@ test('Inspect groups missing recorded additions inline and refresh removes the e
     assert.match(details.children[0].textContent, /Previously recorded tags are missing.*Applying changes will add them again/);
     assert.equal((details.textContent.match(/Applying changes will add them again/g) || []).length, 1);
     assert.match(details.textContent, /Other tags to keep.*edited-drama/);
-    assert.equal(page.sent('MetaTagger/Items/movie/Apply').length, 0);
-    page.element('ConfirmItem').checked = true;
-    await page.event('ConfirmItem', 'change');
+    assert.equal(page.sent('MetaTagger/Items/movie/ApplyRuns').length, 0);
     await page.click('ApplyItemButton');
-    await page.respond('MetaTagger/Items/movie/Apply', { writesApplied: 1 });
+    await page.respond('MetaTagger/Items/movie/ApplyRuns', { runId: 'item-run', itemId: 'movie', state: 'Queued' });
+    await page.tick();
+    await page.respond('MetaTagger/ItemRuns/item-run', { runId: 'item-run', itemId: 'movie', state: 'Completed', summary: { outcome: 'Completed', writesApplied: 1 } });
+    await page.click('PreviewItemButton');
     await page.respond('MetaTagger/Items/movie/Preview', { ownedTags: ['meta:genre:drama', 'meta:year:2024'] });
     assert.doesNotMatch(details.textContent, /missing|add them again/);
 });
@@ -1312,19 +1321,20 @@ test('Inspect groups missing recorded additions inline and refresh removes the e
 test('Inspect identifies absent tags that stay absent with source wording only when supported', async () => {
     const page = await readyDashboard();
     await page.activate(page.element('PreviewChanges').children[0].children.at(-1));
+    await page.click('PreviewItemButton');
     await page.respond('MetaTagger/Items/movie/Preview', {
         missingRecordedTags: ['meta:genre:drama', 'earlier:year:2023'], missingTagsWithSourceOff: ['meta:genre:drama']
     });
     const text = page.element('InspectorDetails').textContent;
     assert.match(text, /meta:genre:drama.*source is unchecked.*remain absent.*No action is needed/);
     assert.match(text, /earlier:year:2023.*no longer generated.*remain absent.*No action is needed/);
-    assert.equal(page.element('ConfirmItem').disabled, true);
-    assert.equal(page.element('ApplyItemButton').disabled, true);
+    assert.equal(page.element('ApplyItemButton').disabled, false);
 });
 
 test('selected-item removal explains already absent tags without enabling an empty action', async () => {
     const page = await readyDashboard();
     await page.activate(page.element('PreviewChanges').children[0].children.at(-1));
+    await page.click('PreviewItemButton');
     await page.respond('MetaTagger/Items/movie/Preview', { missingRecordedTags: ['meta:genre:drama'] });
     await page.click('ClearItemButton');
     await page.respond('MetaTagger/Cleanup/Preview', {
@@ -1339,6 +1349,7 @@ for (const mode of ['Remove', 'Keep', 'Preview']) {
     test(`prefix change describes actual ${mode} plan beside existing tag groups`, async () => {
         const page = await readyDashboard();
         await page.activate(page.element('PreviewChanges').children[0].children.at(-1));
+    await page.click('PreviewItemButton');
         await page.respond('MetaTagger/Items/movie/Preview', {
             token: 'prefix', addedTags: ['new:genre:drama'], generatedTags: ['new:genre:drama'],
             removedTags: mode === 'Remove' ? ['meta:genre:drama'] : [],
@@ -1411,24 +1422,25 @@ test('example distinguishes no selected sources from missing metadata', async ()
 test('item feedback distinguishes blocked settings from protection and clears an error during retry', async () => {
     const page = await readyDashboard();
     await page.activate(page.element('PreviewChanges').children[0].children.at(-1));
+    await page.click('PreviewItemButton');
     await page.respond('MetaTagger/Items/movie/Preview', { status: 'InvalidSettings', reason: 'The generated and manual prefixes must be different.' });
     assert.equal(page.element('InspectorFeedback').getAttribute('role'), 'alert');
     assert.equal(page.element('InspectorFeedback').getAttribute('data-feedback-tone'), 'error');
     assert.equal(page.element('ApplyItemButton').disabled, true);
-    assert.equal(page.element('ItemApprovalHelp').hidden, true);
+    assert.equal(page.element('ItemApplyHelp').hidden, true);
     await page.click('PreviewItemButton');
     assert.equal(page.element('InspectorFeedback').getAttribute('role'), 'status');
     assert.equal(page.element('InspectorFeedback').getAttribute('data-feedback-tone'), 'neutral');
     assert.match(page.element('InspectorFeedback').textContent, /Checking/);
     await page.respond('MetaTagger/Items/movie/Preview', { status: 'Protected', reason: 'Jellyfin metadata lock protects this item.' });
     assert.equal(page.element('InspectorFeedback').getAttribute('data-feedback-tone'), 'neutral');
-    assert.equal(page.element('ConfirmItem').disabled, true);
+    assert.equal(page.element('ApplyItemButton').disabled, true);
     await page.click('PreviewItemButton');
     await page.respond('MetaTagger/Items/movie/Preview', { status: 'Changes', token: 'fresh', addedTags: ['meta:year:2026'] });
-    assert.equal(page.element('ItemApprovalHelp').hidden, false);
-    assert.equal(page.element('ApplyItemButton').disabled, true);
+    assert.equal(page.element('ItemApplyHelp').hidden, false);
+    assert.equal(page.element('ApplyItemButton').disabled, false);
     await page.edit('EnableGenres', true);
-    assert.equal(page.element('ItemApprovalHelp').hidden, true);
+    assert.equal(page.element('ItemApplyHelp').hidden, true);
     assert.equal(page.element('InspectorFeedback').getAttribute('data-feedback-tone'), 'warning');
 });
 
@@ -1471,10 +1483,11 @@ test('outdated tags kept by policy stay neutral in Review, Inspect, and History'
     const review = page.element('PreviewChanges').children[0];
     assert.equal(review.children.find(child => child.textContent.includes('Outdated tags to keep')).getAttribute('data-feedback-tone'), undefined);
     await page.activate(review.children.at(-1));
+    await page.click('PreviewItemButton');
     await page.respond('MetaTagger/Items/movie/Preview', { status: 'Changes', previewRemovedTags: item.previewRemovedTags });
     const inspector = page.element('InspectorDetails').children[0];
     assert.equal(inspector.getAttribute('data-feedback-tone'), undefined);
-    assert.equal(page.element('ConfirmItem').disabled, true);
+    assert.equal(page.element('ApplyItemButton').disabled, false);
     await page.respond('MetaTagger/Runs', [{ runId: 'kept', operation: 'Apply' }]);
     await page.activate(page.element('RunList').children[0]);
     await page.respond('MetaTagger/Runs/kept', { detailsAvailable: true, items: [item] });
@@ -1560,6 +1573,7 @@ test('preview-result inspection requests artwork immediately and adds parent fal
     const article = page.element('PreviewChanges').children[0];
     await page.activate(article.children.find(child => child.textContent === 'Preview this item'));
     assert.match(page.element('InspectorArtwork').children[0].children[1].src, /Items\/episode\/Images\/Primary/);
+    await page.click('PreviewItemButton');
     await page.respond('MetaTagger/Items/episode/Preview', { itemId: 'episode', name: 'Pilot', itemType: 'Episode', artworkItemIds: ['episode', 'season', 'series'], status: 'Up to date' });
     const image = page.element('InspectorArtwork').children[0].children[1];
     image.dispatch('error');
@@ -1577,6 +1591,7 @@ test('series and season navigation restores search and page through breadcrumbs 
     await page.respond('MetaTagger/Items', { totalCount: 30, items: [series] });
     const entry = page.element('ItemList').children[0];
     await page.activate(entry.children[0]);
+    await page.click('PreviewItemButton');
     await page.respond('MetaTagger/Items/series/Preview', { status: 'Up to date' });
     await page.activate(entry.children[1]);
     let request = page.request('MetaTagger/Items');
@@ -1587,6 +1602,7 @@ test('series and season navigation restores search and page through breadcrumbs 
     request.resolve({ totalCount: 1, items: [{ itemId: 'season', name: 'Season 1', itemType: 'Season' }] });
     await page.event('ItemSearch', 'blur');
     await page.activate(page.element('ItemList').children[0]);
+    await page.click('PreviewItemButton');
     request = page.request('MetaTagger/Items');
     assert.match(request.kind, /parentId=season/);
     request.resolve({ totalCount: 1, items: [{ itemId: 'episode', name: 'Pilot', itemType: 'Episode' }] });
@@ -1707,4 +1723,202 @@ test('initial settings expose three sources and keep optional sources collapsed'
     assert.equal(page.element('AdditionalSourcesCount').textContent, '0 selected');
     assert.equal(page.element('SelectedSources').textContent, 'Genres, Parental rating, Audio languages');
     assert.equal(page.element('ItemTypesSummary').textContent, 'Movies, Series');
+});
+
+
+test('direct library Apply starts once without a check or save', async () => {
+    const page = await readyDashboard();
+    await page.click('RunApplyButton');
+    await page.click('RunApplyButton');
+    await page.respond('load-settings', { ConfigurationRevision: 'revision' });
+    await page.respond('ScheduledTasks', [{ key: 'MetaTaggerApplyTags', id: 'apply', state: 'Idle' }]);
+    assert.equal(page.sent('ScheduledTasks/Running/apply').length, 1);
+    assert.equal(page.sent('save-settings').length, 0);
+    assert.equal(page.sent('MetaTagger/Items/movie/Preview').length, 0);
+});
+
+test('save and Apply submits its draft first and preserves later edits', async () => {
+    const page = await readyDashboard();
+    await page.edit('GeneratedTagPrefix', 'submitted');
+    await page.click('SaveApplyButton');
+    await page.click('SaveApplyButton');
+    await page.respond('load-settings', {});
+    assert.equal(page.sent('save-settings')[0].body.GeneratedTagPrefix, 'submitted');
+    assert.equal(page.sent('ScheduledTasks').length, 0);
+    await page.edit('GeneratedTagPrefix', 'later');
+    await page.respond('save-settings', {});
+    assert.equal(page.element('GeneratedTagPrefix').value, 'later');
+    await page.respond('load-settings', { ConfigurationRevision: 'saved' });
+    await page.respond('ScheduledTasks', [{ key: 'MetaTaggerApplyTags', id: 'apply', state: 'Idle' }]);
+    assert.equal(page.sent('ScheduledTasks/Running/apply').length, 1);
+    assert.equal(page.sent('save-settings').length, 1);
+});
+
+test('a failed save prevents save-and-Apply from launching generation', async () => {
+    const page = await readyDashboard();
+    await page.click('SaveApplyButton');
+    await page.respond('load-settings', {});
+    await page.fail('save-settings');
+    assert.equal(page.sent('ScheduledTasks').length, 0);
+    assert.match(page.element('SettingsFeedback').textContent, /could not be saved/);
+});
+
+
+test('token-free item checks describe proposed changes without claiming no changes', async () => {
+    const page = await readyDashboard();
+    await page.activate(page.element('PreviewChanges').children[0].children.at(-1));
+    await page.click('PreviewItemButton');
+    await page.respond('MetaTagger/Items/movie/Preview', { status: 'Changes', addedTags: ['meta:genre:drama'] });
+    assert.match(page.element('InspectorFeedback').textContent, /Proposed tag changes/);
+    assert.doesNotMatch(page.element('InspectorFeedback').textContent, /No tags to add or remove/);
+    assert.equal(page.element('ItemApplyHelp').hidden, false);
+});
+
+
+test('direct item Apply needs no check and can cancel its queued run', async () => {
+    const page = await readyDashboard();
+    await page.activate(page.element('PreviewChanges').children[0].children.at(-1));
+    assert.equal(page.sent('MetaTagger/Items/movie/Preview').length, 0);
+    assert.equal(page.element('ApplyItemButton').disabled, false);
+    await page.click('ApplyItemButton');
+    await page.click('ApplyItemButton');
+    assert.equal(page.sent('MetaTagger/Items/movie/ApplyRuns').length, 1);
+    await page.respond('MetaTagger/Items/movie/ApplyRuns', { runId: 'queued', itemId: 'movie', state: 'Queued' });
+    assert.match(page.element('ItemRunFeedback').textContent, /Waiting for another run/);
+    await page.click('StopItemButton');
+    await page.respond('MetaTagger/ItemRuns/queued', undefined);
+    await page.tick();
+    await page.respond('MetaTagger/ItemRuns/queued', { runId: 'queued', itemId: 'movie', state: 'Cancelled', summary: { outcome: 'Cancelled', writesApplied: 0 } });
+    assert.match(page.element('ItemRunFeedback').textContent, /Stopped.*Items updated: 0/);
+    assert.equal(page.element('StopItemButton').disabled, true);
+    assert.equal(page.element('ApplyItemButton').disabled, false);
+});
+
+test('Apply ignores an obsolete check and keeps its lifecycle through draft edits', async () => {
+    const page = await readyDashboard();
+    await page.activate(page.element('PreviewChanges').children[0].children.at(-1));
+    await page.click('PreviewItemButton');
+    const oldCheck = page.request('MetaTagger/Items/movie/Preview');
+    await page.click('ApplyItemButton');
+    await page.edit('GeneratedTagPrefix', 'draft');
+    await page.respond('MetaTagger/Items/movie/ApplyRuns', { runId: 'current', itemId: 'movie', state: 'Running' });
+    oldCheck.resolve({ status: 'Changes', addedTags: ['obsolete'] });
+    await page.tick();
+    assert.doesNotMatch(page.element('InspectorDetails').textContent, /obsolete/);
+    await page.respond('MetaTagger/ItemRuns/current', { runId: 'current', itemId: 'movie', state: 'Completed', summary: { outcome: 'Completed', writesApplied: 1 } });
+    assert.match(page.element('ItemRunFeedback').textContent, /Items updated: 1/);
+    assert.equal(page.element('GeneratedTagPrefix').value, 'draft');
+    assert.equal(page.element('ApplyItemButton').disabled, true);
+});
+
+
+test('reopening recovers a queued item run and obsolete start responses cannot replace it', async () => {
+    const page = await readyDashboard();
+    await page.activate(page.element('PreviewChanges').children[0].children.at(-1));
+    await page.click('ApplyItemButton');
+    const obsoleteStart = page.request('MetaTagger/Items/movie/ApplyRuns');
+    await page.event('MetaTaggerConfigPage', 'pagehide');
+    await page.event('MetaTaggerConfigPage', 'pageshow');
+    await page.respond('MetaTagger/ItemRuns/Current', { runId: 'recovered', itemId: 'movie', state: 'Queued' });
+    await page.respond('load-settings', { IsEnabled: true, GeneratedTagPrefix: 'meta', ManualTagPrefix: 'manual', TagSeparator: ':' });
+    obsoleteStart.resolve({ runId: 'obsolete', itemId: 'movie', state: 'Running' });
+    await page.tick();
+    assert.equal(page.sent('MetaTagger/ItemRuns/recovered').length, 1);
+    assert.equal(page.sent('MetaTagger/ItemRuns/obsolete').length, 0);
+    assert.equal(page.element('StopItemButton').disabled, false);
+});
+
+test('an uncertain item start recovers server status before allowing retry', async () => {
+    const page = await readyDashboard();
+    await page.activate(page.element('PreviewChanges').children[0].children.at(-1));
+    await page.click('ApplyItemButton');
+    await page.fail('MetaTagger/Items/movie/ApplyRuns');
+    assert.equal(page.element('ApplyItemButton').disabled, true);
+    await page.respond('MetaTagger/ItemRuns/Current', null);
+    assert.match(page.element('ItemRunFeedback').textContent, /retry Apply/);
+    assert.equal(page.element('ApplyItemButton').disabled, false);
+});
+
+
+test('save and Apply survives draft edits during post-save task discovery', async () => {
+    const page = await readyDashboard();
+    await page.click('SaveApplyButton');
+    await page.respond('load-settings', {});
+    await page.respond('save-settings', {});
+    await page.respond('load-settings', { ConfigurationRevision: 'saved' });
+    await page.edit('GeneratedTagPrefix', 'later');
+    await page.respond('ScheduledTasks', [{ key: 'MetaTaggerApplyTags', id: 'apply', state: 'Idle' }]);
+    assert.equal(page.sent('ScheduledTasks/Running/apply').length, 1);
+    assert.equal(page.element('GeneratedTagPrefix').value, 'later');
+});
+
+test('library Apply renders uncertain writes from matching history after checkpoint failure', async () => {
+    const page = await readyDashboard();
+    await page.respond('MetaTagger/Runs', []);
+    await page.click('RunApplyButton');
+    await page.respond('load-settings', { ConfigurationRevision: 'revision' });
+    await page.respond('ScheduledTasks', [{ key: 'MetaTaggerApplyTags', id: 'apply', state: 'Running' }]);
+    await page.respond('ScheduledTasks/apply', { state: 'Idle', lastExecutionResult: { startTimeUtc: '2026-10-03T12:00:00Z', endTimeUtc: '2026-10-03T12:00:02Z', status: 'Failed' } });
+    await page.respond('MetaTagger/Runs', [{ invocation: 'MetaTaggerApplyTags', configurationRevision: 'revision', startedUtc: '2026-10-03T12:00:01Z', outcome: 'Uncertain', summary: { outcome: 'Uncertain', writesApplied: 1 } }]);
+    assert.match(page.element('TaskFeedback').textContent, /Items updated: 1/);
+    assert.match(page.element('TaskFeedback').textContent, /could not be confirmed/);
+    assert.equal(page.element('TaskFeedback').getAttribute('data-feedback-tone'), 'error');
+});
+
+test('Save and Apply cannot silently save during a pending or running library check', async () => {
+    const page = await readyDashboard();
+    await page.click('RunPreviewButton');
+    assert.equal(page.element('SaveApplyButton').disabled, true);
+    await page.click('SaveApplyButton');
+    assert.equal(page.sent('save-settings').length, 0);
+    await page.respond('load-settings', { ConfigurationRevision: 'revision' });
+    await page.respond('ScheduledTasks', [{ key: 'MetaTaggerPreviewTags', id: 'check', state: 'Running' }]);
+    assert.equal(page.element('SaveApplyButton').disabled, true);
+    assert.match(page.element('SaveApplyFeedback').textContent, /Wait for the current library run/);
+});
+
+test('a late Stop failure cannot overwrite confirmed item writes', async () => {
+    const page = await readyDashboard();
+    await page.activate(page.element('PreviewChanges').children[0].children.at(-1));
+    await page.click('ApplyItemButton');
+    await page.respond('MetaTagger/Items/movie/ApplyRuns', { runId: 'run', itemId: 'movie', state: 'Running' });
+    await page.click('StopItemButton');
+    const stop = page.request('MetaTagger/ItemRuns/run');
+    await page.tick();
+    await page.respond('MetaTagger/ItemRuns/run', { runId: 'run', itemId: 'movie', state: 'Completed', summary: { outcome: 'Completed', writesApplied: 1 } });
+    stop.reject(new Error('delayed stop failure'));
+    await page.event('StopItemButton', 'blur');
+    assert.match(page.element('ItemRunFeedback').textContent, /Items updated: 1/);
+    assert.equal(page.element('ItemRunFeedback').getAttribute('data-feedback-tone'), 'neutral');
+});
+
+test('a late library Stop failure cannot overwrite confirmed Apply writes', async () => {
+    const page = await readyDashboard();
+    await page.respond('MetaTagger/Runs', []);
+    await page.click('RunApplyButton');
+    await page.respond('load-settings', { ConfigurationRevision: 'revision' });
+    await page.respond('ScheduledTasks', [{ key: 'MetaTaggerApplyTags', id: 'apply', state: 'Running' }]);
+    await page.click('StopPreviewButton');
+    const stop = page.request('ScheduledTasks/Running/apply');
+    await page.respond('ScheduledTasks/apply', { state: 'Idle', lastExecutionResult: { startTimeUtc: '2026-10-03T12:00:00Z', endTimeUtc: '2026-10-03T12:00:02Z', status: 'Completed' } });
+    await page.respond('MetaTagger/Runs', [{ invocation: 'MetaTaggerApplyTags', configurationRevision: 'revision', startedUtc: '2026-10-03T12:00:01Z', outcome: 'Completed', summary: { outcome: 'Completed', writesApplied: 1 } }]);
+    stop.reject(new Error('delayed stop failure'));
+    await page.event('StopPreviewButton', 'blur');
+    assert.match(page.element('TaskFeedback').textContent, /Items updated: 1/);
+    assert.equal(page.element('TaskFeedback').getAttribute('data-feedback-tone'), 'neutral');
+});
+
+test('an obsolete library result failure cannot mark a newer run as failed', async () => {
+    const page = await readyDashboard();
+    await page.respond('MetaTagger/Runs', []);
+    await page.click('RunApplyButton');
+    await page.respond('load-settings', { ConfigurationRevision: 'revision' });
+    await page.respond('ScheduledTasks', [{ key: 'MetaTaggerApplyTags', id: 'apply', state: 'Running' }]);
+    await page.respond('ScheduledTasks/apply', { state: 'Idle', lastExecutionResult: { startTimeUtc: '2026-10-03T12:00:00Z', endTimeUtc: '2026-10-03T12:00:02Z', status: 'Completed' } });
+    const result = page.request('MetaTagger/Runs');
+    await page.click('RunApplyButton');
+    result.reject(new Error('obsolete result failure'));
+    await page.event('RunApplyButton', 'blur');
+    assert.match(page.element('TaskFeedback').textContent, /Starting Apply/);
+    assert.notEqual(page.element('TaskFeedback').getAttribute('data-feedback-tone'), 'error');
 });

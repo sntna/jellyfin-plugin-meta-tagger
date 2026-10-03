@@ -31,8 +31,3 @@ public sealed class MetaTaggerExampleRequest
     public Guid ItemId { get; set; }
     public PluginConfiguration Configuration { get; set; } = new();
 }
-
-public sealed class MetaTaggerItemApplyRequest
-{
-    public string Token { get; set; } = string.Empty;
-}
