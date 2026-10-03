@@ -713,23 +713,30 @@ def reset_plugin_installation_fixture(server):
     """Reset only plugin evidence after uninstalling from a verified disposable server."""
     docker("stop", server.meta["container"])
     try:
-        configurations = server.directory / "config/plugins/configurations"
-        for path in configurations.glob("Jellyfin.Plugin.MetaTagger.xml*"):
-            path.unlink()
         # The migration treats persisted task schedules and plugin data as prior
         # installation evidence. Remove only this plugin's disposable records.
         task_types = ["ScheduledTagTask", "ApplyMetadataTagTask", "PreviewMetadataTagTask",
                       "ForceFullMetadataTagScanTask", "RebuildMetadataTagLedgerTask"]
+        task_files = []
         for task_type in task_types:
             task_id = str(uuid.UUID(bytes_le=hashlib.md5(
                 ("Jellyfin.Plugin.MetaTagger." + task_type).encode("utf-16le")).digest()))
-            for directory in ["config/config/ScheduledTasks", "config/data/ScheduledTasks"]:
-                (server.directory / directory / (task_id + ".js")).unlink(missing_ok=True)
-        for path in (server.directory / "config/plugins").iterdir():
-            if path.is_dir() and (path.name == "Jellyfin.Plugin.MetaTagger"
-                                  or path.name.startswith("Jellyfin.Plugin.MetaTagger_")
-                                  or path.name.startswith("Meta Tagger_")):
-                shutil.rmtree(path)
+            for directory in ["config/ScheduledTasks", "data/ScheduledTasks"]:
+                task_files.append(f"{directory}/{task_id}.js")
+        # Linux bind mounts retain Jellyfin's root ownership. Clean up as root
+        # with only this verified disposable configuration mounted, while the
+        # server is stopped so it cannot recreate installation evidence.
+        docker("run", "--rm", "--network", "none", "--user", "0:0",
+               "--mount", f"type=bind,source={server.directory / 'config'},target=/config",
+               "--workdir", "/config", "--entrypoint", "/bin/sh", server.meta["image"],
+               "-ec", '''
+rm -f -- plugins/configurations/Jellyfin.Plugin.MetaTagger.xml* "$@"
+for directory in plugins/Jellyfin.Plugin.MetaTagger plugins/Jellyfin.Plugin.MetaTagger_* plugins/Meta\\ Tagger_*; do
+    if [ -d "$directory" ]; then
+        rm -rf -- "$directory"
+    fi
+done
+''', "reset-plugin-fixture", *task_files)
     finally:
         docker("start", server.meta["container"])
         server.wait_ready()
