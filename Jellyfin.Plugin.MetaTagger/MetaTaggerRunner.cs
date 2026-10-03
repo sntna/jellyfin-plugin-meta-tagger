@@ -223,6 +223,11 @@ public sealed partial class MetaTaggerRunner
             : MetaTaggerOneTimeAction.None;
         var options = requestedOptions ?? ResolveOptions(sourceConfiguration, configuredActions);
         var configuration = CloneConfiguration(sourceConfiguration);
+        var uncertainInstallation = configuration.Installation?.Origin == InstallationOrigin.Uncertain;
+        if (uncertainInstallation && !options.ClearGeneratedTags)
+        {
+            options = WithPreviewOnly(options);
+        }
         configuration.ClaimExistingGeneratedTagsForCleanup |= invocation is not RunInvocation.ExplicitOptions
             && configuredActions.Claim;
         if (options.ClearGeneratedTags)
@@ -268,7 +273,8 @@ public sealed partial class MetaTaggerRunner
 
             var loadedState = await LoadStateAsync(configuration, cancellationToken).ConfigureAwait(false);
             var state = loadedState.State;
-            var cycleDegraded = loadedState.ForcePreviewOnly;
+            var cycleDegraded = loadedState.ForcePreviewOnly || uncertainInstallation;
+            if (uncertainInstallation && !options.ClearGeneratedTags) { summary.Outcome = "Preview fallback"; }
             if (loadedState.ForcePreviewOnly)
             {
                 options = WithPreviewOnly(options);

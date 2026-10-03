@@ -216,6 +216,10 @@ public sealed partial class MetaTaggerRunner
         if (!validation.IsValid) { return Unavailable("InvalidSettings", string.Join(" ", validation.Errors)); }
         var configuration = CloneConfiguration(source);
         inspection.ConfigurationRevision = configuration.ConfigurationRevision;
+        if (configuration.Installation?.Origin == InstallationOrigin.Uncertain)
+        {
+            return Unavailable("InstallationUnavailable", "The saved installation policy is unavailable. Restore the plugin configuration before applying tags.");
+        }
         if (!configuration.IsEnabled) { return Unavailable("Disabled", "Tagging is off in these settings. Select Turn on Meta Tagger to generate tags."); }
         if (!GetIncludedItemTypes(configuration).Any(type => type.ToString() == item.GetType().Name))
         {

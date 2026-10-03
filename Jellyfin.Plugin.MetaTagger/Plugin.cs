@@ -7,7 +7,7 @@ using MediaBrowser.Model.Serialization;
 
 namespace Jellyfin.Plugin.MetaTagger;
 
-public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
+public sealed partial class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 {
     public static readonly Guid PluginId = Guid.Parse("4851185f-7284-4cad-9eeb-2c73576bb214");
 
@@ -16,6 +16,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     public Plugin(IApplicationPaths applicationPaths, IXmlSerializer xmlSerializer)
         : base(applicationPaths, xmlSerializer)
     {
+        InitializeConfiguration();
         Instance = this;
     }
 
@@ -28,15 +29,24 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     public override void SaveConfiguration(PluginConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(configuration);
-        base.SaveConfiguration(PluginConfigurationValidator.Sanitize(configuration));
+        lock (_configurationGate)
+        {
+            var sanitized = PrepareConfiguration(configuration);
+            SaveConfigurationAtomically(sanitized);
+        }
     }
 
     public override void UpdateConfiguration(BasePluginConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(configuration);
-        var sanitized = PluginConfigurationValidator.Sanitize((PluginConfiguration)configuration);
-        sanitized.ConfigurationRevision = Guid.NewGuid().ToString("N");
-        base.UpdateConfiguration(sanitized);
+        lock (_configurationGate)
+        {
+            var sanitized = PrepareConfiguration((PluginConfiguration)configuration);
+            sanitized.ConfigurationRevision = Guid.NewGuid().ToString("N");
+            SaveConfigurationAtomically(sanitized);
+            Configuration = sanitized;
+            ConfigurationChanged?.Invoke(this, sanitized);
+        }
     }
 
     public IEnumerable<PluginPageInfo> GetPages()

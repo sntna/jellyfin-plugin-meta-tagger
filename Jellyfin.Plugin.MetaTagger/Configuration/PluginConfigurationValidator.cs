@@ -49,6 +49,7 @@ public static class PluginConfigurationValidator
 
         return new PluginConfiguration
         {
+            Installation = configuration.Installation?.Copy(),
             ConfigurationRevision = configuration.ConfigurationRevision,
             IsEnabled = configuration.IsEnabled,
             GeneratedTagPrefix = generatedPrefix,
