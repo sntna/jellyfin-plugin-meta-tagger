@@ -2260,7 +2260,7 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
         CancellationTokenSource? runCancellation = null,
         bool failOnConfigurationSave = false) : IMetaTaggerHost
     {
-        private PluginConfiguration _configuration = configuration;
+        private PluginConfiguration _configuration = TestInstallation.Established(configuration);
         private int _configurationReadCount;
         private int _configurationSaveCount;
         private int _configurationSaveCountAtSecondRead = -1;
@@ -2281,6 +2281,13 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
         public List<PluginConfiguration> SavedConfigurations { get; } = [];
 
         public PluginConfiguration CurrentConfiguration => Volatile.Read(ref _configuration);
+
+        public InstallationState SaveGenerationState(Guid installationId, GenerationState generation)
+        {
+            if (failOnConfigurationSave) { throw new IOException("Injected configuration persistence failure."); }
+            CurrentConfiguration.Installation!.Generation = generation.Copy();
+            return CurrentConfiguration.Installation.Copy();
+        }
 
         public int ConfigurationReadCount => Volatile.Read(ref _configurationReadCount);
 
@@ -2363,7 +2370,7 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
 
         public void ReplaceConfiguration(PluginConfiguration replacement)
         {
-            Volatile.Write(ref _configuration, replacement);
+            Volatile.Write(ref _configuration, TestInstallation.Established(replacement));
         }
     }
 

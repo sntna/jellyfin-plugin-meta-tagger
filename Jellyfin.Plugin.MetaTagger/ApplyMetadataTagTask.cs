@@ -11,7 +11,9 @@ public sealed class ApplyMetadataTagTask : MetaTaggerScheduledTaskBase
 
     public override string Key => "MetaTaggerApplyTags";
 
-    public override string Description => "Rechecks current metadata and saved settings across all libraries, then applies changes even when automatic runs are set to preview. Changes may differ from an earlier preview. Only removes recorded plugin tags. Keeps manual tags and respects locks, skip tags, and run limits.";
+    protected override bool AuthorizesBackfill => true;
+
+    public override string Description => "Authorizes backfill for the selected item types across all libraries, then applies current metadata and saved settings even when automatic runs use Preview. Authorization remains after a partial run. Only removes recorded plugin tags and respects manual tags, locks, skip tags, and run limits.";
 
     protected override MetaTaggerRunOptions CreateOptions()
     {

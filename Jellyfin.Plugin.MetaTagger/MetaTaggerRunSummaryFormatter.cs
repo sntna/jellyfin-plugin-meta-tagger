@@ -31,10 +31,21 @@ public static class MetaTaggerRunSummaryFormatter
         var export = string.IsNullOrWhiteSpace(summary.PreviewChangesExportPath)
             ? string.Empty
             : $", export {Path.GetFileName(summary.PreviewChangesExportPath)}";
+        var authorization = summary.BackfillAuthorization switch
+        {
+            "Item types" => string.Join(", ", summary.AuthorizedItemTypes),
+            "Single item" => $"item {summary.AuthorizedItemId}",
+            _ => "none"
+        };
+        var generation = summary.RunMode == "ClearGeneratedTags" ? string.Empty : string.Format(
+            CultureInfo.InvariantCulture,
+            ", items processed {0}, existing baseline excluded {1}, eligibility unavailable {2}, baseline {3}, backfill authorization granted {4}",
+            summary.ItemsProcessed, summary.ItemsSkippedBaseline, summary.ItemsSkippedEligibilityUnavailable,
+            summary.BaselineStatus, authorization);
 
         return string.Format(
             CultureInfo.InvariantCulture,
-            "{0}: {1} ({2}), items checked {3}, items skipped: Jellyfin locks {4}, items with tag differences {5}, tags to add {6}, tags to remove {7}, estimated item updates {8}, items updated {9}, failures {10}{11}{12}.",
+            "{0}: {1} ({2}), items checked {3}, items skipped: Jellyfin locks {4}, items with tag differences {5}, tags to add {6}, tags to remove {7}, estimated item updates {8}, items updated {9}, failures {10}{11}{12}{13}.",
             timestamp,
             runMode,
             preview,
@@ -47,6 +58,7 @@ public static class MetaTaggerRunSummaryFormatter
             summary.WritesApplied,
             summary.Failures,
             budget,
-            export);
+            export,
+            generation);
     }
 }

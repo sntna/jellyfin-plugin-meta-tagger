@@ -88,6 +88,7 @@ def main():
             passed("library artwork is served by Jellyfin's primary image endpoint")
 
         endpoints = [("/MetaTagger/Items", None, "GET"), ("/MetaTagger/Libraries", None, "GET"),
+                     ("/MetaTagger/GenerationStatus", None, "GET"),
                      ("/MetaTagger/Runs", None, "GET"), (f"/MetaTagger/Items/{movie_id}", None, "GET"),
                      ("/MetaTagger/Example", {"ItemId": movie_id, "Configuration": original_config}, "POST"),
                      (f"/MetaTagger/Items/{movie_id}/Preview", {}, "POST"),

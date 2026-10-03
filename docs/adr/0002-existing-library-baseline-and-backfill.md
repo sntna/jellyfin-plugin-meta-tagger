@@ -1,0 +1,17 @@
+# Persist the existing library baseline and explicit backfill
+
+Issue [#21](https://github.com/sntna/jellyfin-plugin-meta-tagger/issues/21) extends the installation record introduced by #20. Store baseline membership, completeness, expected membership count, authorization, and an eligibility revision in the same atomically replaced XML policy. Settings saves retain the server's record. Generation changes commit before becoming visible in memory. Ownership and processing cursors remain separate.
+
+Capture Movies, Series, Episodes, and Videos across all libraries at the first enabled generation run, including Preview. Capture includes currently excluded item types so enabling them later cannot backfill existing media implicitly. Media added before this first snapshot belongs to the baseline. Inspection, draft examples, and the read-only status endpoint do not initialize it.
+
+Only a successful complete enumeration and persisted snapshot establish the boundary. Cancellation, library errors, and the elapsed-time budget cannot publish a completed capture. Retrying an incomplete capture retains previously known IDs and adds the current snapshot. Missing membership is not an empty baseline. Validate completed membership against its persisted count and reject incomplete authorization records. Uncertain installations retain #20's Preview fallback; failed initialization continues to block surviving task exports.
+
+Automatic generation permits items outside a completed baseline, explicitly authorized item types or IDs, and the applicable migrated operation and item-type eligibility. Prior configured Apply and post-scan Apply retain their respective scopes. Generation checks eligibility before metadata projection, fingerprint updates, or ownership changes. Exclusions still advance the bounded run cursor; pruning uses the full item enumeration.
+
+Public bulk Apply with explicit Apply options and the dedicated Apply task grant the selected item-type scope captured inside the coordination gate. The task covers manual starts and deliberate schedules using the saved scope at execution. Persist the grant before processing, retaining it when processing fails, is cancelled, or reaches a limit. Single-item Apply retains its Preview token and revalidation requirements and grants only its validated target. Preview, daily and post-scan runs, force scans, maintenance, settings saves, and ownership records grant nothing.
+
+Use typed invocation intent for permission decisions. Task keys and display strings describe history only. Generation cursor identity includes the eligibility revision and invocation intent, including Preview and maintenance cycles. Cleanup retains its existing cursor behavior. Permission changes do not alter a single-item Preview's proposed changes, so its binding excludes generation permission records while retaining policy, identity, metadata, protections, and ownership.
+
+`GET /MetaTagger/GenerationStatus` uses the existing elevated policy and reports readiness and authorization without changing them. Inspection reports generation eligibility. Run summaries and retained history distinguish authorization, visited and processed items, baseline exclusions, remaining work, confirmed media writes, and failures. A successful media write remains counted if its ownership checkpoint fails, with an Uncertain outcome and retained item changes.
+
+This change preserves preview-first defaults, source choices, tag naming, item protections, run limits, recorded-ownership cleanup, and compatibility versions.

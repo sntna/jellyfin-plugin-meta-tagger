@@ -13,7 +13,7 @@ public sealed class ScheduledTagTask : MetaTaggerScheduledTaskBase
 
     public override string Key => "MetaTaggerGenerateTags";
 
-    public override string Description => "Checks selected item types across all libraries using saved settings. Previews changes when Preview scheduled and post-scan runs is checked; otherwise applies them. Respects locks, skip tags, and run limits.";
+    public override string Description => "Checks selected item types across all libraries using saved settings. Previews changes when automatic runs use Preview; otherwise applies changes to later additions and authorized items. Existing baseline items need explicit Apply authorization. Respects locks, skip tags, and run limits.";
 
     public override IEnumerable<TaskTriggerInfo> GetDefaultTriggers()
     {

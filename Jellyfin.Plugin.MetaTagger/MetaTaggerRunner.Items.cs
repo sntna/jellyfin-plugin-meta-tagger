@@ -43,13 +43,20 @@ public sealed partial class MetaTaggerRunner
         {
             var configuration = CloneConfiguration(_host.GetConfiguration());
             summary.ConfigurationRevision = configuration.ConfigurationRevision;
+            DescribeGenerationState(summary, configuration.Installation);
             record = CreateRunRecord(summary, "Preview", itemId.ToString("N"));
             await PublishHistoryAsync(record).ConfigureAwait(false);
+            if (configuration.IsEnabled && configuration.Installation?.Origin != InstallationOrigin.Uncertain)
+            {
+                CaptureGenerationBaseline(configuration, new MetaTaggerRunBudget(configuration, summary.LastRunUtc!.Value),
+                    summary, cancellationToken);
+            }
             var plan = await PlanItemAsync(itemId, configuration, cancellationToken).ConfigureAwait(false);
             var inspection = plan.Inspection;
             summary.ItemsScanned = 1;
             if (plan.Result is not null)
             {
+                summary.ItemsProcessed = 1;
                 AddCounts(summary, plan.Result.Merge, configuration);
                 summary.ItemsChanged = inspection.Status == "Changes" ? 1 : 0;
                 summary.EstimatedWrites = plan.Result.Merge.HasChangesToApply ? 1 : 0;
@@ -103,7 +110,9 @@ public sealed partial class MetaTaggerRunner
             {
                 throw new InvalidOperationException("Item approval expired or was already used. Preview this item again.");
             }
-            summary.ConfigurationRevision = _host.GetConfiguration().ConfigurationRevision;
+            var savedConfiguration = _host.GetConfiguration();
+            summary.ConfigurationRevision = savedConfiguration.ConfigurationRevision;
+            DescribeGenerationState(summary, savedConfiguration.Installation);
             record = CreateRunRecord(summary, "Apply", itemId.ToString("N"));
             await PublishHistoryAsync(record).ConfigureAwait(false);
             plan = await PlanItemAsync(itemId, null, cancellationToken).ConfigureAwait(false);
@@ -121,6 +130,7 @@ public sealed partial class MetaTaggerRunner
                 return summary;
             }
             summary.ItemsScanned = 1;
+            summary.ItemsProcessed = 1;
             var result = _processor.Process(plan.Input!, configuration, state,
                 new MetaTaggerRunOptions { Force = true, PreviewOnly = false }, started);
             AddCounts(summary, result.Merge, configuration);
@@ -144,6 +154,7 @@ public sealed partial class MetaTaggerRunner
             {
                 throw new InvalidOperationException("The item changed before its tags could be saved. Preview this item again.");
             }
+            AuthorizeGenerationScope(configuration, [], itemId, summary, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             if (budget.ShouldStopBeforeItem(new MetaTaggerRunSummary(), _clock.UtcNow, out reason))
             {
@@ -215,13 +226,15 @@ public sealed partial class MetaTaggerRunner
         var validation = PluginConfigurationValidator.Validate(source);
         if (!validation.IsValid) { return Unavailable("InvalidSettings", string.Join(" ", validation.Errors)); }
         var configuration = CloneConfiguration(source);
+        if (draft is not null) { configuration.Installation = _host.GetConfiguration().Installation?.Copy(); }
         inspection.ConfigurationRevision = configuration.ConfigurationRevision;
+        inspection.GenerationEligibility = GenerationDecision(configuration, item, RunInvocation.ConfiguredDefault);
         if (configuration.Installation?.Origin == InstallationOrigin.Uncertain)
         {
             return Unavailable("InstallationUnavailable", "The saved installation policy is unavailable. Restore the plugin configuration before applying tags.");
         }
         if (!configuration.IsEnabled) { return Unavailable("Disabled", "Tagging is off in these settings. Select Turn on Meta Tagger to generate tags."); }
-        if (!GetIncludedItemTypes(configuration).Any(type => type.ToString() == item.GetType().Name))
+        if (!GetIncludedItemTypes(configuration).Any(type => type.ToString() == GenerationItemType(item)))
         {
             return Unavailable("OutOfScope", "This item type is not selected in these settings. Select it under Item types to include it.");
         }
@@ -273,9 +286,11 @@ public sealed partial class MetaTaggerRunner
         inspection.PreservedTags = retained.Where(tag => !TagFormat.IsManual(tag, configuration)
             && !inspection.OwnedTags.Contains(tag, StringComparer.OrdinalIgnoreCase)).ToArray();
         inspection.Status = merge.HasChangesToApply || merge.PreviewRemovedTags.Count > 0 ? "Changes" : "Up to date";
+        var bindingConfiguration = CloneConfiguration(configuration);
+        if (bindingConfiguration.Installation is { } installation) { installation.Generation = null; }
         var binding = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(new
         {
-            itemId, configuration,
+            itemId, configuration = bindingConfiguration,
             Metadata = new MetadataFingerprintService().CreateFingerprint(input, configuration),
             input.ExistingTags, Ownership = owned?.LastAppliedTags ?? [],
             inspection.AddedTags, inspection.RemovedTags, inspection.PreviewRemovedTags

@@ -466,6 +466,7 @@ public sealed class MetaTaggerResumableCycleTests
         PluginConfiguration configuration,
         IReadOnlyList<BaseItem> items) : IMetaTaggerHost
     {
+        private readonly PluginConfiguration _configuration = TestInstallation.Established(configuration);
         public IReadOnlyList<BaseItem> Items { get; set; } = items;
 
         public List<string> UpdateAttempts { get; } = [];
@@ -476,7 +477,7 @@ public sealed class MetaTaggerResumableCycleTests
 
         public PluginConfiguration GetConfiguration()
         {
-            return configuration;
+            return _configuration;
         }
 
         public IReadOnlyList<BaseItem> GetItems(BaseItemKind[] includedItemTypes)

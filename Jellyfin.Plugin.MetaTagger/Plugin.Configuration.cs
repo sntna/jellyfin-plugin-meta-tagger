@@ -8,6 +8,26 @@ public sealed partial class Plugin
     private readonly Lock _configurationGate = new();
     private InstallationState _installation = null!;
 
+    internal InstallationState SaveGenerationState(Guid installationId, GenerationState generation)
+    {
+        lock (_configurationGate)
+        {
+            if (_installation.InstallationId != installationId || _installation.Origin == InstallationOrigin.Uncertain
+                || !generation.IsValid)
+            {
+                throw new InvalidOperationException("Generation authorization is unavailable for this installation.");
+            }
+            var installation = _installation.Copy();
+            installation.Generation = generation.Copy();
+            var configuration = PluginConfigurationValidator.Sanitize(Configuration);
+            configuration.Installation = installation.Copy();
+            SaveConfigurationAtomically(configuration);
+            _installation = installation;
+            Configuration.Installation = installation.Copy();
+            return installation.Copy();
+        }
+    }
+
     private PluginConfiguration PrepareConfiguration(PluginConfiguration configuration)
     {
         var sanitized = PluginConfigurationValidator.Sanitize(configuration);
@@ -85,7 +105,7 @@ public sealed partial class Plugin
                 && (eligibility.PostScanApply != true || eligibility.ConfiguredApply == true),
             _ => false
         });
-        if (!valid)
+        if (!valid || installation.Generation is { IsValid: false })
         {
             throw new InvalidDataException("The installation migration record is incomplete or unsupported. Restore the plugin configuration before generating tags.");
         }

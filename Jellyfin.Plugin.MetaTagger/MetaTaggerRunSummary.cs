@@ -16,6 +16,24 @@ public sealed class MetaTaggerRunSummary
 
     public int ItemsScanned { get; set; }
 
+    public int ItemsProcessed { get; set; }
+
+    public int ItemsSkippedBaseline { get; set; }
+
+    public int ItemsSkippedEligibilityUnavailable { get; set; }
+
+    public string BackfillAuthorization { get; set; } = "None";
+
+    public string[] AuthorizedItemTypes { get; set; } = [];
+
+    public string? AuthorizedItemId { get; set; }
+
+    public string BaselineStatus { get; set; } = "NotCaptured";
+
+    public int? BaselineItemCount { get; set; }
+
+    public long EligibilityRevision { get; set; }
+
     public int ItemsSkippedUnchanged { get; set; }
 
     public int ItemsSkippedManual { get; set; }

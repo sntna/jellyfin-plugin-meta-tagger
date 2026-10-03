@@ -182,6 +182,11 @@ public sealed partial class MetaTaggerRunner
         return RunSerializedAsync(progress, cancellationToken, requestedOptions: null, RunInvocation.DefaultScheduled);
     }
 
+    internal Task<MetaTaggerRunSummary> RunTaskAsync(IProgress<double> progress, CancellationToken cancellationToken,
+        MetaTaggerRunOptions options, bool authorizeBackfill)
+        => RunSerializedAsync(progress, cancellationToken, options,
+            authorizeBackfill ? RunInvocation.ApplyTask : RunInvocation.ConfiguredTask);
+
     private async Task<MetaTaggerRunSummary> RunSerializedAsync(
         IProgress<double> progress,
         CancellationToken cancellationToken,
@@ -228,7 +233,7 @@ public sealed partial class MetaTaggerRunner
         {
             options = WithPreviewOnly(options);
         }
-        configuration.ClaimExistingGeneratedTagsForCleanup |= invocation is not RunInvocation.ExplicitOptions
+        configuration.ClaimExistingGeneratedTagsForCleanup |= invocation is RunInvocation.ConfiguredDefault or RunInvocation.DefaultScheduled or RunInvocation.PostScan
             && configuredActions.Claim;
         if (options.ClearGeneratedTags)
         {
@@ -247,6 +252,7 @@ public sealed partial class MetaTaggerRunner
             RunMode = options.ClearGeneratedTags ? "ClearGeneratedTags" : options.RunMode.ToString(),
             PreviewOnly = options.PreviewOnly
         };
+        if (!options.ClearGeneratedTags) { DescribeGenerationState(summary, configuration.Installation); }
 
         var record = CreateRunRecord(summary,
             options.ClearGeneratedTags ? (options.PreviewOnly ? "Cleanup preview" : "Cleanup apply") : (options.PreviewOnly ? "Preview" : "Apply"),
@@ -269,6 +275,12 @@ public sealed partial class MetaTaggerRunner
                 summary.Outcome = "No item types selected";
                 _logger.LogInformation("Meta Tagger has no enabled item types; skipping run.");
                 return summary;
+            }
+
+            if (!uncertainInstallation && IsBulkBackfillInvocation(options, invocation))
+            {
+                AuthorizeGenerationScope(configuration, includedItemTypes.Select(type => type.ToString()).ToArray(), null,
+                    summary, cancellationToken);
             }
 
             var loadedState = await LoadStateAsync(configuration, cancellationToken).ConfigureAwait(false);
@@ -296,6 +308,12 @@ public sealed partial class MetaTaggerRunner
                 if (ledgerPreparation.ForcePreviewOnly) { summary.Outcome = "Preview fallback"; }
             }
 
+            if (!options.ClearGeneratedTags && !uncertainInstallation)
+            {
+                CaptureGenerationBaseline(configuration, budget, summary, cancellationToken);
+                if (summary.BudgetLimitReached) { return summary; }
+            }
+
             var items = _host.GetItems(includedItemTypes);
             var scopedItems = options.CleanupItemId is { } cleanupItemId
                 ? items.Where(item => item.Id == cleanupItemId)
@@ -313,7 +331,7 @@ public sealed partial class MetaTaggerRunner
 
             var itemsById = ItemsById(scopedItems);
             var scopedItemIds = itemsById.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var runProfileKey = CreateRunProfileKey(configuration, options, includedItemTypes);
+            var runProfileKey = CreateRunProfileKey(configuration, options, includedItemTypes, invocation);
             if (options.ApprovedCleanupChanges is not null)
             {
                 // A fresh approval covers its entire preview, even after an earlier cleanup stopped.
@@ -366,6 +384,7 @@ public sealed partial class MetaTaggerRunner
                             state,
                             cursor,
                             options,
+                            invocation,
                             budget,
                             started,
                             summary,
@@ -491,6 +510,7 @@ public sealed partial class MetaTaggerRunner
         MetaTaggerState state,
         MetaTaggerRunCursor cursor,
         MetaTaggerRunOptions options,
+        RunInvocation invocation,
         MetaTaggerRunBudget budget,
         DateTimeOffset started,
         MetaTaggerRunSummary summary,
@@ -509,6 +529,7 @@ public sealed partial class MetaTaggerRunner
 
         var checkpointPending = false;
         var cursorAdvancePersisted = false;
+        TagMergeResult? attemptedMerge = null;
 
         try
         {
@@ -529,6 +550,20 @@ public sealed partial class MetaTaggerRunner
                 return ItemProcessingResult.Completed();
             }
 
+            if (!options.ClearGeneratedTags && !options.PreviewOnly && options.RunMode != MetadataTagRunMode.RebuildTrackingLedger)
+            {
+                var eligibility = GenerationDecision(configuration, item, invocation);
+                if (eligibility != "Eligible")
+                {
+                    if (eligibility == "BackfillRequired") { summary.ItemsSkippedBaseline++; }
+                    else { summary.ItemsSkippedEligibilityUnavailable++; }
+                    RecordItem(eligibility, eligibility == "BackfillRequired"
+                        ? "This existing library item needs explicit backfill authorization."
+                        : "The existing library baseline or generation authorization is unavailable.");
+                    return ItemProcessingResult.Completed();
+                }
+            }
+
             var input = options.ClearGeneratedTags
                 ? new MetadataTagInput
                 {
@@ -544,6 +579,7 @@ public sealed partial class MetaTaggerRunner
             {
                 missingRecordedTags?.AddRange(previous.LastAppliedTags.Except(input.ExistingTags, StringComparer.OrdinalIgnoreCase));
             }
+            summary.ItemsProcessed++;
             var result = _processor.Process(input, configuration, state, options, started);
             if (result.SkipReason is MetadataTagSkipReason.Unchanged)
             {
@@ -560,6 +596,7 @@ public sealed partial class MetaTaggerRunner
             }
 
             var merge = result.Merge;
+            attemptedMerge = merge;
             AddCounts(summary, merge, configuration);
 
             if (merge.HasChangesToApply || merge.PreviewRemovedTags.Count > 0)
@@ -584,6 +621,7 @@ public sealed partial class MetaTaggerRunner
                     await _host
                         .UpdateItemTagsAsync(item, merge.FinalTags, cancellationToken)
                         .ConfigureAwait(false);
+                    summary.WritesApplied++;
                     checkpointPending = true;
                     var ledgerEntry = result.LedgerEntry
                         ?? throw new InvalidOperationException(
@@ -593,7 +631,6 @@ public sealed partial class MetaTaggerRunner
                     await _stateStore.SaveAsync(state, CancellationToken.None).ConfigureAwait(false);
                     checkpointPending = false;
                     cursorAdvancePersisted = true;
-                    summary.WritesApplied++;
                     RecordItem("Applied", merge: merge);
                     await _clock.DelayAsync(budget.WriteDelay, cancellationToken).ConfigureAwait(false);
                 }
@@ -619,7 +656,7 @@ public sealed partial class MetaTaggerRunner
         catch (Exception) when (checkpointPending)
         {
             summary.Outcome = "Uncertain";
-            RecordItem("Uncertain", "Tags were saved, but the plugin could not save its tag records. Check the item and the Jellyfin server log before previewing again.");
+            RecordItem("Uncertain", "Tags were saved, but the plugin could not save its tag records. Check the item and the Jellyfin server log before previewing again.", attemptedMerge);
             throw;
         }
         catch (Exception exception) when (!checkpointPending
@@ -666,7 +703,8 @@ public sealed partial class MetaTaggerRunner
     private static string CreateRunProfileKey(
         PluginConfiguration configuration,
         MetaTaggerRunOptions options,
-        IEnumerable<BaseItemKind> includedItemTypes)
+        IEnumerable<BaseItemKind> includedItemTypes,
+        RunInvocation invocation)
     {
         var canonical = new StringBuilder();
         AppendProfileValue(canonical, "1");
@@ -674,6 +712,12 @@ public sealed partial class MetaTaggerRunner
         AppendProfileValue(canonical, ((int)options.RunMode).ToString(CultureInfo.InvariantCulture));
         AppendProfileValue(canonical, options.PreviewOnly ? "1" : "0");
         AppendProfileValue(canonical, options.Force ? "1" : "0");
+        if (!options.ClearGeneratedTags)
+        {
+            AppendProfileValue(canonical, configuration.Installation?.Generation?.Revision.ToString(CultureInfo.InvariantCulture) ?? "0");
+            AppendProfileValue(canonical, invocation == RunInvocation.PostScan ? "post-scan"
+                : IsBulkBackfillInvocation(options, invocation) ? "backfill" : "automatic");
+        }
         if (options.ClearGeneratedTags)
         {
             AppendProfileValue(canonical, "cleanup");
@@ -974,6 +1018,8 @@ public sealed partial class MetaTaggerRunner
     {
         ConfiguredDefault,
         ExplicitOptions,
+        ApplyTask,
+        ConfiguredTask,
         DefaultScheduled,
         PostScan
     }

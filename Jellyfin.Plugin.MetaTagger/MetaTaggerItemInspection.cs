@@ -11,6 +11,7 @@ public sealed class MetaTaggerItemInspection
     public string Status { get; set; } = "Ready";
     public string? Reason { get; set; }
     public string? ConfigurationRevision { get; set; }
+    public string GenerationEligibility { get; set; } = "InstallationUnavailable";
     public string? Token { get; set; }
     public DateTimeOffset? ExpiresUtc { get; set; }
     public IReadOnlyCollection<string> MissingTagsWithSourceOff { get; set; } = [];
