@@ -46,6 +46,11 @@ def main():
         print("PASS", scenario, flush=True)
 
     try:
+        tasks = [task for task in server.api("/ScheduledTasks") if task["Key"].startswith("MetaTagger")]
+        assert {task["Key"] for task in tasks} == {"MetaTaggerGenerateTags", "MetaTaggerPreviewTags",
+            "MetaTaggerApplyTags", "MetaTaggerForceFullScan", "MetaTaggerRebuildLedger"}
+        assert all(task["Category"] == "Meta Tagger" for task in tasks)
+        passed("five stable scheduled task keys grouped under Meta Tagger")
         libraries = server.api("/MetaTagger/Libraries")
         library = next(lib for lib in libraries if lib["Name"] == "Movies")
         query = urllib.parse.urlencode({"libraryId": library["ItemId"], "searchTerm": movie["Name"], "limit": 1})

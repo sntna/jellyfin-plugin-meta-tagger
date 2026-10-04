@@ -4,6 +4,27 @@ namespace Jellyfin.Plugin.MetaTagger;
 
 public sealed partial class MetaTaggerRunner
 {
+    internal async Task RecordPostScanCooldownSkipAsync(CancellationToken cancellationToken)
+    {
+        await _runGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var configuration = _host.GetConfiguration();
+            var summary = new MetaTaggerRunSummary
+            {
+                LastRunUtc = _clock.UtcNow, Invocation = "PostScan", PreviewOnly = configuration.PreviewOnly,
+                ConfigurationRevision = configuration.ConfigurationRevision
+            };
+            var record = CreateRunRecord(summary, "Automatic run", "Configured item types across all libraries", "PostScan");
+            summary.Outcome = "Skipped: cooldown";
+            // A skipped trigger is history, not a tagging run. Keep the last-run timestamp
+            // and preview export intact so repeated scans cannot extend the cooldown.
+            await PublishHistoryAsync(record, finished: true).ConfigureAwait(false);
+        }
+        finally { _runGate.Release(); }
+    }
+
     private MetaTaggerRunRecord CreateRunRecord(MetaTaggerRunSummary summary, string operation, string scope,
         string invocation = "Dashboard", string[]? itemTypes = null)
     {

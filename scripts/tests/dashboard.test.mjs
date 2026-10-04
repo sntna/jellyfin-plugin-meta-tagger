@@ -1708,3 +1708,17 @@ test('initial settings expose three sources and keep optional sources collapsed'
     assert.equal(page.element('SelectedSources').textContent, 'Genres, Parental rating, Audio languages');
     assert.equal(page.element('ItemTypesSummary').textContent, 'Movies, Series');
 });
+
+
+test('cooldown skips show no generation and explain eligibility in overview and history', async () => {
+    const page = await readyDashboard();
+    const skip = { runId: 'cooldown', operation: 'Automatic run', outcome: 'Skipped: cooldown', invocation: 'PostScan',
+        scope: 'Configured item types across all libraries', summary: { itemsScanned: 0, writesApplied: 0 } };
+    await page.respond('MetaTagger/Runs', [skip]);
+    assert.match(page.element('OverviewOutcome').textContent, /Automatic run.*Skipped: cooldown/);
+    assert.match(page.element('OverviewCounts').textContent, /No items checked or tags changed/);
+    assert.match(page.element('OverviewCounts').textContent, /next library scan/);
+    await page.activate(page.element('RunList').children[0]);
+    await page.respond('MetaTagger/Runs/cooldown', { ...skip, detailsAvailable: true, items: [] });
+    assert.match(page.element('RunDetailFeedback').textContent, /No items checked or tags changed/);
+});
