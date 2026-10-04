@@ -75,7 +75,11 @@ public sealed partial class MetaTaggerRunner
                 if (inspection.Reason?.StartsWith("Jellyfin", StringComparison.Ordinal) == true) { summary.ItemsSkippedLocked = 1; }
                 else { summary.ItemsSkippedManual = 1; }
             }
-            else { summary.Outcome = inspection.Status; }
+            else
+            {
+                summary.Outcome = inspection.Status;
+                if (inspection.Status == "Failed") { summary.Failures++; }
+            }
             record.AddItem(InspectionHistory(inspection));
             return inspection;
         }
@@ -211,7 +215,7 @@ public sealed partial class MetaTaggerRunner
         {
             ItemId = inspection.ItemId.ToString("N"), Name = inspection.Name, ItemType = inspection.ItemType,
             Outcome = outcome ?? inspection.Status, Reason = inspection.Reason ?? GenerationExclusionReason(eligibility),
-            GenerationEligibility = inspection.GenerationEligibility,
+            GenerationEligibility = inspection.GenerationEligibility, SourceExplanations = inspection.SourceExplanations,
             AddedTags = inspection.AddedTags, RemovedTags = inspection.RemovedTags, PreviewRemovedTags = inspection.PreviewRemovedTags
         };
     }
@@ -225,17 +229,18 @@ public sealed partial class MetaTaggerRunner
             ItemId = itemId, Name = item?.Name ?? string.Empty, ItemType = item?.GetType().Name ?? string.Empty,
             ArtworkItemIds = MetaTaggerBrowserItem.GetArtworkItemIds(item)
         };
-        ItemPlan Unavailable(string status, string reason)
+        ItemPlan Unavailable(string status, string reason, SourceExplanationStatus sourceStatus = SourceExplanationStatus.NotChecked, PluginConfiguration? settings = null)
         {
             inspection.Status = status;
             inspection.Reason = reason;
+            inspection.SourceExplanations = MetadataTagService.UnavailableSources(sourceStatus, reason, settings);
             return new ItemPlan(inspection, item, null, null, null, null);
         }
 
         if (item is null) { return Unavailable("Unavailable", "This item was deleted or is unavailable."); }
         // Check locks before reading the ledger or projecting any metadata, including parent data.
-        if (item.IsLocked) { return Unavailable("Protected", "Jellyfin metadata lock protects this item."); }
-        if (item.LockedFields?.Contains(MetadataField.Tags) == true) { return Unavailable("Protected", "Jellyfin metadata lock on Tags protects this item."); }
+        if (item.IsLocked) { return Unavailable("Protected", "Jellyfin metadata lock protects this item.", SourceExplanationStatus.Protected); }
+        if (item.LockedFields?.Contains(MetadataField.Tags) == true) { return Unavailable("Protected", "Jellyfin metadata lock on Tags protects this item.", SourceExplanationStatus.Protected); }
         var source = draft ?? _host.GetConfiguration();
         var validation = PluginConfigurationValidator.Validate(source);
         if (!validation.IsValid) { return Unavailable("InvalidSettings", string.Join(" ", validation.Errors)); }
@@ -247,27 +252,34 @@ public sealed partial class MetaTaggerRunner
         {
             return Unavailable("InstallationUnavailable", "The saved installation policy is unavailable. Restore the plugin configuration before applying tags.");
         }
-        if (!configuration.IsEnabled) { return Unavailable("Disabled", "Tagging is off in these settings. Select Turn on Meta Tagger to generate tags."); }
+        if (!configuration.IsEnabled) { return Unavailable("Disabled", "Tagging is off in these settings. Select Turn on Meta Tagger to generate tags.", SourceExplanationStatus.Disabled); }
         if (!GetIncludedItemTypes(configuration).Any(type => type.ToString() == GenerationItemType(item)))
         {
-            return Unavailable("OutOfScope", "This item type is not selected in these settings. Select it under Item types to include it.");
+            return Unavailable("OutOfScope", "This item type is not selected in these settings. Select it under Item types to include it.", SourceExplanationStatus.ExcludedItemType);
         }
 
         if ((item.Tags ?? []).Contains(TagFormat.ManualControlTag(configuration, "skip"), StringComparer.OrdinalIgnoreCase))
         {
-            return Unavailable("Protected", "Skipped because this item has the manual skip tag.");
+            return Unavailable("Protected", "Skipped because this item has the manual skip tag.", SourceExplanationStatus.Protected);
         }
 
         if ((item.Tags ?? []).Contains(TagFormat.ManualControlTag(configuration, "lock"), StringComparer.OrdinalIgnoreCase))
         {
-            return Unavailable("Protected", "Skipped because this item has the older manual lock tag, which works like the skip tag.");
+            return Unavailable("Protected", "Skipped because this item has the older manual lock tag, which works like the skip tag.", SourceExplanationStatus.Protected);
         }
 
         // Item inspection and approval never claim untracked tags or consume maintenance actions.
         configuration.ClaimExistingGeneratedTagsForCleanup = false;
         configuration.LastRunSummaryText = string.Empty;
         var state = await _stateStore.LoadAsync(cancellationToken).ConfigureAwait(false);
-        var input = ProjectMetadata(item, configuration, state, cancellationToken);
+        MetadataTagInput input;
+        try { input = ProjectMetadata(item, configuration, state, cancellationToken); }
+        catch (MediaStreamLookupException exception)
+        {
+            _logger.LogError(exception, "Meta Tagger could not read media streams for item {ItemId}.", itemId);
+            return Unavailable("Failed", "Jellyfin could not read this item's tracks. No tags or plugin tag records were changed. Try again after checking the server log.",
+                SourceExplanationStatus.LookupFailed, configuration);
+        }
         var result = _processor.Process(input, configuration, state, new MetaTaggerRunOptions { Force = true }, _clock.UtcNow);
         var merge = result.Merge;
         state.Items.TryGetValue(input.ItemId, out var owned);
@@ -289,6 +301,7 @@ public sealed partial class MetaTaggerRunner
                 _ => false
             })).ToArray();
         inspection.Sources = new MetadataTagService().ExplainTags(input, configuration);
+        inspection.SourceExplanations = new MetadataTagService().ExplainSources(input, configuration);
         inspection.GeneratedTags = result.LedgerEntry?.LastGeneratedTags ?? [];
         inspection.AddedTags = merge.AddedTags;
         inspection.RemovedTags = merge.RemovedTags;

@@ -22,6 +22,7 @@ public sealed class MetaTaggerItemInspection
     public IReadOnlyCollection<string> OwnedTags { get; set; } = [];
     public IReadOnlyCollection<string> ManualTags { get; set; } = [];
     public IReadOnlyCollection<string> PreservedTags { get; set; } = [];
+    public IReadOnlyCollection<MetaTaggerSourceExplanation> SourceExplanations { get; set; } = [];
     public IReadOnlyCollection<MetaTaggerTagSource> Sources { get; set; } = [];
     public IReadOnlyCollection<string> GeneratedTags { get; set; } = [];
 }

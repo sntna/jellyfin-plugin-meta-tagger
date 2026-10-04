@@ -19,6 +19,7 @@ public sealed class MetadataProjectionServiceTests
         Assert.Equal(
             [
                 "AudioLanguages",
+                "AudioTrackCount",
                 "ExistingTags",
                 "Genres",
                 "ItemId",
@@ -30,7 +31,8 @@ public sealed class MetadataProjectionServiceTests
                 "ProductionYears",
                 "ProviderIdSources",
                 "Studios",
-                "SubtitleLanguages"
+                "SubtitleLanguages",
+                "SubtitleTrackCount"
             ],
             properties.Select(property => property.Name).ToArray());
 

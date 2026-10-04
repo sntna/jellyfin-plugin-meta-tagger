@@ -24,6 +24,10 @@ public sealed class MetadataTagInput
 
     public IReadOnlyCollection<int> ProductionYears { get; init; } = [];
 
+    public int AudioTrackCount { get; init; }
+
+    public int SubtitleTrackCount { get; init; }
+
     public IReadOnlyCollection<string> AudioLanguages { get; init; } = [];
 
     public IReadOnlyCollection<string> SubtitleLanguages { get; init; } = [];

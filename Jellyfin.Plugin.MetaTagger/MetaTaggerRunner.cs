@@ -521,11 +521,16 @@ public sealed partial class MetaTaggerRunner
         List<string>? missingRecordedTags)
     {
         GenerationItemEligibility? generationEligibility = null;
+        IReadOnlyCollection<MetaTaggerSourceExplanation> sourceExplanations = [];
         void RecordItem(string outcome, string? reason = null, TagMergeResult? merge = null)
         {
             record.AddItem(new MetaTaggerRunItem
             {
                 ItemId = item.Id.ToString("N"), Name = item.Name, ItemType = item.GetType().Name, Outcome = outcome,
+                SourceExplanations = sourceExplanations.Count > 0 ? sourceExplanations
+                    : options.ClearGeneratedTags ? [] : MetadataTagService.UnavailableSources(
+                        outcome == "Protected" ? SourceExplanationStatus.Protected : SourceExplanationStatus.NotChecked,
+                        reason ?? GenerationExclusionReason(generationEligibility) ?? "This source was not checked."),
                 Reason = reason ?? GenerationExclusionReason(generationEligibility), GenerationEligibility = generationEligibility?.ToString(),
                 AddedTags = merge?.AddedTags ?? [], RemovedTags = merge?.RemovedTags ?? [], PreviewRemovedTags = merge?.PreviewRemovedTags ?? []
             });
@@ -575,6 +580,7 @@ public sealed partial class MetaTaggerRunner
                     ExistingTags = item.Tags ?? []
                 }
                 : ProjectMetadata(item, configuration, state, cancellationToken);
+            if (!options.ClearGeneratedTags) { sourceExplanations = new MetadataTagService().ExplainSources(input, configuration); }
             // Capture only the selected item's current comparison before refreshing ownership.
             if (options.ClearGeneratedTags && options.PreviewOnly && options.CleanupItemId == item.Id
                 && state.Items.TryGetValue(input.ItemId, out var previous))
@@ -670,7 +676,14 @@ public sealed partial class MetaTaggerRunner
             && (exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested))
         {
             summary.Failures++;
-            RecordItem("Failed", "Item processing failed. Check the server log.");
+            if (exception is MediaStreamLookupException)
+            {
+                sourceExplanations = MetadataTagService.UnavailableSources(SourceExplanationStatus.LookupFailed,
+                    "Jellyfin could not read this item's tracks. No tags or plugin tag records were changed. Try again after checking the server log.", configuration);
+            }
+            RecordItem("Failed", exception is MediaStreamLookupException
+                ? "Jellyfin could not read this item's tracks. No tags or plugin tag records were changed."
+                : "Item processing failed. Check the server log.");
             if (configuration.QuietLogging) { _logger.LogError(exception, "Meta Tagger failed for item {ItemId}.", item.Id); }
             else { _logger.LogError(exception, "Meta Tagger failed for item {ItemName} ({ItemId}).", item.Name, item.Id); }
             return ItemProcessingResult.Completed(cursorAdvancePersisted);
@@ -988,12 +1001,22 @@ public sealed partial class MetaTaggerRunner
     private MetadataTagInput ProjectMetadata(BaseItem item, PluginConfiguration configuration, MetaTaggerState state, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var streams = configuration.EnableAudioLanguages || configuration.EnableSubtitleLanguages
-            ? _host.GetMediaStreams(item.Id)
-            : [];
+        IReadOnlyList<MediaStream> streams = [];
+        if (configuration.EnableAudioLanguages || configuration.EnableSubtitleLanguages)
+        {
+            try { streams = _host.GetMediaStreams(item.Id); }
+            catch (Exception exception) when (exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                throw new MediaStreamLookupException(exception);
+            }
+        }
         cancellationToken.ThrowIfCancellationRequested();
         return _metadataProjectionService.Project(item, configuration.IncludeParentSeriesMetadataOnEpisodes, state.Items, streams);
     }
+
+    private sealed class MediaStreamLookupException(Exception innerException)
+        : IOException("Jellyfin media-stream lookup failed.", innerException);
 
     private static BaseItemKind[] GetIncludedItemTypes(PluginConfiguration configuration)
     {

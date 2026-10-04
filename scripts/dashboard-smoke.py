@@ -2,6 +2,7 @@
 """Verify the dashboard only on the repository's labelled disposable Jellyfin server."""
 
 import argparse
+import contextlib
 import importlib.util
 import json
 import pathlib
@@ -14,6 +15,81 @@ MODULE = pathlib.Path(__file__).with_name("disposable-jellyfin.py")
 spec = importlib.util.spec_from_file_location("disposable_jellyfin", MODULE)
 fixture = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(fixture)
+
+
+def audio_codes(server, item_id):
+    item = server.api(f"/Users/{server.user_id}/Items/{item_id}")
+    return [stream.get("Language", "") for stream in item.get("MediaStreams", []) if stream["Type"] == "Audio"]
+
+
+def refresh_tracks(server, item_id, expected):
+    server.api(f"/Items/{item_id}/Refresh?MetadataRefreshMode=FullRefresh&ImageRefreshMode=None&ReplaceAllMetadata=false", method="POST")
+    for _ in range(120):
+        if audio_codes(server, item_id) == expected:
+            return
+        time.sleep(.5)
+    raise AssertionError("Jellyfin did not probe the generated audio tracks")
+
+
+@contextlib.contextmanager
+def recorded_audio_fixture(server, item):
+    """Temporarily replace one seeded synthetic movie, then restore its media and metadata."""
+    seeds = json.loads((server.directory / "evidence/seed-items.json").read_text())["Items"]
+    assert any(seed["Id"] == item["Id"] and seed["Path"] == item["Path"] for seed in seeds)
+    path = pathlib.PurePosixPath(item["Path"])
+    relative = path.relative_to("/media")
+    media = (server.directory / "media").resolve()
+    destination = (media / str(relative)).resolve()
+    assert destination.is_relative_to(media) and destination.is_file()
+    original = server.api(f"/Users/{server.user_id}/Items/{item['Id']}")
+    codes = audio_codes(server, item["Id"])
+    temporary = destination.with_name(destination.stem + ".track-check.mp4")
+    backup = destination.with_suffix(destination.suffix + ".track-check-backup")
+    assert not backup.exists() and not temporary.exists(), "Preserve unfinished fixture recovery files"
+    try:
+        fixture.generate_track_sample(server.directory, temporary, server.meta["image"], labelled=True)
+        destination.rename(backup)
+        temporary.rename(destination)
+        refresh_tracks(server, item["Id"], ["eng", "spa", "eng", "und"])
+        server.api(f"/Items/{item['Id']}", original)
+        yield
+    finally:
+        if backup.exists():
+            backup.replace(destination)
+            refresh_tracks(server, item["Id"], codes)
+            server.api(f"/Items/{item['Id']}", original)
+        temporary.unlink(missing_ok=True)
+
+
+def check_recorded_audio(server, movie, episode, series, passed):
+    config = server.configure(IsEnabled=True, RunAfterLibraryScan=False, PreviewOnly=True,
+        IncludeMovies=True, IncludeSeries=True, IncludeEpisodes=True, EnableAudioLanguages=True,
+        EnableSubtitleLanguages=False, EnableGenres=False, EnableParentalRating=False,
+        EnableProductionYear=False, EnableStudios=False, EnableProviderIds=False,
+        EnableProductionCountries=False, EnableExistingTagsAsKeywords=False,
+        GeneratedTagPrefix="track-check", TagSeparator=":", StaleTagMode="Keep",
+        ClaimExistingGeneratedTagsForCleanup=False, MaxItemsPerRun=0, MaxWritesPerRun=0, MaxRunMinutes=0)
+    with recorded_audio_fixture(server, movie):
+        server.update_item(movie["Id"], LockData=False, LockedFields=[], Tags=["Favorites", "manual:keep"])
+        before = server.tags()
+        preview = server.api(f"/MetaTagger/Items/{movie['Id']}/Preview", {})
+        assert preview["GeneratedTags"] == ["track-check:audio-language:eng", "track-check:audio-language:spa"], preview
+        assert server.tags() == before
+        assert next(s for s in preview["SourceExplanations"] if s["Source"] == "audio-language")["Status"] == "Generated"
+        applied = server.api(f"/MetaTagger/Items/{movie['Id']}/Apply", {})
+        assert applied["WritesApplied"] == 1
+        assert set(server.tags()[movie["Id"]]) == {"Favorites", "manual:keep", *preview["GeneratedTags"]}
+        detail = server.api("/MetaTagger/Runs/" + applied["RunId"])
+        assert next(s for s in detail["Items"][0]["SourceExplanations"] if s["Source"] == "audio-language")["Status"] == "Generated"
+        negative = server.api("/MetaTagger/Example", {"ItemId": episode["ItemId"], "Configuration": config})
+        assert all(code.strip().lower() in {"", "und"} for code in audio_codes(server, episode["ItemId"]))
+        assert not negative["GeneratedTags"]
+        assert next(s for s in negative["SourceExplanations"] if s["Source"] == "audio-language")["Status"] == "NoRecordedLanguage"
+        series_result = server.api("/MetaTagger/Example", {"ItemId": series["Id"], "Configuration": config})
+        assert next(s for s in series_result["SourceExplanations"] if s["Source"] == "audio-language")["Status"] == "NoItemTracks"
+        assert not series_result["GeneratedTags"]
+        passed("real English, Spanish, duplicate commentary and undetermined tracks; zero-write Preview, Apply and preserved manual/unmanaged tags",
+               recorded_codes=audio_codes(server, movie["Id"]), generated_tags=preview["GeneratedTags"])
 
 
 def main():
@@ -120,7 +196,8 @@ def main():
         server.token = admin_token
         passed("anonymous and non-admin callers denied", endpoints=len(endpoints), anonymous=401, non_admin=403)
 
-        config = server.configure(IsEnabled=True, RunAfterLibraryScan=False, GeneratedTagPrefix="ui-check", TagSeparator=":",
+        check_recorded_audio(server, movie, episode, series, passed)
+        config = server.configure(IsEnabled=True, RunAfterLibraryScan=False, EnableAudioLanguages=False, EnableSubtitleLanguages=False, GeneratedTagPrefix="ui-check", TagSeparator=":",
                                   ManualTagPrefix="manual", IncludeMovies=True, EnableGenres=False, EnableParentalRating=False,
                                   EnableExistingTagsAsKeywords=False, EnableStudios=False, EnableProductionCountries=False,
                                   EnableProviderIds=False, EnableProductionYear=True, PreviewOnly=True, StaleTagMode="Keep",

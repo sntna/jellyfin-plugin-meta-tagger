@@ -106,7 +106,7 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
 
         if (change == "lookup-failure")
         {
-            await Assert.ThrowsAsync<IOException>(() => runner.ApplyItemAsync(item.Id, CancellationToken.None));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => runner.ApplyItemAsync(item.Id, CancellationToken.None));
         }
         else
         {
