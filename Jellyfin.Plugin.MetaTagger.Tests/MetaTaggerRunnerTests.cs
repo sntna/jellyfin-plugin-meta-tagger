@@ -183,6 +183,9 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
             var run = (await store.LoadRunsAsync(CancellationToken.None))[0];
             Assert.Equal("Uncertain", run.Outcome);
             Assert.Equal(1, run.Summary.WritesApplied);
+            var details = (await store.LoadRunAsync(run.RunId, CancellationToken.None))!;
+            Assert.Equal("Confirmed", Assert.Single(details.Items).WriteOutcome);
+            Assert.Equal("Unconfirmed", details.Items[0].OwnershipOutcome);
         }
         else
         {
@@ -228,6 +231,8 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
         Assert.Equal(1, detail.Summary.WritesApplied);
         Assert.Equal(1, detail.Summary.ItemsRemaining);
         Assert.Equal("Applied", Assert.Single(detail.Items).Outcome);
+        Assert.Equal("Confirmed", detail.Items[0].WriteOutcome);
+        Assert.Equal("Confirmed", detail.Items[0].OwnershipOutcome);
     }
 
     [Fact]

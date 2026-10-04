@@ -90,7 +90,7 @@ public sealed partial class MetaTaggerRunner
 
     private MetaTaggerRunSummary CreateItemSummary() => new()
     {
-        LastRunUtc = _clock.UtcNow, RunMode = "ItemGeneration", PreviewOnly = false
+        LastRunUtc = _clock.UtcNow, RunMode = "ItemGeneration", PreviewOnly = false, ItemsRemaining = 1
     };
 
     private static MetaTaggerItemRun Snapshot(ItemRun run) => new()

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Jellyfin.Plugin.MetaTagger.Configuration;
 
 namespace Jellyfin.Plugin.MetaTagger;
 
@@ -16,7 +17,7 @@ public sealed partial class MetaTaggerRunner
                 LastRunUtc = _clock.UtcNow, Invocation = "PostScan", PreviewOnly = configuration.PreviewOnly,
                 ConfigurationRevision = configuration.ConfigurationRevision
             };
-            var record = CreateRunRecord(summary, "Automatic run", "Configured item types across all libraries", "PostScan");
+            var record = CreateRunRecord(summary, "Automatic run", "Configured item types across all libraries", "PostScan", configuration: configuration);
             summary.Outcome = "Skipped: cooldown";
             // A skipped trigger is history, not a tagging run. Keep the last-run timestamp
             // and preview export intact so repeated scans cannot extend the cooldown.
@@ -26,14 +27,17 @@ public sealed partial class MetaTaggerRunner
     }
 
     private MetaTaggerRunRecord CreateRunRecord(MetaTaggerRunSummary summary, string operation, string scope,
-        string invocation = "Dashboard", string[]? itemTypes = null)
+        string invocation = "Dashboard", string[]? itemTypes = null, PluginConfiguration? configuration = null)
     {
         summary.Outcome = "Running";
+        summary.Invocation = invocation;
+        configuration ??= CloneConfiguration(_host.GetConfiguration());
         return new MetaTaggerRunRecord
         {
             RunId = summary.RunId, Operation = operation, Scope = scope, Invocation = invocation,
             ConfigurationRevision = summary.ConfigurationRevision, StartedUtc = summary.LastRunUtc ?? _clock.UtcNow,
-            Summary = summary, ItemTypes = itemTypes ?? []
+            Summary = summary, DetailVersion = 1, RecordedRules = MetaTaggerRecordedRules.Capture(configuration),
+            ItemTypes = itemTypes ?? GetIncludedItemTypes(configuration).Select(type => type.ToString()).ToArray()
         };
     }
 
@@ -46,6 +50,7 @@ public sealed partial class MetaTaggerRunner
             record.EndedUtc = _clock.UtcNow;
         }
 
+        record.PublicationRevision++;
         try
         {
             await _stateStore.SaveRunAsync(record, CancellationToken.None).ConfigureAwait(false);

@@ -8,6 +8,87 @@ public sealed class MetaTaggerStateStoreTests : IDisposable
     private readonly string _directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
 
     [Fact]
+    public async Task RunHistory_FailedDetailPublicationRetainsAttemptAndNeverReturnsStaleSuccess()
+    {
+        var promoter = new HistoryPublicationFailure();
+        var store = new MetaTaggerStateStore(_directory, promoter);
+        var run = new MetaTaggerRunRecord { DetailVersion = 1 };
+        await store.SaveRunAsync(run, CancellationToken.None);
+        run.Outcome = "Completed";
+        run.EndedUtc = DateTimeOffset.UtcNow;
+        run.Summary.WritesApplied = 1;
+        run.PublicationRevision++;
+        run.AddItem(new MetaTaggerRunItem { Outcome = "Applied", AddedTags = ["meta:genre:drama"] });
+        promoter.FailDetail = true;
+        await Assert.ThrowsAsync<IOException>(() => store.SaveRunAsync(run, CancellationToken.None));
+
+        var reopened = new MetaTaggerStateStore(_directory);
+        var entry = Assert.Single(await reopened.LoadRunsAsync(CancellationToken.None));
+        var detail = (await reopened.LoadRunAsync(entry.RunId, CancellationToken.None))!;
+        Assert.Equal("Completed", detail.Outcome);
+        Assert.Equal(1, detail.Summary.WritesApplied);
+        Assert.False(detail.DetailsAvailable);
+        Assert.NotNull(detail.DetailsUnavailableReason);
+        Assert.Empty(detail.Items);
+    }
+
+    [Fact]
+    public async Task RunHistory_IndexFailureCannotMixNewDetailsWithOldCoverageAfterRestart()
+    {
+        var promoter = new HistoryPublicationFailure();
+        var store = new MetaTaggerStateStore(_directory, promoter);
+        var run = new MetaTaggerRunRecord { DetailVersion = 1 };
+        await store.SaveRunAsync(run, CancellationToken.None);
+        run.PublicationRevision++;
+        run.Summary.WritesApplied = 1;
+        run.Outcome = "Completed";
+        run.EndedUtc = DateTimeOffset.UtcNow;
+        run.AddItem(new MetaTaggerRunItem { Outcome = "Applied" });
+        promoter.FailIndex = true;
+        await Assert.ThrowsAsync<IOException>(() => store.SaveRunAsync(run, CancellationToken.None));
+        var detail = (await new MetaTaggerStateStore(_directory).LoadRunAsync(run.RunId, CancellationToken.None))!;
+        Assert.Equal("Interrupted", detail.Outcome);
+        Assert.False(detail.DetailsAvailable);
+        Assert.Empty(detail.Items);
+    }
+
+    [Fact]
+    public async Task RunHistory_MissingAndOlderDetailsAreExplicitAndReturnedCopiesCannotRewriteHistory()
+    {
+        var store = new MetaTaggerStateStore(_directory);
+        var run = new MetaTaggerRunRecord { Outcome = "Completed" };
+        run.AddItem(new MetaTaggerRunItem { Name = "Old result", AddedTags = ["meta:genre:drama"] });
+        await store.SaveRunAsync(run, CancellationToken.None);
+        run.Items.Clear();
+        var detail = (await store.LoadRunAsync(run.RunId, CancellationToken.None))!;
+        Assert.Equal(0, detail.DetailVersion);
+        Assert.Null(detail.RecordedRules);
+        Assert.Equal("Unavailable", Assert.Single(detail.Items).WriteOutcome);
+        detail.Items.Clear();
+        Assert.Single((await store.LoadRunAsync(run.RunId, CancellationToken.None))!.Items);
+        File.Delete(Path.Combine(_directory, "runs", run.RunId.ToString("N") + ".json"));
+        detail = (await store.LoadRunAsync(run.RunId, CancellationToken.None))!;
+        Assert.False(detail.DetailsAvailable);
+        Assert.NotNull(detail.DetailsUnavailableReason);
+        Assert.Empty(detail.Items);
+    }
+
+    private sealed class HistoryPublicationFailure : IMetaTaggerStateFilePromoter
+    {
+        public bool FailDetail { get; set; }
+        public bool FailIndex { get; set; }
+        public void Promote(string tempPath, string destinationPath)
+        {
+            if ((FailDetail && destinationPath.Contains(Path.DirectorySeparatorChar + "runs" + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+                || (FailIndex && destinationPath.EndsWith("run-history.json", StringComparison.Ordinal)))
+            {
+                throw new IOException("Injected history publication failure");
+            }
+            File.Move(tempPath, destinationPath, overwrite: true);
+        }
+    }
+
+    [Fact]
     public async Task RunHistory_LegacyCleanupIsNotInventedAsConfiguredGenerationPreview()
     {
         var store = new MetaTaggerStateStore(_directory);

@@ -257,7 +257,7 @@ public sealed partial class MetaTaggerRunner
         var record = CreateRunRecord(summary,
             options.ClearGeneratedTags ? (options.PreviewOnly ? "Cleanup preview" : "Cleanup apply") : (options.PreviewOnly ? "Preview" : "Apply"),
             options.CleanupItemId?.ToString("N") ?? (options.ClearGeneratedTags ? "Entire library" : "Configured item types across all libraries"),
-            summary.Invocation, options.ClearGeneratedTags ? [] : GetIncludedItemTypes(configuration).Select(type => type.ToString()).ToArray());
+            summary.Invocation, options.ClearGeneratedTags ? [] : GetIncludedItemTypes(configuration).Select(type => type.ToString()).ToArray(), configuration);
         MetaTaggerRunCursor? activeCursor = null;
         await PublishHistoryAsync(record).ConfigureAwait(false);
         try
@@ -366,6 +366,7 @@ public sealed partial class MetaTaggerRunner
 
             activeCursor = cursor;
             var cycleSize = cursor!.PendingItemIds.Length;
+            summary.ItemsRemaining = cycleSize;
             while (cursor.NextIndex < cursor.PendingItemIds.Length)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -411,6 +412,8 @@ public sealed partial class MetaTaggerRunner
                 }
                 finally
                 {
+                    summary.ItemsRemaining = ItemsRemaining(cursor);
+                    await PublishHistoryAsync(record).ConfigureAwait(false);
                     if (cycleSize > 0)
                     {
                         progress.Report(cursor.NextIndex * 100d / cycleSize);
@@ -495,6 +498,7 @@ public sealed partial class MetaTaggerRunner
         catch
         {
             if (summary.Outcome != "Uncertain") { summary.Outcome = "Failed"; }
+            record.FailureReason = "The run did not complete. Inspect item outcomes and the Jellyfin server log before retrying.";
             throw;
         }
         finally
@@ -522,8 +526,13 @@ public sealed partial class MetaTaggerRunner
     {
         GenerationItemEligibility? generationEligibility = null;
         IReadOnlyCollection<MetaTaggerSourceExplanation> sourceExplanations = [];
+        var writeOutcome = "NotAttempted";
+        var ownershipOutcome = "NotApplicable";
+        var detailRecorded = false;
+        var originalTags = (item.Tags ?? []).ToArray();
         void RecordItem(string outcome, string? reason = null, TagMergeResult? merge = null)
         {
+            detailRecorded = true;
             record.AddItem(new MetaTaggerRunItem
             {
                 ItemId = item.Id.ToString("N"), Name = item.Name, ItemType = item.GetType().Name, Outcome = outcome,
@@ -532,6 +541,8 @@ public sealed partial class MetaTaggerRunner
                         outcome == "Protected" ? SourceExplanationStatus.Protected : SourceExplanationStatus.NotChecked,
                         reason ?? GenerationExclusionReason(generationEligibility) ?? "This source was not checked."),
                 Reason = reason ?? GenerationExclusionReason(generationEligibility), GenerationEligibility = generationEligibility?.ToString(),
+                WriteOutcome = options.PreviewOnly && merge is not null ? "Proposal" : writeOutcome, OwnershipOutcome = ownershipOutcome,
+                KeptTags = originalTags.Except(merge?.RemovedTags ?? [], StringComparer.OrdinalIgnoreCase).ToArray(),
                 AddedTags = merge?.AddedTags ?? [], RemovedTags = merge?.RemovedTags ?? [], PreviewRemovedTags = merge?.PreviewRemovedTags ?? []
             });
         }
@@ -544,6 +555,7 @@ public sealed partial class MetaTaggerRunner
         {
             item = _host.GetItem(item.Id)
                 ?? throw new InvalidOperationException("The queued item is no longer available.");
+            originalTags = (item.Tags ?? []).ToArray();
             if (item.IsLocked || item.LockedFields?.Contains(MetadataField.Tags) == true)
             {
                 summary.ItemsSkippedLocked++;
@@ -626,13 +638,16 @@ public sealed partial class MetaTaggerRunner
                     if (!budget.CanWrite(summary, out var budgetReason))
                     {
                         MarkBudgetLimitReached(summary, budgetReason, ItemsRemaining(cursor));
-                        RecordItem("Not checked", "Item update limit reached.");
+                        RecordItem("Not applied", "Item update limit reached.", merge);
                         return ItemProcessingResult.Deferred();
                     }
 
+                    writeOutcome = "Unconfirmed";
                     await _host
                         .UpdateItemTagsAsync(item, merge.FinalTags, cancellationToken)
                         .ConfigureAwait(false);
+                    writeOutcome = "Confirmed";
+                    ownershipOutcome = "Unconfirmed";
                     summary.WritesApplied++;
                     checkpointPending = true;
                     var ledgerEntry = result.LedgerEntry
@@ -643,7 +658,10 @@ public sealed partial class MetaTaggerRunner
                     await _stateStore.SaveAsync(state, CancellationToken.None).ConfigureAwait(false);
                     checkpointPending = false;
                     cursorAdvancePersisted = true;
+                    ownershipOutcome = "Confirmed";
                     RecordItem("Applied", merge: merge);
+                    summary.ItemsRemaining = ItemsRemaining(cursor);
+                    await PublishHistoryAsync(record).ConfigureAwait(false);
                     await _clock.DelayAsync(budget.WriteDelay, cancellationToken).ConfigureAwait(false);
                 }
             }
@@ -672,6 +690,11 @@ public sealed partial class MetaTaggerRunner
             RecordItem("Uncertain", "Tags were saved, but the plugin could not save its tag records. Check the item and the Jellyfin server log before previewing again.", attemptedMerge);
             throw;
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            if (!detailRecorded) { RecordItem("Cancelled", "Item processing stopped. Any attempted update may be unconfirmed.", attemptedMerge); }
+            throw;
+        }
         catch (Exception exception) when (!checkpointPending
             && (exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested))
         {
@@ -683,7 +706,7 @@ public sealed partial class MetaTaggerRunner
             }
             RecordItem("Failed", exception is MediaStreamLookupException
                 ? "Jellyfin could not read this item's tracks. No tags or plugin tag records were changed."
-                : "Item processing failed. Check the server log.");
+                : "Item processing failed. Check the server log.", attemptedMerge);
             if (configuration.QuietLogging) { _logger.LogError(exception, "Meta Tagger failed for item {ItemId}.", item.Id); }
             else { _logger.LogError(exception, "Meta Tagger failed for item {ItemName} ({ItemId}).", item.Name, item.Id); }
             return ItemProcessingResult.Completed(cursorAdvancePersisted);

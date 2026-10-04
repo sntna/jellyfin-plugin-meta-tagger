@@ -43,6 +43,17 @@ is secondary to Overview and Preview results and retains recent attempts and the
 available details. Selecting a run marks it and focuses its details heading below
 the list. Recorded results never grant approval to apply tags.
 
+History keeps 20 attempts, with up to 1,000 item details and 5 MiB of detail data
+per run. Open a run's **Run details** to see its recorded rules, selected item
+types, trigger, times, authorization, and processing coverage. Authorization
+records permission; checked, updated, and remaining counts show the work done.
+Item results distinguish Preview proposals, confirmed tag writes, unconfirmed
+attempts, and ownership records that could not be saved. They retain added,
+removed, and kept tags plus source explanations. Later settings or metadata edits
+do not recalculate these results. Older, unavailable, or truncated details carry
+an explicit notice. History is read-only and never authorizes generation or tag
+removal. Inspect the current item before retrying an unconfirmed update.
+
 **Settings** keeps all configuration controls. The
 **Try these settings** aside uses the current draft while Settings is visible,
 without saving settings or changing tags. It sits beside the form on wide screens

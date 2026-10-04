@@ -1471,7 +1471,7 @@ test('history failure clears on retry and incomplete retained results receive a 
     assert.equal(page.element('RunDetailFeedback').getAttribute('data-feedback-tone'), 'warning');
     assert.match(page.element('RunDetailFeedback').textContent, /Some item details were not retained/);
     await page.activate(row);
-    await page.respond('MetaTagger/Runs/history', { outcome: 'Completed', detailsAvailable: true, items: [] });
+    await page.respond('MetaTagger/Runs/history', { outcome: 'Completed', detailVersion: 1, recordedRules: {}, detailsAvailable: true, items: [] });
     assert.equal(page.element('RunDetailFeedback').getAttribute('data-feedback-tone'), 'neutral');
 });
 
@@ -2089,3 +2089,50 @@ for (const staleResult of ['success', 'failure']) {
         assert.match(page.element('TaskFeedback').textContent, /Applying tags.*25%/);
     });
 }
+
+test('History shows recorded rules and coverage and separates confirmed writes from proposals and unconfirmed attempts', async () => {
+    const page = await readyDashboard();
+    await page.respond('MetaTagger/Runs', [{ runId: 'immutable', operation: 'Apply', outcome: 'Cancelled' }]);
+    await page.activate(page.element('RunList').children[0]);
+    await page.respond('MetaTagger/Runs/immutable', {
+        runId: 'immutable', detailVersion: 1, detailsAvailable: true, operation: 'Apply', outcome: 'Cancelled',
+        scope: 'Configured item types across all libraries', invocation: 'ApplyTask', itemTypes: ['Movie'],
+        startedUtc: '2026-10-04T01:00:00Z', endedUtc: '2026-10-04T01:01:00Z', configurationRevision: 'recorded-revision',
+        recordedRules: { 'Generated tag prefix': 'recorded', 'Genres': 'On', 'Item limit': '2' },
+        summary: { previewOnly: false, backfillAuthorization: 'SelectedTypes', authorizedItemTypes: ['Movie'],
+            itemsScanned: 2, itemsProcessed: 2, itemsRemaining: 8, writesApplied: 1, failures: 1 },
+        items: [
+            { name: 'Confirmed', outcome: 'Applied', writeOutcome: 'Confirmed', ownershipOutcome: 'Confirmed',
+                addedTags: ['recorded:genre:drama'], removedTags: ['recorded:year:2023'], keptTags: ['Favorites'] },
+            { name: 'Failed attempt', outcome: 'Failed', writeOutcome: 'Unconfirmed', ownershipOutcome: 'NotApplicable',
+                addedTags: ['recorded:genre:comedy'], keptTags: ['manual:keep'] }
+        ]
+    });
+    assert.match(page.element('HistoryRunMetadata').textContent, /ApplyTask.*Movie.*recorded-revision/);
+    assert.match(page.element('HistoryRunMetadata').textContent, /SelectedTypes.*Movie.*permission.*completed processing/);
+    assert.match(page.element('HistoryRunRules').textContent, /Generated tag prefixrecordedGenresOnItem limit2/);
+    assert.match(page.element('RunDetails').children[0].textContent, /Tag update confirmed.*tag records confirmed.*Tags added.*Tags removed.*Tags kept.*Favorites/);
+    assert.match(page.element('RunDetails').children[1].textContent, /completion unconfirmed.*Attempted tags to add.*recorded:genre:comedy.*Tags kept in the plan.*manual:keep/);
+    await page.edit('GeneratedTagPrefix', 'later');
+    assert.match(page.element('HistoryRunRules').textContent, /Generated tag prefixrecorded/);
+    assert.equal(page.element('ApplyItemButton').disabled, true);
+    assert.equal(page.element('ApplyCleanupButton').disabled, true);
+});
+
+test('History details remain independent of edits while loading and disclose older and failed publication details', async () => {
+    const page = await readyDashboard();
+    await page.respond('MetaTagger/Runs', [{ runId: 'old', operation: 'Preview' }]);
+    const row = page.element('RunList').children[0];
+    await page.activate(row);
+    await page.edit('EnableGenres', false);
+    await page.respond('MetaTagger/Runs/old', { runId: 'old', detailsAvailable: true, items: [{ name: 'Older proposal', outcome: 'Changes' }] });
+    assert.match(page.element('RunDetailFeedback').textContent, /older run lacks recorded rules/);
+    assert.match(page.element('HistoryRunRules').textContent, /Current settings cannot explain historical results/);
+    assert.match(page.element('RunDetails').textContent, /Older proposal.*confirmation detail is unavailable/);
+    await page.activate(row);
+    assert.equal(page.element('HistoryRunRules').textContent, '');
+    await page.respond('MetaTagger/Runs/old', { runId: 'old', detailsAvailable: false, detailsUnavailableReason: 'Item details could not be published.', items: [{ name: 'Stale success' }] });
+    assert.match(page.element('RunDetailFeedback').textContent, /unavailable.*could not be published/);
+    assert.equal(page.element('RunDetails').textContent, '');
+    assert.equal(page.sent('MetaTagger/Items/old/ApplyRuns').length, 0);
+});

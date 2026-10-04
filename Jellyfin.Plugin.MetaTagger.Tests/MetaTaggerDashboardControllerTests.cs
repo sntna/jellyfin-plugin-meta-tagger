@@ -11,6 +11,28 @@ public sealed class MetaTaggerDashboardControllerTests : IDisposable
     private readonly string _directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
 
     [Fact]
+    public async Task HistoryReads_ReturnMatchingRetainedDataWithoutReadingCurrentSettingsOrGrantingPermission()
+    {
+        var store = new MetaTaggerStateStore(_directory);
+        var run = new MetaTaggerRunRecord
+        {
+            DetailVersion = 1, Outcome = "Completed", ItemTypes = ["Movie"],
+            RecordedRules = new() { ["Genres"] = "On" }
+        };
+        run.AddItem(new MetaTaggerRunItem { Name = "Historical movie", WriteOutcome = "Proposal", KeptTags = ["Favorites"] });
+        await store.SaveRunAsync(run, CancellationToken.None);
+        var controller = new MetaTaggerDashboardController(new MetaTaggerStateStore(_directory),
+            () => throw new InvalidOperationException("History must not read current settings."));
+        Assert.Equal(run.RunId, Assert.Single(await controller.GetRunsAsync(CancellationToken.None)).RunId);
+        var retained = (await controller.GetRunAsync(run.RunId, CancellationToken.None)).Value!;
+        Assert.Equal("On", retained.RecordedRules!["Genres"]);
+        Assert.Equal("Proposal", Assert.Single(retained.Items).WriteOutcome);
+        Assert.Equal(["Favorites"], retained.Items[0].KeptTags);
+        Assert.Equal("None", retained.Summary.BackfillAuthorization);
+        Assert.IsType<Microsoft.AspNetCore.Mvc.NotFoundResult>((await controller.GetRunAsync(Guid.NewGuid(), CancellationToken.None)).Result);
+    }
+
+    [Fact]
     public async Task GetLatestPreviewAsync_ReturnsItemAndTagChangesFromLatestPreviewRun()
     {
         var store = new MetaTaggerStateStore(_directory);
