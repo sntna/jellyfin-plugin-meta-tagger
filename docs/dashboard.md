@@ -1,6 +1,6 @@
 # Dashboard guide
 
-Meta Tagger opens in a compact workspace, with Browse items, History, and Maintenance available as tabs.
+Meta Tagger opens in a compact workspace. Browse items, History, and Maintenance open on demand from the workspace tools. Each view has a Back button that returns to its entry point. Escape also returns when focus is outside a text field or select control. Drafts, item selection, search, pagination, and series breadcrumbs stay in place. Leaving a view discards unfinished read requests; reopening retries the selected page or retained run.
 
 - **Workspace** puts editable common sources, item types, automatic mode, and post-scan controls together.
   The saved scope appears beside **Apply tags now** and **Check changes first**.
@@ -26,17 +26,22 @@ Meta Tagger opens in a compact workspace, with Browse items, History, and Mainte
   **Check changes first** optionally shows proposed tag changes. **Stop item run**
   cancels this request even while it waits behind another run. Progress and the final
   saved-write count appear beside the action. Unsaved settings must be saved first.
+- **Recent runs** opens any of the latest three runs directly in History. The selected snapshot stays read-only.
 - **History** shows recorded runs and item results in separate scrolling lists.
   **Skipped: cooldown** means a post-scan trigger checked no items and changed no tags.
   It neither extends the cooldown nor queues a later run.
-  Selecting a run keeps keyboard focus and list position on that run.
+  Selecting a run within History keeps keyboard focus and list position on that run.
+  Opening a recent run focuses its detail heading. Refresh history also retries the selected run.
   Counts appear separately from status guidance. Preview results and history items include thumbnails.
 - **Maintenance** shows removal controls directly for tags recorded as plugin-owned. It requires
   a fresh preview and explicit confirmation. Leaving Maintenance invalidates
   that preview and confirmation. The Browse items shortcut opens Maintenance with
-  the selected item ready to preview.
+  the selected item ready to preview. Back returns to that inspector.
+  **Tracking and legacy tag settings** opens the existing Advanced behavior controls
+  for rechecking items, rebuilding plugin tag records, and temporarily claiming legacy tags.
+  These choices remain draft settings until saved and do not authorize generation.
 
-**History** is always available as a tab and from the workspace.
+**History** is available from the workspace tools and Recent runs.
 It retains the latest 20 attempts, including failures, cancellations, and
 incomplete runs. Each run keeps up to 1,000 item details and 5 MiB of detail
 data. Missing or shortened results are identified. History never authorizes an
