@@ -18,7 +18,7 @@ after changing source, tests, project files, dashboard code, or packaging.
 
 - Keep one focused change per pull request.
 - Add regression tests for behavior changes.
-- Preserve unmanaged tags, manual tags, preview-first defaults, ledger-owned cleanup, cancellation, budgets, and per-item failure isolation.
+- Preserve unmanaged tags, manual tags, fresh-only automatic defaults, baseline-before-write safeguards, explicit backfill authorization, ledger-owned cleanup, cancellation, budgets, and per-item failure isolation.
 - Include the exact verification result and any manual smoke testing.
 - Call out changes to dependencies, workflows, permissions, compatibility, persistence, or release metadata.
 - Use a Conventional Commit-style pull request title such as `feat:`, `fix:`, `docs:`, `test:`, or `chore:`. The repository uses squash merges, so the pull request title becomes the public commit message.

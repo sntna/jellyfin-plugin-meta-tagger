@@ -21,7 +21,8 @@ The plugin does not generate interpreted policy tags such as `audience:kids`,
 
 ## Quick start
 
-1. Leave **Preview scheduled and post-scan runs** selected.
+1. Fresh installations use automatic Apply and post-scan runs. Select
+   **Preview scheduled and post-scan runs** if you want read-only automatic runs.
 2. Choose the Jellyfin details and item types you want to tag.
 3. Save the settings.
 4. Optionally select **Check changes first** to preview configured item types across
@@ -57,9 +58,10 @@ default. The other six sources start off inside the collapsed **More sources**
 section. The source summary names every enabled choice even while that section
 is closed. Existing saved selections are preserved.
 
-New installations select movies and series, use **New or changed items**, keep
-preview-only enabled, and keep outdated tags. Episodes, generic videos,
-parent-series inheritance, and automatic post-scan runs start off.
+New installations select movies and series, use **New or changed items** with
+automatic Apply and post-scan runs, and keep outdated tags. Episodes, generic
+videos, and parent-series inheritance start off. Existing items are excluded
+from automatic generation until explicitly authorized through Apply.
 Tag format and item types are separate disclosures with draft summaries.
 The item-type summary says whether episodes include series metadata. Native
 validation opens hidden editors so their values can be corrected.
@@ -70,7 +72,7 @@ For library tagging, Preview results' **Apply changes across all libraries** gui
 names **Apply metadata tag changes** and links to Jellyfin's Scheduled Tasks.
 The link does not save or launch anything. The task uses current saved settings
 and metadata across all libraries, with selected item types, protections, and
-run limits. Save the draft first. Default Preview does not prevent this explicit
+run limits. Save the draft first. Choosing automatic Preview does not prevent this explicit
 Apply task from writing tags. Turning off post-scan runs does not remove any
 independently configured Scheduled Tasks triggers.
 
@@ -140,8 +142,9 @@ languages always come from the item itself.
 
 ### Automation
 
-The defaults are **New or changed items**, preview-only on, and post-scan runs
-off. The minimum interval between post-scan runs is 30 minutes.
+Fresh installations default to **New or changed items**, automatic Apply, and
+post-scan runs on. Saved modes are preserved on upgrades. The minimum interval
+between post-scan runs is 30 minutes.
 
 - **Items to check per run** offers **New or changed items** to skip items whose
   metadata, tags, and settings match the plugin records, or **All selected item
@@ -230,13 +233,22 @@ remove recorded tags even after the generated prefix changes. It keeps other
 tags with an old prefix. Include tags from an earlier installation can record
 matching tags only under the current generated prefix and separator.
 
-`PreviewOnly` defaults to `true`. Generate metadata tags, Check all items for
+Proven fresh installations set `PreviewOnly` to `false` and enable post-scan runs. Saved Preview or Apply choices remain unchanged, including settings saved after a fresh install. Missing configuration with prior installation evidence stays conservative; it does not prove a fresh install. Generate metadata tags, Check all items for
 metadata tag changes, and runs after library scans honor it. In previews, item
 tags remain unchanged, but plugin records and run history may be updated.
 
-Runs after library scans are off by default. When selected,
-`MinimumMinutesBetweenAutoRuns` skips an automatic run if the previous one was
-too recent; it does not queue that run for later.
+All five visible scheduled tasks are grouped under **Meta Tagger**. Their keys and
+saved triggers are unchanged. Generate metadata tags defaults to once per day
+and follows the saved automatic mode. Post-scan processing is a separate hook.
+Both require tagging to be enabled and selected item types. Neither authorizes
+backfill. The persisted baseline excludes existing items until explicit Apply
+authorizes them; eligible later additions can receive tags automatically.
+Incremental processing can enumerate the full selected scope and skip unchanged items.
+
+`MinimumMinutesBetweenAutoRuns` skips post-scan processing when the latest tagging
+run was too recent. History records **Skipped: cooldown**, with no items checked
+or tags written. The skip neither extends the cooldown nor queues a run. The next
+library scan after the cooldown can run. The daily task does not use this cooldown.
 
 ## Resource controls
 
@@ -285,7 +297,7 @@ Uninstalling the plugin never edits media tags. Run the confirmed removal
 workflow before uninstalling if you want recorded plugin tags removed. Settings
 and plugin data persist across restart, disable, enable, and upgrade. Retention
 after uninstall depends on Jellyfin and is not part of the plugin's contract. A
-reinstall remains preview-first.
+reinstall with retained configuration preserves its saved mode and triggers. Only a proven fresh setup without prior configuration or installation evidence receives automatic defaults.
 
 ## Support boundaries
 

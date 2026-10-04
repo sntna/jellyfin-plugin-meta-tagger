@@ -20,6 +20,8 @@ Meta Tagger has six primary destinations inside Jellyfin's dashboard:
   cancels this request even while it waits behind another run. Progress and the final
   saved-write count appear beside the action. Unsaved settings must be saved first.
 - **History** shows recorded runs and item results in separate scrolling lists.
+  **Skipped: cooldown** means a post-scan trigger checked no items and changed no tags.
+  It neither extends the cooldown nor queues a later run.
   Selecting a run keeps keyboard focus and list position on that run.
   Counts appear separately from status guidance. Preview results and history items include thumbnails.
 - **Settings** shows tagging and sources, with the names of every selected source.
@@ -83,3 +85,11 @@ retained item run. After a server restart, use History if its live status is una
 If a write or ownership checkpoint cannot be confirmed, inspect the item before retrying.
 
 See the [settings guide](meta-tagger-plugin.md) for configuration and tag removal.
+
+Fresh installations use automatic Apply and post-scan runs. The existing library
+baseline is saved before automatic writes; existing items need explicit Apply
+for backfill. Saved settings and task triggers remain unchanged on upgrades.
+Find all five visible tasks under **Meta Tagger** in Scheduled Tasks. The default
+daily Generate metadata tags task follows automatic mode; post-scan is a separate
+hook. Incremental runs can enumerate the full selected scope and skip unchanged
+items.

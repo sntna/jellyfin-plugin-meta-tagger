@@ -18,7 +18,7 @@
 ## Safety invariants
 
 - Preserve unmanaged and manual tags.
-- Keep new installations preview-first and remove only tags recorded for that item.
+- Use automatic Apply and post-scan defaults only for proven fresh installations, persist the baseline before automatic writes, require explicit authorization for backfill, and remove only tags recorded for that item.
 - Honor cancellation, item/write/time budgets, and per-item failure isolation.
 - Do not infer policy meaning such as audience, risk, or tone from metadata.
 

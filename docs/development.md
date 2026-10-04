@@ -194,3 +194,19 @@ scripts/                         Verification, packaging, and smoke tools
 ```
 
 See the [artwork guide](brand/README.md) for logo files and update instructions.
+
+## Automatic defaults and migration checks
+
+Only first initialization without saved configuration or prior installation evidence
+enables automatic Apply and post-scan runs. Persisted `Origin=Fresh` is historical
+identity, not permission to reset later choices. Keep the configuration class's
+conservative deserialization defaults for established or uncertain installations.
+Before automatic writes, the runner persists a complete existing-library baseline.
+Daily and post-scan invocations never authorize backfill. Incremental processing
+can enumerate the selected scope and skip unchanged items.
+
+Test fresh installs separately from saved Preview and Apply upgrades. Preserve the
+five task type identities, keys and saved triggers while grouping them under Meta
+Tagger. A cooldown skip belongs in history without replacing the latest tagging
+summary or extending the cooldown. Run lifecycle checks only on generated state
+and restore fixture settings and metadata afterward.

@@ -11,6 +11,65 @@ namespace Jellyfin.Plugin.MetaTagger.Tests;
 
 public sealed partial class MetaTaggerRunnerTests
 {
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task Generation_FreshDefaults_ItemApplyAndOptionalCheckPreserveAutomaticBoundary(bool checkFirst, bool postScan)
+    {
+        var plugin = CreatePersistedPlugin();
+        Assert.False(plugin.Configuration.PreviewOnly);
+        Assert.True(plugin.Configuration.RunAfterLibraryScan);
+        var target = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"], Tags = ["manual:keep", "Favorites"] };
+        var excluded = new Movie { Id = Guid.NewGuid(), Genres = ["Comedy"], Tags = ["custom:keep"] };
+        var items = new List<BaseItem> { target, excluded };
+        var store = new MetaTaggerStateStore(_directory);
+        var clock = new ItemApprovalClock();
+        var runner = CreateRunner(new PersistedConfigurationHost(plugin, items), store, clock);
+        if (checkFirst)
+        {
+            await runner.PreviewItemAsync(target.Id, CancellationToken.None);
+            var checkedStatus = await runner.GetGenerationStatusAsync(CancellationToken.None);
+            Assert.Empty(checkedStatus.AuthorizedItemIds);
+            Assert.Empty(checkedStatus.AuthorizedItemTypes);
+            Assert.Equal(["manual:keep", "Favorites"], target.Tags);
+        }
+        target.Genres = ["Adventure"];
+        var run = await WaitForItemRun(runner, runner.StartItemApply(target.Id).RunId);
+        Assert.Equal("Completed", run.State);
+        Assert.Equal(1, run.Summary!.WritesApplied);
+        Assert.Equal(["Favorites", "manual:keep", "meta:genre:adventure"], target.Tags.Order());
+        Assert.Equal(["custom:keep"], excluded.Tags);
+
+        plugin = CreatePersistedPlugin();
+        var added = new Movie { Id = Guid.NewGuid(), Genres = ["Animation"] };
+        items.Add(added);
+        target.Genres = ["Mystery"];
+        runner = CreateRunner(new PersistedConfigurationHost(plugin, items), store, clock);
+        if (postScan)
+        {
+            var task = new LibraryPostScanTask(runner, store, clock);
+            var lastSummary = await store.LoadSummaryAsync(CancellationToken.None);
+            await task.Run(new NoOpProgress(), CancellationToken.None);
+            Assert.Equal("Skipped: cooldown", (await store.LoadRunsAsync(CancellationToken.None))[0].Outcome);
+            Assert.Equal(lastSummary!.RunId, (await store.LoadSummaryAsync(CancellationToken.None))!.RunId);
+            Assert.Empty(added.Tags);
+            clock.UtcNow += TimeSpan.FromMinutes(30);
+            await task.Run(new NoOpProgress(), CancellationToken.None);
+        }
+        else { await new ScheduledTagTask(runner).ExecuteAsync(new NoOpProgress(), CancellationToken.None); }
+
+        Assert.Contains("meta:genre:mystery", target.Tags);
+        Assert.Contains("manual:keep", target.Tags);
+        Assert.Contains("Favorites", target.Tags);
+        Assert.Equal(["custom:keep"], excluded.Tags);
+        Assert.Contains("meta:genre:animation", added.Tags);
+        var status = await runner.GetGenerationStatusAsync(CancellationToken.None);
+        Assert.Equal([target.Id.ToString("N")], status.AuthorizedItemIds);
+        Assert.Empty(status.AuthorizedItemTypes);
+    }
+
     [Fact]
     public async Task Generation_DirectItemApply_RecalculatesCurrentDataAndAuthorizesOnlyTarget()
     {
@@ -142,22 +201,23 @@ public sealed partial class MetaTaggerRunnerTests
     [InlineData("scope")]
     [InlineData("lock")]
     [InlineData("persistence")]
+    [InlineData("baseline-persistence")]
     public async Task Generation_RejectedSingleItemApply_CannotPublishAuthorization(string failure)
     {
         var serializer = new PersistedXmlSerializer();
         var plugin = CreateFreshGenerationPlugin(serializer);
         var movie = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"] };
         var runner = CreateRunner(new PersistedConfigurationHost(plugin, [movie]));
-        var preview = await runner.PreviewItemAsync(movie.Id, CancellationToken.None);
+        if (failure != "baseline-persistence") { await runner.PreviewItemAsync(movie.Id, CancellationToken.None); }
         if (failure == "scope")
         {
             plugin.Configuration.IncludeMovies = false;
             plugin.SaveConfiguration();
         }
         if (failure == "lock") { movie.IsLocked = true; }
-        if (failure == "persistence") { serializer.FailWrites = true; }
+        if (failure is "persistence" or "baseline-persistence") { serializer.FailWrites = true; }
         var apply = runner.ApplyItemAsync(movie.Id, CancellationToken.None);
-        if (failure == "persistence") { await Assert.ThrowsAsync<IOException>(() => apply); }
+        if (failure is "persistence" or "baseline-persistence") { await Assert.ThrowsAsync<IOException>(() => apply); }
         else { await Assert.ThrowsAsync<InvalidOperationException>(() => apply); }
         serializer.FailWrites = false;
 
@@ -296,10 +356,13 @@ public sealed partial class MetaTaggerRunnerTests
     }
 
     [Theory]
-    [InlineData("unavailable")]
-    [InlineData("cancelled")]
-    [InlineData("time-limit")]
-    public async Task Generation_InterruptedCapture_CannotTreatTheLibraryAsEmpty(string failure)
+    [InlineData("unavailable", false)]
+    [InlineData("cancelled", false)]
+    [InlineData("time-limit", false)]
+    [InlineData("unavailable", true)]
+    [InlineData("cancelled", true)]
+    [InlineData("time-limit", true)]
+    public async Task Generation_InterruptedCapture_CannotTreatTheLibraryAsEmpty(string failure, bool directApply)
     {
         var plugin = CreateFreshGenerationPlugin();
         plugin.Configuration.MaxRunMinutes = 1;
@@ -317,11 +380,13 @@ public sealed partial class MetaTaggerRunnerTests
             }
         };
         var runner = CreateRunner(host, clock: clock);
-        var run = new ScheduledTagTask(runner).ExecuteAsync(new NoOpProgress(), cancellation.Token);
+        Task run = directApply ? runner.ApplyItemAsync(movie.Id, cancellation.Token)
+            : new ScheduledTagTask(runner).ExecuteAsync(new NoOpProgress(), cancellation.Token);
         if (failure == "unavailable") { await Assert.ThrowsAsync<IOException>(() => run); }
         else if (failure == "cancelled") { await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run); }
         else { await run; }
         Assert.Empty(movie.Tags);
+        Assert.Empty((await runner.GetGenerationStatusAsync(CancellationToken.None)).AuthorizedItemIds);
         Assert.Equal("NotCaptured", (await runner.GetGenerationStatusAsync(CancellationToken.None)).BaselineStatus);
         var record = Assert.Single(await new MetaTaggerStateStore(_directory).LoadRunsAsync(CancellationToken.None));
         Assert.Equal(failure == "cancelled" ? "Cancelled" : failure == "time-limit" ? "Budget limited" : "Failed", record.Outcome);
@@ -332,6 +397,7 @@ public sealed partial class MetaTaggerRunnerTests
         runner = CreateRunner(new PersistedConfigurationHost(plugin, [movie]));
         await new ScheduledTagTask(runner).ExecuteAsync(new NoOpProgress(), CancellationToken.None);
         Assert.Empty(movie.Tags);
+        Assert.Empty((await runner.GetGenerationStatusAsync(CancellationToken.None)).AuthorizedItemIds);
         Assert.Equal("Complete", (await runner.GetGenerationStatusAsync(CancellationToken.None)).BaselineStatus);
     }
 

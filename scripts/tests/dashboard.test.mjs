@@ -1922,3 +1922,53 @@ test('an obsolete library result failure cannot mark a newer run as failed', asy
     assert.match(page.element('TaskFeedback').textContent, /Starting Apply/);
     assert.notEqual(page.element('TaskFeedback').getAttribute('data-feedback-tone'), 'error');
 });
+
+test('cooldown skips show no generation and explain eligibility in overview and history', async () => {
+    const page = await readyDashboard();
+    const skip = { runId: 'cooldown', operation: 'Automatic run', outcome: 'Skipped: cooldown', invocation: 'PostScan',
+        scope: 'Configured item types across all libraries', summary: { itemsScanned: 0, writesApplied: 0 } };
+    await page.respond('MetaTagger/Runs', [skip]);
+    assert.match(page.element('OverviewOutcome').textContent, /Automatic run.*Skipped: cooldown/);
+    assert.match(page.element('OverviewCounts').textContent, /No items checked or tags changed/);
+    assert.match(page.element('OverviewCounts').textContent, /next library scan/);
+    await page.activate(page.element('RunList').children[0]);
+    await page.respond('MetaTagger/Runs/cooldown', { ...skip, detailsAvailable: true, items: [] });
+    assert.match(page.element('RunDetailFeedback').textContent, /No items checked or tags changed/);
+});
+
+test('lost library Apply response recovers the running task without allowing duplicate starts', async () => {
+    const page = await readyDashboard();
+    await page.respond('MetaTagger/Runs', []);
+    await page.click('RunApplyButton');
+    await page.respond('load-settings', { ConfigurationRevision: 'revision' });
+    await page.respond('ScheduledTasks', [{ key: 'MetaTaggerApplyTags', id: 'apply', state: 'Idle' }]);
+    await page.fail('ScheduledTasks/Running/apply');
+    assert.equal(page.element('RunApplyButton').disabled, true);
+    await page.click('RunApplyButton');
+    assert.equal(page.sent('ScheduledTasks/Running/apply').length, 1);
+    await page.respond('ScheduledTasks/apply', { state: 'Running', currentProgressPercentage: 25 });
+    assert.match(page.element('TaskFeedback').textContent, /Applying tags.*25%/);
+    assert.equal(page.element('StopPreviewButton').disabled, false);
+    await page.tick();
+    await page.respond('ScheduledTasks/apply', { state: 'Idle', lastExecutionResult: { startTimeUtc: '2026-10-03T12:00:00Z', endTimeUtc: '2026-10-03T12:00:02Z', status: 'Completed' } });
+    await page.respond('MetaTagger/Runs', [{ invocation: 'MetaTaggerApplyTags', configurationRevision: 'revision', startedUtc: '2026-10-03T12:00:01Z', outcome: 'Completed', summary: { outcome: 'Completed', writesApplied: 1 } }]);
+    assert.match(page.element('TaskFeedback').textContent, /Items updated: 1/);
+});
+
+test('unconfirmed library launch permits deliberate retry after bounded idle recovery', async () => {
+    const page = await readyDashboard();
+    await page.click('RunApplyButton');
+    await page.respond('load-settings', { ConfigurationRevision: 'revision' });
+    await page.respond('ScheduledTasks', [{ key: 'MetaTaggerApplyTags', id: 'apply', state: 'Idle' }]);
+    await page.fail('ScheduledTasks/Running/apply');
+    for (let index = 0; index < 3; index++) {
+        await page.respond('ScheduledTasks/apply', { state: 'Idle' });
+        if (index < 2) { await page.tick(); }
+    }
+    assert.match(page.element('TaskFeedback').textContent, /Start could not be confirmed.*Check History before retrying/);
+    assert.equal(page.element('RunApplyButton').disabled, false);
+    await page.click('RunApplyButton');
+    await page.respond('load-settings', { ConfigurationRevision: 'revision' });
+    await page.respond('ScheduledTasks', [{ key: 'MetaTaggerApplyTags', id: 'apply', state: 'Idle' }]);
+    assert.equal(page.sent('ScheduledTasks/Running/apply').length, 2);
+});

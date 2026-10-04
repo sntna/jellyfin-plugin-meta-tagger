@@ -41,7 +41,7 @@ public sealed partial class MetaTaggerRunnerTests
     }
 
     [Fact]
-    public async Task Migration_FreshSetup_PersistsIdentityAndKeepsExistingPreviewDefaults()
+    public async Task Migration_FreshSetup_PersistsIdentityAndEnablesAutomaticApply()
     {
         var plugin = CreatePersistedPlugin();
         var id = plugin.Configuration.Installation!.InstallationId;
@@ -51,14 +51,37 @@ public sealed partial class MetaTaggerRunnerTests
         var result = await CreateRunner(new PersistedConfigurationHost(plugin, [item]))
             .RunAsync(new NoOpProgress(), CancellationToken.None);
 
-        Assert.True(result.PreviewOnly);
+        Assert.False(result.PreviewOnly);
         Assert.Empty(item.Tags);
-        Assert.False(plugin.Configuration.RunAfterLibraryScan);
+        Assert.True(plugin.Configuration.RunAfterLibraryScan);
         Assert.Equal(id, plugin.Configuration.Installation!.InstallationId);
         Assert.NotEqual(Guid.Empty, id);
         Assert.Equal(InstallationOrigin.Fresh, plugin.Configuration.Installation.Origin);
         Assert.Empty(plugin.Configuration.Installation.PriorGenerationEligibility!.IncludedItemTypes!);
         Assert.False(plugin.Configuration.Installation.PriorGenerationEligibility.ApplyTask);
+    }
+
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public void Migration_PersistedFreshOrigin_PreservesLaterUserChoices(bool previewOnly, bool postScan)
+    {
+        var plugin = CreatePersistedPlugin();
+        plugin.Configuration.PreviewOnly = previewOnly;
+        plugin.Configuration.RunAfterLibraryScan = postScan;
+        plugin.Configuration.IncludeMovies = false;
+        plugin.Configuration.EnableGenres = false;
+        plugin.Configuration.MinimumMinutesBetweenAutoRuns = 75;
+        plugin.SaveConfiguration();
+
+        plugin = CreatePersistedPlugin();
+
+        Assert.Equal(InstallationOrigin.Fresh, plugin.Configuration.Installation!.Origin);
+        Assert.Equal(previewOnly, plugin.Configuration.PreviewOnly);
+        Assert.Equal(postScan, plugin.Configuration.RunAfterLibraryScan);
+        Assert.False(plugin.Configuration.IncludeMovies);
+        Assert.False(plugin.Configuration.EnableGenres);
+        Assert.Equal(75, plugin.Configuration.MinimumMinutesBetweenAutoRuns);
     }
 
     [Fact]

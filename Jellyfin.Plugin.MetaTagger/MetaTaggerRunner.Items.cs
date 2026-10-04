@@ -120,6 +120,13 @@ public sealed partial class MetaTaggerRunner
                 MarkBudgetLimitReached(summary, reason, 1);
                 return summary;
             }
+            // Optional checking must not change when later additions become eligible.
+            CaptureGenerationBaseline(configuration, budget, summary, cancellationToken);
+            if (summary.BudgetLimitReached)
+            {
+                summary.ItemsRemaining = 1;
+                return summary;
+            }
             // Confirm storage can checkpoint before crossing the media-write boundary.
             await _stateStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();

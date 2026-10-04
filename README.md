@@ -8,8 +8,9 @@ genre becomes `meta:genre:science-fiction`; an English audio track becomes
 `meta:audio-language:eng`. You can use these tags in Jellyfin user access rules.
 The plugin does not decide who should see an item.
 
-New installations preview changes without saving tags. Genres, parental rating,
-and audio languages are enabled for movies and series. You can also tag studios,
+Fresh installations automatically tag eligible later additions after saving an
+existing-library baseline. Genres, parental rating, and audio languages are enabled
+for movies and series. You can also tag studios,
 countries, years, subtitle languages, metadata providers, and existing keywords.
 
 ## Requirements
@@ -36,19 +37,25 @@ Jellyfin. Do not copy the ZIP itself into the plugin directory.
 ## Get started
 
 1. Open Meta Tagger in Jellyfin's plugin settings.
-2. Choose your metadata sources and item types, then save. Leave
-   **Preview scheduled and post-scan runs** selected while trying the plugin.
+2. Choose your metadata sources and item types, then save. Select
+   **Preview scheduled and post-scan runs** if you want read-only automatic runs while trying the plugin.
 3. Optionally select **Check changes first** to review proposed changes without saving tags.
 4. Select **Apply tags now** for configured item types across all libraries, or
    choose one item in **Browse items** and use **Apply tags now to this item**.
 
 Apply recalculates current metadata and saved settings without requiring a preview
 or confirmation. **Save & apply tags now** saves your submitted settings first.
-Explicit Apply writes tags even when automatic runs default to Preview. Use
-**Stop run** or **Stop item run** to request cancellation.
+Explicit Apply writes tags even when automatic mode is Preview. Use **Stop run**
+or **Stop item run** to request cancellation.
 
-Automatic runs after library scans start off. Once you're happy with previews,
-you can configure automation and run limits in Settings.
+Fresh installations use automatic Apply and post-scan runs. The plugin persists
+an existing-library baseline before automatic writes. Existing items need explicit
+Apply authorization; later additions are eligible automatically. Saved modes and
+schedules remain unchanged on upgrades.
+
+You can also authorize existing items across your libraries with **Apply metadata
+tag changes** under **Meta Tagger** in Jellyfin's **Scheduled Tasks**. It uses saved
+settings. You can change automatic mode, post-scan processing and run limits in Settings.
 
 See the [settings guide](docs/meta-tagger-plugin.md) for all options, or the
 [dashboard guide](docs/dashboard.md) for previews, item browsing, and history.

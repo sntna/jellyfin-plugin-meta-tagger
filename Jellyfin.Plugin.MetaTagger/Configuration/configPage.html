@@ -1796,7 +1796,7 @@
                             </label>
                             <div class="fieldDescription">
                                 When checked, Generate metadata tags, Check all items for metadata tag changes, and post-scan runs only preview.
-                                Uncheck to let those runs save tags. Preview tag changes always previews; Apply metadata tag changes always applies.
+                                Uncheck to let those runs save tags for later additions and explicitly authorized items. New installations use Apply with post-scan runs on. Existing library items need explicit Apply authorization. Preview tag changes always previews; Apply metadata tag changes always applies.
                             </div>
                         </div>
 
@@ -1805,7 +1805,7 @@
                                 <input id="RunAfterLibraryScan" type="checkbox" aria-controls="PostScanOptions" is="emby-checkbox" />
                                 <span>Run after a library scan</span>
                             </label>
-                            <div class="fieldDescription">Uses the preview setting above.</div>
+                            <div class="fieldDescription">Uses the automatic mode above. This post-scan hook is separate from the daily Generate metadata tags task and its saved triggers.</div>
                         </div>
 
                         <div id="PostScanOptions" class="metadataTaggerSubsection" hidden>
@@ -1813,14 +1813,14 @@
                                 <label class="inputLabel inputLabelUnfocused" for="MinimumMinutesBetweenAutoRuns">Minimum time between post-scan runs (minutes)</label>
                                 <input id="MinimumMinutesBetweenAutoRuns" type="number" min="0" step="1" aria-describedby="MinimumMinutesBetweenAutoRunsHelp" is="emby-input" />
                                 <div id="MinimumMinutesBetweenAutoRunsHelp" class="fieldDescription">
-                                    Skip post-scan runs that start too soon after the latest recorded run. Use 0 to run after every scan.
+                                    Skip post-scan runs that start too soon after the latest tagging run. History records a cooldown skip with no generation. Skips do not extend the wait or queue a run. Use 0 to run after every scan.
                                 </div>
                             </div>
                         </div>
 
                         <div class="fieldDescription">
                             To preview or apply changes across all libraries, use <a href="#/dashboard/tasks">Scheduled Tasks</a>.
-                            Meta Tagger must be on.
+                            All five tasks are under Meta Tagger. Generate metadata tags has a daily trigger by default; your saved triggers remain unchanged. Meta Tagger must be on. Incremental runs can enumerate the full selected scope and skip unchanged items.
                         </div>
                     </details>
 
@@ -2488,7 +2488,7 @@
                         year: 'Production year', 'audio-language': 'Audio languages', 'subtitle-language': 'Subtitle languages' }[source] || source;
                 }
                 function outcomeTone(outcome) {
-                    return ['Protected', 'Not checked', 'Disabled', 'Changes', 'Running', 'OutOfScope'].includes(outcome) ? 'neutral'
+                    return ['Protected', 'Not checked', 'Disabled', 'Changes', 'Running', 'OutOfScope', 'Skipped: cooldown'].includes(outcome) ? 'neutral'
                         : ['Completed', 'Applied', 'Up to date'].includes(outcome) ? 'positive'
                         : ['Failed', 'Partial failure', 'Uncertain', 'InvalidSettings', 'Unavailable'].includes(outcome) ? 'negative' : 'warning';
                 }
@@ -2757,8 +2757,10 @@
                             document.querySelector('#TaskFeedback').textContent = (apply ? 'Apply' : 'Check') + ' requested. Waiting for Jellyfin…';
                             taskTimer = setTimeout(pollGenerationTask, 1000);
                         }, function () {
-                            requestedTask = null;
-                            document.querySelector('#TaskFeedback').textContent = 'The run could not be started. Try again or check Scheduled Tasks.';
+                            requestedTask.launchUncertain = true;
+                            requestedTask.idlePolls = 0;
+                            document.querySelector('#TaskFeedback').textContent = 'Start response unavailable. Checking Jellyfin for this run…';
+                            pollGenerationTask();
                         });
                     }, function () { document.querySelector('#TaskFeedback').textContent = 'Scheduled Tasks could not be loaded. Try Preview tag changes again.'; });
                 }
@@ -2770,6 +2772,14 @@
                         var completed = field(task, 'lastExecutionResult');
                         var end = field(completed, 'endTimeUtc');
                         if (state !== 'Idle' || !end || end === request.previousEnd) {
+                            if (request.launchUncertain && state === 'Idle' && ++request.idlePolls >= 3) {
+                                requestedTask = null;
+                                delete pendingRequests.taskStop;
+                                setFeedbackTone('TaskFeedback', 'warning');
+                                document.querySelector('#TaskFeedback').textContent = 'Start could not be confirmed. Jellyfin reports no new run. Check History before retrying.';
+                                return;
+                            }
+                            if (state !== 'Idle') { request.launchUncertain = false; }
                             document.querySelector('#TaskFeedback').textContent = ({ Running: request.apply ? 'Applying tags' : 'Checking changes', Cancelling: 'Stopping run', Idle: 'Waiting for run to start' }[state] || 'Waiting for run status') + (field(task, 'currentProgressPercentage') != null ? ' · ' + Math.round(field(task, 'currentProgressPercentage')) + '%' : '');
                             taskTimer = setTimeout(pollGenerationTask, 1000);
                             return;
@@ -3117,6 +3127,7 @@
                 function runGuidance(run) {
                     var summary = field(run, 'summary') || {};
                     var nextStep = {
+                        'Skipped: cooldown': 'No items checked or tags changed. The next library scan after the cooldown can run; this skip is not queued and does not extend the cooldown.',
                         Disabled: 'Select Turn on Meta Tagger in Settings and save before running again.',
                         'No item types selected': 'Select at least one item type in Settings and save before running again.',
                         'Partial failure': 'Open this run for item details and check the Jellyfin server log.',
