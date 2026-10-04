@@ -19,10 +19,6 @@ public sealed partial class MetaTaggerRunner
         return _host.BrowseItems(term, libraryId, startIndex, limit, parentId, hierarchical);
     }
 
-    private readonly Dictionary<string, ItemApproval> _itemApprovals = new(StringComparer.Ordinal);
-    private static readonly TimeSpan ItemApprovalLifetime = TimeSpan.FromMinutes(15);
-    private const int MaximumItemApprovals = 100;
-
     public async Task<MetaTaggerItemInspection> InspectItemAsync(
         Guid itemId, PluginConfiguration? draft, CancellationToken cancellationToken)
     {
@@ -85,20 +81,6 @@ public sealed partial class MetaTaggerRunner
                 if (inspection.Status == "Failed") { summary.Failures++; }
             }
             record.AddItem(InspectionHistory(inspection));
-            if (plan.Result?.Merge.HasChangesToApply == true && inspection.Status == "Changes")
-            {
-                foreach (var key in _itemApprovals.Where(pair => pair.Value.ExpiresUtc <= _clock.UtcNow).Select(pair => pair.Key).ToArray())
-                {
-                    _itemApprovals.Remove(key);
-                }
-                while (_itemApprovals.Count >= MaximumItemApprovals)
-                {
-                    _itemApprovals.Remove(_itemApprovals.MinBy(pair => pair.Value.ExpiresUtc).Key);
-                }
-                inspection.Token = Guid.NewGuid().ToString("N");
-                inspection.ExpiresUtc = _clock.UtcNow + ItemApprovalLifetime;
-                _itemApprovals[inspection.Token] = new ItemApproval(itemId, inspection.ExpiresUtc.Value, plan.ApprovalHash!);
-            }
             return inspection;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { summary.Outcome = "Cancelled"; throw; }
@@ -110,32 +92,30 @@ public sealed partial class MetaTaggerRunner
         }
     }
 
-    public async Task<MetaTaggerRunSummary> ApplyItemAsync(Guid itemId, string token, CancellationToken cancellationToken)
+    public Task<MetaTaggerRunSummary> ApplyItemAsync(Guid itemId, CancellationToken cancellationToken)
+        => ApplyItemCoreAsync(itemId, CreateItemSummary(), cancellationToken);
+
+    private async Task<MetaTaggerRunSummary> ApplyItemCoreAsync(Guid itemId, MetaTaggerRunSummary summary,
+        CancellationToken cancellationToken, Action? onStarted = null)
     {
         await _runGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         MetaTaggerRunRecord? record = null;
         ItemPlan? plan = null;
         var checkpointPending = false;
-        var summary = new MetaTaggerRunSummary
-        {
-            LastRunUtc = _clock.UtcNow, RunMode = "ItemGeneration", PreviewOnly = false
-        };
         try
         {
-            if (string.IsNullOrWhiteSpace(token) || !_itemApprovals.Remove(token, out var approval)
-                || approval.ItemId != itemId || approval.ExpiresUtc <= _clock.UtcNow)
-            {
-                throw new InvalidOperationException("Item approval expired or was already used. Preview this item again.");
-            }
+            // Waiting for another run must not consume this item's execution budget.
+            summary.LastRunUtc = _clock.UtcNow;
+            onStarted?.Invoke();
             var savedConfiguration = _host.GetConfiguration();
             summary.ConfigurationRevision = savedConfiguration.ConfigurationRevision;
             DescribeGenerationState(summary, savedConfiguration.Installation);
             record = CreateRunRecord(summary, "Apply", itemId.ToString("N"));
             await PublishHistoryAsync(record).ConfigureAwait(false);
             plan = await PlanItemAsync(itemId, null, cancellationToken).ConfigureAwait(false);
-            if (plan.ApprovalHash != approval.Hash || plan.Inspection.Status != "Changes")
+            if (plan.Result is null)
             {
-                throw new InvalidOperationException("This item, its locks, plugin tag records, or settings changed. Preview this item again.");
+                throw new InvalidOperationException(plan.Inspection.Reason ?? "This item cannot be updated.");
             }
             var configuration = plan.Configuration!;
             var state = plan.State!;
@@ -146,15 +126,11 @@ public sealed partial class MetaTaggerRunner
                 MarkBudgetLimitReached(summary, reason, 1);
                 return summary;
             }
-            summary.ItemsScanned = 1;
-            summary.ItemsProcessed = 1;
-            var result = _processor.Process(plan.Input!, configuration, state,
-                new MetaTaggerRunOptions { Force = true, PreviewOnly = false }, started);
-            AddCounts(summary, result.Merge, configuration);
-            summary.ItemsChanged = result.Merge.HasChangesToApply ? 1 : 0;
-            if (!budget.CanWrite(summary, out reason))
+            // Optional checking must not change when later additions become eligible.
+            CaptureGenerationBaseline(configuration, budget, summary, cancellationToken);
+            if (summary.BudgetLimitReached)
             {
-                MarkBudgetLimitReached(summary, reason, 1);
+                summary.ItemsRemaining = 1;
                 return summary;
             }
             // Confirm storage can checkpoint before crossing the media-write boundary.
@@ -165,12 +141,27 @@ public sealed partial class MetaTaggerRunner
                 MarkBudgetLimitReached(summary, reason, 1);
                 return summary;
             }
-            // Revalidate after the storage wait. This never broadens the approved plan.
-            var current = await PlanItemAsync(itemId, null, cancellationToken).ConfigureAwait(false);
-            if (current.ApprovalHash != approval.Hash)
+            // Recalculate after the storage wait using current metadata and saved settings.
+            plan = await PlanItemAsync(itemId, null, cancellationToken).ConfigureAwait(false);
+            if (plan.Result is null)
             {
-                plan = current;
-                throw new InvalidOperationException("The item changed before its tags could be saved. Preview this item again.");
+                throw new InvalidOperationException(plan.Inspection.Reason ?? "This item cannot be updated.");
+            }
+            configuration = plan.Configuration!;
+            state = plan.State!;
+            budget = new MetaTaggerRunBudget(configuration, started);
+            summary.ConfigurationRevision = configuration.ConfigurationRevision;
+            summary.ItemsScanned = 1;
+            summary.ItemsProcessed = 1;
+            var result = _processor.Process(plan.Input!, configuration, state,
+                new MetaTaggerRunOptions { Force = true, PreviewOnly = false }, started);
+            AddCounts(summary, result.Merge, configuration);
+            summary.ItemsChanged = result.Merge.HasChangesToApply ? 1 : 0;
+            if (budget.ShouldStopBeforeItem(new MetaTaggerRunSummary(), _clock.UtcNow, out reason)
+                || (result.Merge.HasChangesToApply && !budget.CanWrite(summary, out reason)))
+            {
+                MarkBudgetLimitReached(summary, reason, 1);
+                return summary;
             }
             AuthorizeGenerationScope(configuration, [], itemId, summary, cancellationToken);
             plan.Inspection.GenerationEligibility = GenerationItemEligibility.Eligible.ToString();
@@ -180,7 +171,13 @@ public sealed partial class MetaTaggerRunner
                 MarkBudgetLimitReached(summary, reason, 1);
                 return summary;
             }
-            await _host.UpdateItemTagsAsync(current.Item!, result.Merge.FinalTags, cancellationToken).ConfigureAwait(false);
+            if (!result.Merge.HasChangesToApply)
+            {
+                record.AddItem(InspectionHistory(plan.Inspection, "Up to date"));
+                CompleteOutcome(summary);
+                return summary;
+            }
+            await _host.UpdateItemTagsAsync(plan.Item!, result.Merge.FinalTags, cancellationToken).ConfigureAwait(false);
             checkpointPending = true;
             summary.WritesApplied = 1;
             state.Items[itemId.ToString("N")] = result.LedgerEntry!;
@@ -195,7 +192,7 @@ public sealed partial class MetaTaggerRunner
         catch (Exception exception) when (checkpointPending)
         {
             summary.Outcome = "Uncertain";
-            _logger.LogError(exception, "Meta Tagger item {ItemId} was written but its ownership checkpoint failed. Do not repeat the consumed approval.", itemId);
+            _logger.LogError(exception, "Meta Tagger item {ItemId} was written but its ownership checkpoint failed. Inspect the item before retrying.", itemId);
             throw new InvalidOperationException("Tags were saved, but the plugin could not save its tag records. Check the item and the Jellyfin server log, then preview the item again before retrying.", exception);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { summary.Outcome = "Cancelled"; throw; }
@@ -237,7 +234,7 @@ public sealed partial class MetaTaggerRunner
             inspection.Status = status;
             inspection.Reason = reason;
             inspection.SourceExplanations = MetadataTagService.UnavailableSources(sourceStatus, reason, settings);
-            return new ItemPlan(inspection, item, null, null, null, null, null);
+            return new ItemPlan(inspection, item, null, null, null, null);
         }
 
         if (item is null) { return Unavailable("Unavailable", "This item was deleted or is unavailable."); }
@@ -316,20 +313,9 @@ public sealed partial class MetaTaggerRunner
         inspection.PreservedTags = retained.Where(tag => !TagFormat.IsManual(tag, configuration)
             && !inspection.OwnedTags.Contains(tag, StringComparer.OrdinalIgnoreCase)).ToArray();
         inspection.Status = merge.HasChangesToApply || merge.PreviewRemovedTags.Count > 0 ? "Changes" : "Up to date";
-        var bindingConfiguration = CloneConfiguration(configuration);
-        if (bindingConfiguration.Installation is { } installation) { installation.Generation = null; }
-        var binding = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(new
-        {
-            itemId, configuration = bindingConfiguration,
-            Metadata = new MetadataFingerprintService().CreateFingerprint(input, configuration),
-            input.ExistingTags, Ownership = owned?.LastAppliedTags ?? [],
-            inspection.AddedTags, inspection.RemovedTags, inspection.PreviewRemovedTags
-        });
-        var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(binding));
-        return new ItemPlan(inspection, item, configuration, state, result, hash, input);
+        return new ItemPlan(inspection, item, configuration, state, result, input);
     }
 
-    private sealed record ItemApproval(Guid ItemId, DateTimeOffset ExpiresUtc, string Hash);
     private sealed record ItemPlan(MetaTaggerItemInspection Inspection, MediaBrowser.Controller.Entities.BaseItem? Item,
-        PluginConfiguration? Configuration, MetaTaggerState? State, MetadataTagProcessResult? Result, string? ApprovalHash, MetadataTagInput? Input);
+        PluginConfiguration? Configuration, MetaTaggerState? State, MetadataTagProcessResult? Result, MetadataTagInput? Input);
 }

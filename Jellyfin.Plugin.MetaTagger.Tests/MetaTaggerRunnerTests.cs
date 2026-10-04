@@ -88,7 +88,7 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
     [InlineData("subtitle")]
     [InlineData("settings")]
     [InlineData("lookup-failure")]
-    public async Task ApplyItemAsync_RejectsChangedTrackLanguagesOrSettingsAndLookupFailures(string change)
+    public async Task ApplyItemAsync_RecalculatesChangedTrackLanguagesAndSettingsButRejectsLookupFailures(string change)
     {
         var item = new Movie { Id = Guid.NewGuid() };
         var configuration = new PluginConfiguration { EnableAudioLanguages = true, EnableSubtitleLanguages = true };
@@ -98,16 +98,26 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
         host.StreamLookup = _ => [audio, subtitle];
         var runner = CreateRunner(host);
         var preview = await runner.PreviewItemAsync(item.Id, CancellationToken.None);
-        Assert.NotNull(preview.Token);
+        Assert.Null(preview.Token);
         if (change == "audio") { audio.Language = "fra"; }
         if (change == "subtitle") { subtitle.Language = "deu"; }
         if (change == "settings") { configuration.EnableAudioLanguages = false; }
         if (change == "lookup-failure") { host.StreamLookup = _ => throw new IOException("Injected stream failure"); }
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => runner.ApplyItemAsync(item.Id, preview.Token!, CancellationToken.None));
+        if (change == "lookup-failure")
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => runner.ApplyItemAsync(item.Id, CancellationToken.None));
+        }
+        else
+        {
+            await runner.ApplyItemAsync(item.Id, CancellationToken.None);
+            Assert.Single(host.UpdateAttempts);
+            Assert.Contains(change == "subtitle" ? "meta:subtitle-language:deu" : "meta:subtitle-language:spa", item.Tags);
+            if (change == "settings") { Assert.DoesNotContain("meta:audio-language:eng", item.Tags); }
+            else { Assert.Contains(change == "audio" ? "meta:audio-language:fra" : "meta:audio-language:eng", item.Tags); }
+        }
 
-        Assert.Empty(host.UpdateAttempts);
-        Assert.Empty(item.Tags);
+        if (change == "lookup-failure") { Assert.Empty(host.UpdateAttempts); Assert.Empty(item.Tags); }
     }
 
     [Fact]
@@ -168,7 +178,7 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
         var preview = await runner.PreviewItemAsync(item.Id, CancellationToken.None);
         if (failCheckpoint)
         {
-            var error = await Assert.ThrowsAsync<InvalidOperationException>(() => runner.ApplyItemAsync(item.Id, preview.Token!, CancellationToken.None));
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() => runner.ApplyItemAsync(item.Id, CancellationToken.None));
             Assert.Contains("could not save its tag records", error.Message);
             var run = (await store.LoadRunsAsync(CancellationToken.None))[0];
             Assert.Equal("Uncertain", run.Outcome);
@@ -176,12 +186,12 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
         }
         else
         {
-            var summary = await runner.ApplyItemAsync(item.Id, preview.Token!, CancellationToken.None);
+            var summary = await runner.ApplyItemAsync(item.Id, CancellationToken.None);
             Assert.Equal(1, summary.WritesApplied);
             Assert.Equal(["meta:genre:drama"], (await store.LoadAsync(CancellationToken.None)).Items[item.Id.ToString("N")].LastAppliedTags);
         }
         Assert.Equal(["meta:genre:drama"], item.Tags);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => runner.ApplyItemAsync(item.Id, preview.Token!, CancellationToken.None));
+        Assert.Equal(0, (await runner.ApplyItemAsync(item.Id, CancellationToken.None)).WritesApplied);
         Assert.Single(host.UpdateAttempts);
     }
 
@@ -234,7 +244,7 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
         });
         var runner = CreateRunner(host, store, clock);
         var preview = await runner.PreviewItemAsync(item.Id, CancellationToken.None);
-        var summary = await runner.ApplyItemAsync(item.Id, preview.Token!, CancellationToken.None);
+        var summary = await runner.ApplyItemAsync(item.Id, CancellationToken.None);
         Assert.True(summary.BudgetLimitReached);
         Assert.Empty(host.UpdateAttempts);
         Assert.Equal(1, summary.ItemsRemaining);
@@ -262,7 +272,7 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
     [InlineData("other-target")]
     [InlineData("restart")]
     [InlineData("expiry")]
-    public async Task ApplyItemAsync_RejectsObsoleteOrMisdirectedApprovalWithoutWriting(string change)
+    public async Task ApplyItemAsync_RechecksCurrentDataAndProtections(string change)
     {
         var item = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"] };
         var config = new PluginConfiguration { EnableExistingTagsAsKeywords = false };
@@ -290,8 +300,18 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
             case "restart": runner = CreateRunner(host, store, clock); break;
             case "expiry": clock.UtcNow += TimeSpan.FromMinutes(15); break;
         }
-        await Assert.ThrowsAsync<InvalidOperationException>(() => runner.ApplyItemAsync(target, preview.Token!, CancellationToken.None));
-        Assert.Empty(host.UpdateAttempts);
+        if (change is "item-lock" or "tags-lock" or "skip" or "legacy-lock" or "disabled" or "other-target")
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => runner.ApplyItemAsync(target, CancellationToken.None));
+            Assert.Empty(host.UpdateAttempts);
+        }
+        else
+        {
+            var applied = await runner.ApplyItemAsync(target, CancellationToken.None);
+            Assert.Equal(1, applied.WritesApplied);
+            Assert.Contains(change == "metadata" ? "meta:genre:comedy" : "meta:genre:drama", item.Tags);
+            if (change == "tags") { Assert.Contains("Favorites", item.Tags); }
+        }
     }
 
     [Theory]
@@ -346,7 +366,7 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
         Assert.Equal(mode == StaleTagMode.Remove ? ["meta:genre:drama"] : Array.Empty<string>(), preview.RemovedTags);
         Assert.Equal(mode == StaleTagMode.Remove ? Array.Empty<string>() : ["meta:genre:drama"], preview.OwnedTags);
         Assert.Equal(["meta:unowned"], preview.PreservedTags);
-        await runner.ApplyItemAsync(item.Id, preview.Token!, CancellationToken.None);
+        await runner.ApplyItemAsync(item.Id, CancellationToken.None);
         Assert.Contains("new:genre:drama", item.Tags);
         Assert.Contains("meta:unowned", item.Tags);
         Assert.Contains("manual:favorite", item.Tags);
@@ -429,7 +449,7 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
         Assert.Equal(["meta:genre:drama"], preview.AddedTags);
         Assert.Equal(["edited-drama"], preview.PreservedTags);
         Assert.Empty(host.UpdateAttempts);
-        await runner.ApplyItemAsync(item.Id, preview.Token!, CancellationToken.None);
+        await runner.ApplyItemAsync(item.Id, CancellationToken.None);
         Assert.Contains("meta:genre:drama", item.Tags);
         Assert.Contains("edited-drama", item.Tags);
         Assert.Contains("manual:favorite", item.Tags);
@@ -452,7 +472,7 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
         Assert.Empty(preview.RemovedTags);
         Assert.Equal(potentialRemoval ? ["meta:year:2023"] : Array.Empty<string>(), preview.PreviewRemovedTags);
         Assert.Contains("meta:unowned", preview.PreservedTags);
-        await runner.ApplyItemAsync(item.Id, preview.Token!, CancellationToken.None);
+        await runner.ApplyItemAsync(item.Id, CancellationToken.None);
         Assert.Equal(["meta:year:2023", "meta:unowned", "meta:year:2024"], item.Tags);
     }
 
@@ -472,7 +492,7 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
         await runner.InspectItemAsync(item.Id, config, CancellationToken.None);
         Assert.Empty(await store.LoadRunsAsync(CancellationToken.None));
         var preview = await runner.PreviewItemAsync(item.Id, CancellationToken.None);
-        await runner.ApplyItemAsync(item.Id, preview.Token!, CancellationToken.None);
+        await runner.ApplyItemAsync(item.Id, CancellationToken.None);
         var runs = await store.LoadRunsAsync(CancellationToken.None);
         Assert.Equal(["Apply", "Preview"], runs.Select(run => run.Operation));
         Assert.All(runs, run => Assert.Equal(item.Id.ToString("N"), run.Scope));
@@ -516,7 +536,7 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
         await store.SaveAsync(state, CancellationToken.None);
         var runner = CreateRunner(host, store);
         var preview = await runner.PreviewItemAsync(item.Id, CancellationToken.None);
-        var summary = await runner.ApplyItemAsync(item.Id, preview.Token!, CancellationToken.None);
+        var summary = await runner.ApplyItemAsync(item.Id, CancellationToken.None);
         Assert.Equal(1, summary.WritesApplied);
         Assert.Equal(["Favorites", "manual:tagger:force", "meta:genre:science-fiction", "meta:rating:pg-13", "meta:year:2024"], item.Tags);
         Assert.Equal(["meta:genre:drama", "Favorite"], other.Tags);
@@ -524,7 +544,7 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
         Assert.Equal(["meta:genre:drama"], reloaded.Items[other.Id.ToString("N")].LastAppliedTags);
         Assert.Equal(0, reloaded.RunCursors["scheduled"].NextIndex);
         Assert.True(configuration.ForceFullScanOnNextRun && configuration.RebuildTrackingLedgerOnNextRun && configuration.ClaimExistingGeneratedTagsOnNextRun);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => runner.ApplyItemAsync(item.Id, preview.Token!, CancellationToken.None));
+        Assert.Equal(0, (await runner.ApplyItemAsync(item.Id, CancellationToken.None)).WritesApplied);
         Assert.Single(host.UpdateAttempts);
     }
 
@@ -564,7 +584,7 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
         Assert.Equal(["meta:year:2023"], preview.RemovedTags);
         Assert.Equal(["Favorites"], preview.PreservedTags);
         Assert.Equal(["manual:tagger:force"], preview.ManualTags);
-        Assert.NotNull(preview.Token);
+        Assert.Null(preview.Token);
         Assert.Empty(host.UpdateAttempts);
         var reloaded = await store.LoadAsync(CancellationToken.None);
         Assert.Equal(["meta:year:2023"], reloaded.Items[item.Id.ToString("N")].LastAppliedTags);

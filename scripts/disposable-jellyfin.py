@@ -17,6 +17,7 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 import zipfile
+import uuid
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PLUGIN_ID = "4851185f-7284-4cad-9eeb-2c73576bb214"
@@ -364,8 +365,8 @@ def test_basic(args):
     anime_episode = next(x["Id"] for x in initial.values() if x.get("SeriesName") == "Moonlit Parcel" and x["IndexNumber"] == 1)
     episodes = [x["Id"] for x in initial.values() if x["Type"] == "Episode"]
     config = server.api(f"/Plugins/{PLUGIN_ID}/Configuration")
-    assert config["PreviewOnly"] is True
-    passed("fresh install defaults to preview", {"PreviewOnly": True, "items": len(initial)})
+    assert config["PreviewOnly"] is False and config["RunAfterLibraryScan"] is True
+    passed("fresh install defaults to automatic Apply", {"PreviewOnly": False, "items": len(initial)})
     server.configure(GeneratedTagPrefix="custom", EnableExistingTagsAsKeywords=True,
                      IncludeParentSeriesMetadataOnEpisodes=True, StaleTagMode="Keep", PreviewOnly=True,
                      EnableProductionCountries=True, EnableProviderIds=True, QuietLogging=True)
@@ -720,6 +721,41 @@ def install_catalog_package(server, manifest_url, version):
     wait_package_installation(server, version)
 
 
+def reset_plugin_installation_fixture(server):
+    """Reset only plugin evidence after uninstalling from a verified disposable server."""
+    docker("stop", server.meta["container"])
+    try:
+        # The migration treats persisted task schedules and plugin data as prior
+        # installation evidence. Remove only this plugin's disposable records.
+        task_types = ["ScheduledTagTask", "ApplyMetadataTagTask", "PreviewMetadataTagTask",
+                      "ForceFullMetadataTagScanTask", "RebuildMetadataTagLedgerTask"]
+        task_files = []
+        for task_type in task_types:
+            task_id = str(uuid.UUID(bytes_le=hashlib.md5(
+                ("Jellyfin.Plugin.MetaTagger." + task_type).encode("utf-16le")).digest()))
+            for directory in ["config/ScheduledTasks", "data/ScheduledTasks"]:
+                task_files.append(f"{directory}/{task_id}.js")
+        # Linux bind mounts retain Jellyfin's root ownership. Clean up as root
+        # with only this verified disposable configuration mounted, while the
+        # server is stopped so it cannot recreate installation evidence.
+        docker("run", "--rm", "--network", "none", "--user", "0:0",
+               "--mount", f"type=bind,source={server.directory / 'config'},target=/config",
+               "--workdir", "/config", "--entrypoint", "/bin/sh", server.meta["image"],
+               "-ec", '''
+rm -f -- plugins/configurations/Jellyfin.Plugin.MetaTagger.xml* "$@"
+for directory in plugins/Jellyfin.Plugin.MetaTagger plugins/Jellyfin.Plugin.MetaTagger_* plugins/Meta\\ Tagger_*; do
+    if [ -d "$directory" ]; then
+        rm -rf -- "$directory"
+    fi
+done
+''', "reset-plugin-fixture", *task_files)
+    finally:
+        docker("start", server.meta["container"])
+        server.wait_ready()
+        server.login()
+
+
+
 def test_release_lifecycle(args):
     server = Server(args.directory) if args.directory else find_reusable_server()
     if server is None:
@@ -744,7 +780,7 @@ def test_release_lifecycle(args):
 
     # Jellyfin retains plugin settings after uninstall. Start this fresh-install
     # check with defaults even when the generated acceptance server is reused.
-    (server.directory / "config/plugins/configurations/Jellyfin.Plugin.MetaTagger.xml").unlink(missing_ok=True)
+    reset_plugin_installation_fixture(server)
 
     initial_version = args.previous_version if args.previous_manifest_url else args.version
     initial_manifest = args.previous_manifest_url or args.manifest_url
@@ -752,9 +788,16 @@ def test_release_lifecycle(args):
     server.restart()
     plugin = next(p for p in server.api("/Plugins") if p["Name"] == "Meta Tagger")
     assert plugin["Status"] == "Active" and plugin["Version"] == initial_version, plugin
-    initial_configuration = server.api(f"/Plugins/{PLUGIN_ID}/Configuration")
-    assert initial_configuration["PreviewOnly"] is True
-    server.configure(GeneratedTagPrefix="upgrade", QuietLogging=True, PreviewOnly=True)
+    # A genuine previous release may be preview-first. Set and verify its saved
+    # Preview choice below; only the current package must meet the new defaults.
+    tasks = [task for task in server.api("/ScheduledTasks") if task["Key"].startswith("MetaTagger")]
+    assert len(tasks) == 5
+    triggers = [{"Type": "WeeklyTrigger", "DayOfWeek": "Sunday", "TimeOfDayTicks": 828000000000}]
+    for task in tasks:
+        server.api(f"/ScheduledTasks/{task['Id']}/Triggers", triggers)
+    saved_triggers = {task["Key"]: task["Triggers"] for task in server.api("/ScheduledTasks")
+                      if task["Key"].startswith("MetaTagger")}
+    server.configure(GeneratedTagPrefix="upgrade", QuietLogging=True, PreviewOnly=True, RunAfterLibraryScan=False)
     configured = server.api(f"/Plugins/{PLUGIN_ID}/Configuration")
 
     if args.previous_manifest_url:
@@ -790,14 +833,33 @@ def test_release_lifecycle(args):
     plugin = next(p for p in server.api("/Plugins") if p["Name"] == "Meta Tagger")
     assert plugin["Status"] == "Active" and plugin["Version"] == args.version
     after_reinstall = server.api(f"/Plugins/{PLUGIN_ID}/Configuration")
-    assert after_reinstall["PreviewOnly"] is True
+    for saved in [after_upgrade, after_enable, after_reinstall]:
+        assert saved["PreviewOnly"] is True and saved["RunAfterLibraryScan"] is False
+    current_tasks = [task for task in server.api("/ScheduledTasks") if task["Key"].startswith("MetaTagger")]
+    assert all(task["Category"] == "Meta Tagger" for task in current_tasks)
+    assert {task["Key"]: task["Triggers"] for task in current_tasks} == saved_triggers
+    # Also prove a clean reinstall of the current package gets fresh defaults.
+    # The retained-configuration reinstall above must keep the user's Preview mode.
+    server.api(f"/Plugins/{PLUGIN_ID}", method="DELETE")
+    server.restart()
+    reset_plugin_installation_fixture(server)
+    install_catalog_package(server, args.manifest_url, args.version)
+    server.restart()
+    fresh = server.api(f"/Plugins/{PLUGIN_ID}/Configuration")
+    assert fresh["PreviewOnly"] is False and fresh["RunAfterLibraryScan"] is True
+    fresh_tasks = [task for task in server.api("/ScheduledTasks") if task["Key"].startswith("MetaTagger")]
+    assert len(fresh_tasks) == 5 and all(task["Category"] == "Meta Tagger" for task in fresh_tasks)
+    daily = next(task for task in fresh_tasks if task["Key"] == "MetaTaggerGenerateTags")
+    assert len(daily["Triggers"]) == 1 and daily["Triggers"][0]["IntervalTicks"] == 864000000000
+    assert all(not task["Triggers"] for task in fresh_tasks if task["Key"] != daily["Key"])
     server.evidence("release-zip-lifecycle", {
         "packageSha256": package_hash,
-        "freshInstallPreviewOnly": initial_configuration["PreviewOnly"],
+        "freshInstallPreviewOnly": fresh["PreviewOnly"],
         "upgradeRetainedConfiguration": after_upgrade["GeneratedTagPrefix"] == "upgrade",
         "disableEnableRetainedConfiguration": after_enable["GeneratedTagPrefix"] == "upgrade",
         "uninstallPreservedMediaTags": server.tags() == tags_before_uninstall,
         "reinstallPreviewOnly": after_reinstall["PreviewOnly"],
+        "savedTaskTriggersPreserved": True,
     })
     print("PASS catalog ZIP install, upgrade, disable, enable, uninstall, and reinstall lifecycle", flush=True)
 

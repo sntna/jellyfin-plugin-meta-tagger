@@ -54,7 +54,6 @@ public sealed partial class MetaTaggerRunnerTests
 
         Assert.Equal(expected, Assert.Single(inspection.SourceExplanations, s => s.Source == "audio-language").Status);
         Assert.Empty(inspection.GeneratedTags);
-        Assert.Null(inspection.Token);
         Assert.Empty(host.UpdateAttempts);
         var controller = new MetaTaggerDashboardController(store, runner);
         var history = Assert.Single(await controller.GetRunsAsync(CancellationToken.None));
@@ -118,12 +117,11 @@ public sealed partial class MetaTaggerRunnerTests
         var item = new Movie { Id = Guid.NewGuid(), Tags = ["manual:keep"] };
         var host = new InMemoryMetaTaggerHost(new PluginConfiguration { EnableAudioLanguages = true }, [item]);
         var lookups = 0;
-        host.StreamLookup = _ => ++lookups == 3 ? throw new IOException("Final lookup failed")
+        host.StreamLookup = _ => ++lookups == 2 ? throw new IOException("Final lookup failed")
             : [new MediaStream { Type = MediaStreamType.Audio, Language = "eng" }];
         var store = new MetaTaggerStateStore(_directory);
         var runner = CreateRunner(host, store);
-        var preview = await runner.PreviewItemAsync(item.Id, CancellationToken.None);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => runner.ApplyItemAsync(item.Id, preview.Token!, CancellationToken.None));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => runner.ApplyItemAsync(item.Id, CancellationToken.None));
         var controller = new MetaTaggerDashboardController(store, runner);
         var history = (await controller.GetRunsAsync(CancellationToken.None)).Single(r => r.Operation == "Apply");
         var result = (await controller.GetRunAsync(history.RunId, CancellationToken.None)).Value!;
