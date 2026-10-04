@@ -2573,6 +2573,7 @@
                 }
                 function enterContainer(item) {
                     clearTimeout(searchTimer);
+                    searchTimer = null;
                     rememberBrowseState();
                     browsePath.push({ item: item });
                     browserItems = [];
@@ -2584,6 +2585,7 @@
                 }
                 function returnToContainer(depth) {
                     clearTimeout(searchTimer);
+                    searchTimer = null;
                     browsePath = browsePath.slice(0, depth);
                     browserItems = [];
                     renderItems();
@@ -2723,7 +2725,7 @@
                         : 'Apply tags now uses current metadata and saved settings. Check changes first is optional.';
                     updateControls();
                 }
-                function searchItems() { searchTimer = null; itemOffset = 0; loadItems(); }
+                function searchItems() { clearTimeout(searchTimer); searchTimer = null; itemOffset = 0; loadItems(); }
                 document.querySelector('#RetryItemsButton').addEventListener('click', loadItems);
                 document.querySelector('#ItemLibrary').addEventListener('change', function () { browsePath = []; rootBrowseState = null; searchItems(); });
                 document.querySelector('#ItemStatus').addEventListener('change', function () {
@@ -3955,6 +3957,7 @@
                     clearTimeout(exampleTimer);
                     clearTimeout(exampleSearchTimer);
                     clearTimeout(searchTimer);
+                    searchTimer = null;
                     clearTimeout(taskTimer);
                     clearTimeout(itemRunTimer);
                     requestedTask = null;

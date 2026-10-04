@@ -2381,3 +2381,21 @@ test('a completed background check keeps the current on-demand view and focus', 
     assert.equal(page.element('PanelMaintenance').hidden, false);
     assert.equal(page.focused(), page.element('MaintenanceHeading'));
 });
+
+test('a cancelled search debounce cannot reset nested pagination when closing the inspector', async () => {
+    const page = await readyDashboard();
+    await page.click('OpenInspectButton');
+    await page.respond('MetaTagger/Items', { totalCount: 1, items: [{ itemId: 'series', name: 'Series', itemType: 'Series' }] });
+    page.element('ItemSearch').value = 'pending';
+    await page.event('ItemSearch', 'input');
+    await page.activate(page.element('ItemList').children[0].children[1]);
+    await page.respond('MetaTagger/Items', { totalCount: 30, items: [{ itemId: 'season1', name: 'Season 1', itemType: 'Season' }] });
+    await page.click('NextItemsButton');
+    await page.respond('MetaTagger/Items', { totalCount: 30, items: [{ itemId: 'season26', name: 'Season 26', itemType: 'Season' }] });
+    await page.click('BackToReviewButton');
+    await page.click('OpenInspectButton');
+    assert.match(page.element('ItemBrowserFeedback').textContent, /Showing 26/);
+    assert.match(page.element('ItemList').textContent, /Season 26/);
+    await page.tick();
+    assert.equal(page.sent('MetaTagger/Items').length, 3);
+});
