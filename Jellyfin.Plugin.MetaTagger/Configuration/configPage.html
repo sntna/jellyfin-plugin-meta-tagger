@@ -252,7 +252,7 @@
                 display: none;
             }
 
-            #MetaTaggerConfigPage :is(#BackToReviewButton,#HistoryBackButton) {
+            #MetaTaggerConfigPage :is(#BackToReviewButton,#HistoryBackButton,#MaintenanceBackButton) {
                 margin-bottom: var(--mt-space-md);
             }
 
@@ -260,33 +260,9 @@
                 margin-top: var(--mt-space-md);
             }
 
-            #MetaTaggerConfigPage .metadataTaggerTabs {
-                display: flex;
-                border-bottom: 1px solid var(--mt-border);
-                margin-bottom: var(--mt-space-md);
-                gap: var(--mt-space);
-                flex-wrap: wrap;
-            }
 
-            #MetaTaggerConfigPage .metadataTaggerTabs button {
-                background: transparent;
-                color: var(--feedback-color, var(--mt-muted));
-                padding: var(--mt-space-sm) var(--mt-space-md);
-                border: 0;
-                border-bottom: 2px solid transparent;
-                font-weight: 600;
-                margin-bottom: -1px;
-                font-size: var(--mt-font-size);
-            }
 
-            #MetaTaggerConfigPage .metadataTaggerTabs button[aria-selected="true"] {
-                color: var(--mt-accent);
-                border-bottom-color: var(--mt-accent);
-            }
 
-            #MetaTaggerConfigPage .metadataTaggerTabs button:hover {
-                color: var(--mt-paper);
-            }
 
             #MetaTaggerConfigPage .metadataTaggerTaskStatus {
                 padding: var(--mt-space-xs) 0 var(--mt-space-xs) var(--mt-space-md);
@@ -863,6 +839,8 @@
                 margin: var(--mt-space-sm) 0;
             }
 
+            #MetaTaggerConfigPage .metadataTaggerViewActions { margin-bottom: var(--mt-space-md); }
+            #MetaTaggerConfigPage .metadataTaggerViewActions button { flex: 0 0 auto; white-space: nowrap; }
             #MetaTaggerConfigPage #ExampleAside > p {
                 color: var(--feedback-color, var(--mt-muted));
                 font-size: var(--mt-font-size);
@@ -1394,10 +1372,6 @@
                 #MetaTaggerConfigPage .metadataTaggerHeaderActions button {
                     flex: 1;
                 }
-                #MetaTaggerConfigPage .metadataTaggerTabs {
-                    gap: 0;
-                    justify-content: space-between;
-                }
                 #MetaTaggerConfigPage .metadataTaggerOutcome {
                     padding: var(--mt-space-md);
                     gap: var(--mt-space-sm);
@@ -1465,14 +1439,6 @@
                 #MetaTaggerConfigPage .metadataTaggerKeyValues {
                     grid-template-columns: minmax(0, 1fr);
                 }
-                #MetaTaggerConfigPage .metadataTaggerTabs {
-                    display: grid;
-                    grid-template-columns: repeat(3, minmax(0, 1fr));
-                    gap: var(--mt-space);
-                }
-                #MetaTaggerConfigPage .metadataTaggerTabs button {
-                    padding-inline: var(--mt-space-xs);
-                }
                 #MetaTaggerConfigPage :is(.metadataTaggerSubheader,.metadataTaggerHeader) {
                     flex-wrap: wrap;
                 }
@@ -1521,14 +1487,15 @@
         <div><h1 aria-label="Meta Tagger"><!-- brand-logo:start --><img class="metadataTaggerLogo metadataTaggerLogo-light" alt="" width="1127" height="200" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMTI3IiBoZWlnaHQ9IjIwMCIgZmlsbD0ibm9uZSI+PGcgY2xpcC1wYXRoPSJ1cmwoI2EpIj48ZyBjbGlwLXBhdGg9InVybCgjYikiPjxnIGZpbGw9IiM2OWNlZDYiIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1wYXRoPSJ1cmwoI2MpIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0xNDggMjAwcS04IDAtOC04VjQ2cTAtNCAzLTdsNDUtMzdxNi00IDEyIDBsNDUgMzdxMyAzIDMgN3YxNDZxMCA4LTggOHptNTMuODI2LTEwOC4xNzRhNy44MjUgNy44MjUgMCAwIDAtMTMuMzYtNS41MzRBNy44MjUgNy44MjUgMCAwIDAgMTk0IDk5LjY1MmE3LjgyNyA3LjgyNyAwIDAgMCA3LjgyNi03LjgyNm0wIDQwLjM0OGE3LjgyNSA3LjgyNSAwIDAgMC0xMy4zNi01LjUzNEE3LjgyNSA3LjgyNSAwIDAgMCAxOTQgMTQwYTcuODMgNy44MyAwIDAgMCA3LjgyNi03LjgyNk04IDIwMHEtOCAwLTgtOFY0NnEwLTQgMy03TDQ4IDJxNi00IDEyIDBsNDUgMzdxMyAzIDMgN3YxNDZxMCA4LTggOHpNNjEuODI2IDkxLjgyNmE3LjgyNiA3LjgyNiAwIDEgMC0xNS42NTIgMCA3LjgyNiA3LjgyNiAwIDAgMCAxNS42NTIgMG0wIDQwLjM0OGE3LjgyNiA3LjgyNiAwIDEgMC0xNS42NTIgMCA3LjgyNiA3LjgyNiAwIDAgMCAxNS42NTIgMCIvPjwvZz48L2c+PHBhdGggZmlsbD0iI2YyZWZlNyIgZmlsbC1ydWxlPSJldmVub2RkIiBkPSJNNzg5Ljc2NyA3My44NjhxMTQuODg4IDAgMjIuOTI1IDYuODUxIDguMTY4IDYuNzIgOC4yOTkgMTguOTcxdjQ2LjM3N2gtMjMuMDU2di04LjAyMWEyMS41IDIxLjUgMCAwIDEtNS45MjggNS4yNTVxLTYuMzI0IDMuODItMTUuNTQ4IDMuODIxLTcuNjQgMC0xMy4xNzQtMi45LTUuNDAyLTIuODk4LTguMzAxLTcuOTAzLTIuODk4LTUuMDA3LTIuODk4LTExLjQ2MyAwLTEwLjE0NSA2Ljk4My0xNS44MTIgNy4xMTUtNS42NjUgMjAuMjktNS43OTdoMTguNTc2di0uNzlxMC01LjEzOS0zLjQyNi04LjAzNy0zLjQyNS0yLjg5OC0xMC4xNDQtMi44OTgtNC40OCAwLTEwLjAxMyAxLjQ1LTUuNTM0IDEuNDQ5LTExLjMzMSA0LjM0N2wtNi40NTctMTUuNTQ4cTUuNjY3LTIuNTAzIDEwLjkzNy00LjIxNmE2OSA2OSAwIDAgMSAxMC45MzQtMi43NjYgNjkgNjkgMCAwIDEgMTEuMzMyLS45MjFtLTUuNzk3IDQxLjg5NnEtNS4wMDcgMC03LjUxMSAxLjg0NS0yLjM3IDEuNzEzLTIuMzcxIDUuNTMzdDIuNTA1IDYuMDYxcTIuNTAyIDIuMTA4IDcuMTEzIDIuMTA5IDMuNTU3IDAgNi40NTYtMS4xODUgMy4wMy0xLjE4NyA1LjAwNy0zLjI5NSAyLjEwNy0yLjI0IDIuNzY2LTUuMDA3di02LjA2MXpNODYwLjMxIDczLjg3MnE4LjgyNy0uMTMyIDE1LjAxOSA0LjA4NWEyMy40IDIzLjQgMCAwIDEgNS43OTcgNS4zMXYtOC42MDVoMjMuMzIxdjY0LjgyMnEwIDEwLjAxNC00Ljg3NiAxNy4zOTMtNC44NzUgNy4zNzctMTMuNTY5IDExLjMyOS04LjY5NyA0LjA4NS0yMC4yOSA0LjA4NS05LjM1NSAwLTE3LjY1NS0yLjYzNS04LjE2OS0yLjYzNS0xNC4yMjktNi43MThsOC4xNjgtMTUuODEyYTQyIDQyIDAgMCAwIDEwLjU0MSA1LjE0cTUuNjY1IDEuODQ0IDExLjQ2MyAxLjg0NSA1LjQwMS0uMDAyIDkuMjIyLTEuNzE0IDMuODIxLTEuNzE0IDUuNzk3LTQuODc2IDIuMTA3LTMuMTYyIDIuMTA3LTcuNTA4di03LjQ0NWEyNC4zIDI0LjMgMCAwIDEtNS41MzMgNS4yMDRxLTYuMDYgNC4wODUtMTQuNzU3IDQuMDg1LTguODI3IDAtMTUuODEtNC4yMTYtNi44NS00LjM0OC0xMC44MDMtMTEuOTkxLTMuODItNy43NzMtMy44MjEtMTguMTgxIDAtMTAuMTQ1IDMuNjktMTcuNjU0IDMuODItNy41MSAxMC41MzktMTEuNzI3IDYuODUyLTQuMjE2IDE1LjY3OS00LjIxNm02LjQ1NiAxNy4zOXEtNC4zNDcgMC03LjY0MiAyLjExLTMuMTYgMi4xMDYtNS4wMDYgNS45MjctMS44NDUgMy44MjItMS44NDUgOC44MyAwIDUuMDA2IDEuODQ1IDguODI3dDUuMDA2IDUuOTI4cTMuMjk0IDIuMTA4IDcuNjQyIDIuMTA5IDQuMjE2IDAgNy4zNzgtMi4xMDkgMy4yOTQtMi4xMDggNS4xMzktNS45MjggMS44NDQtMy44MjEgMS44NDMtOC44MjcuMDAxLTUuMDA4LTEuODQzLTguODMtMS44NDUtMy44Mi01LjEzOS01LjkyOC0zLjE2Mi0yLjEwOC03LjM3OC0yLjEwOU05NDMuNzY1IDczLjg3MnE4LjgyOC0uMTMyIDE1LjAyIDQuMDg1YTIzLjQgMjMuNCAwIDAgMSA1Ljc5NyA1LjMxdi04LjYwNWgyMy4zMnY2NC44MjJxMCAxMC4wMTQtNC44NzUgMTcuMzkzLTQuODc1IDcuMzc3LTEzLjU3IDExLjMyOS04LjY5NSA0LjA4NS0yMC4yOSA0LjA4NS05LjM1NCAwLTE3LjY1NS0yLjYzNS04LjE2OC0yLjYzNS0xNC4yMjktNi43MThsOC4xNjgtMTUuODEyYTQyIDQyIDAgMCAwIDEwLjU0MiA1LjE0cTUuNjY1IDEuODQ0IDExLjQ2MiAxLjg0NSA1LjQwMi0uMDAyIDkuMjIzLTEuNzE0IDMuODItMS43MTQgNS43OTctNC44NzYgMi4xMDctMy4xNjIgMi4xMDctNy41MDh2LTcuNDQ1YTI0LjMgMjQuMyAwIDAgMS01LjUzMyA1LjIwNHEtNi4wNiA0LjA4NS0xNC43NTcgNC4wODUtOC44MjcgMC0xNS44MS00LjIxNi02Ljg1MS00LjM0OC0xMC44MDMtMTEuOTkxLTMuODItNy43NzMtMy44MjEtMTguMTgxIDAtMTAuMTQ1IDMuNjktMTcuNjU0IDMuODItNy41MSAxMC41MzktMTEuNzI3IDYuODUtNC4yMTYgMTUuNjc4LTQuMjE2bTYuNDU3IDE3LjM5cS00LjM0OCAwLTcuNjQyIDIuMTEtMy4xNjIgMi4xMDYtNS4wMDcgNS45MjctMS44NDQgMy44MjItMS44NDUgOC44My4wMDEgNS4wMDYgMS44NDUgOC44Mjd0NS4wMDcgNS45MjhxMy4yOTQgMi4xMDggNy42NDIgMi4xMDkgNC4yMTUgMCA3LjM3Ny0yLjEwOSAzLjI5NC0yLjEwOCA1LjE0LTUuOTI4IDEuODQ0LTMuODIxIDEuODQzLTguODI3LjAwMS01LjAwOC0xLjg0My04LjgzLTEuODQ2LTMuODItNS4xNC01LjkyOC0zLjE2Mi0yLjEwOC03LjM3Ny0yLjEwOU0xMDM0LjQ3IDczLjg2OGM4LjM0IDAgMTUuMjQgMS43NTcgMjAuNjggNS4yNyA1LjU0IDMuNDI2IDkuNTggOC4zNDYgMTIuMTMgMTQuNzU4IDIuNjMgNi40MTEgMy42OCAxMy45MjEgMy4xNiAyMi41MjhoLTQ5LjU5cS40OCAxLjgyMyAxLjIzIDMuNDI1YzEuNDEgMi45ODcgMy4zOCA1LjMxNiA1LjkzIDYuOTg1cTMuOTYgMi4zNzEgOS4wOSAyLjM3MWM2LjMzIDAgMTEuOS0yLjQxNiAxNi43My03LjI0NmwxMi4yNiAxMi4xMjJjLTMuNiAzLjk1Mi04LjA0IDcuMDI3LTEzLjMxIDkuMjIycS03Ljc3IDMuMjkzLTE3Ljc5IDMuMjkzYy03LjcyIDAtMTQuNDQtMS40OTItMjAuMTUtNC40NzhxLTguNDMtNC40ODEtMTMuMDUtMTIuNjUxLTQuNDc2LTguMTY4LTQuNDc3LTE4Ljk3MS4wMDEtMTEuMDY3IDQuNjA3LTE5LjIzNiA0LjYyLTguMyAxMy4wNS0xMi43ODEgOC40My00LjYxMSAxOS41LTQuNjExbS4xMyAxNi4yMDdjLTMuMDggMC01LjcxLjgzNC03LjkxIDIuNTAyLTIuMSAxLjU4MS0zLjc3IDMuODIyLTUgNi43MmEyMiAyMiAwIDAgMC0xLjMxIDQuNzQzaDI3LjRjLjA4LTIuODk4LS40NC01LjM1OC0xLjU5LTcuMzc4LTEuMDUtMi4xMDgtMi41OS0zLjczNC00LjYxLTQuODc1cy00LjM1LTEuNzEyLTYuOTgtMS43MTIiIGNsaXAtcnVsZT0iZXZlbm9kZCIvPjxwYXRoIGZpbGw9IiNmMmVmZTciIGQ9Ik0xMTI2LjM2IDk1LjA3OWMtNC42Ni0uNTI3LTguNzQtLjEzMi0xMi4yNiAxLjE4Ni0zLjQyIDEuMzE3LTYuMSAzLjMzOC04LjAzIDYuMDYxcS0yLjE3NSAzLjEtMi42NCA3LjI1M3YzNi40ODhoLTIzLjQ1Vjc0LjkyaDIzLjQ1djExLjcxYzIuMDktMy40NCA0LjY5LTYuMjAzIDcuNzgtOC4yODRxNi40NS00LjQ3OCAxNS4xNS00LjQ3OHpNNjczLjE1NSA1My43MDloNzkuMTg0djE5LjVINzI0LjY3djcyLjg1OWgtMjQuMTExdi03Mi44NmgtMjcuNDA0ek0zMTIgNTMuNzA5aDI2LjIxOWwyNi43NDYgNTQuNDE0IDI2LjYxNC01NC40MTRoMjYuMjE5djkyLjM1OWgtMjEuMzQ0bC0uMTMyLTU5LjE1OC0yMy41ODQgNDkuOTM1aC0xNS41NDdMMzMzLjQ3NiA4Ni45MXY1OS4xNThIMzEyeiIvPjxwYXRoIGZpbGw9IiNmMmVmZTciIGZpbGwtcnVsZT0iZXZlbm9kZCIgZD0iTTQ2NC4zNjMgNzMuMzRxMTIuNTE3IDAgMjAuNjg2IDUuMjcgOC4zIDUuMTQgMTIuMTIyIDE0Ljc1OCAzLjk1MSA5LjYxNyAzLjE2MSAyMi41MjhoLTQ5LjU5MWEyMCAyMCAwIDAgMCAxLjIzOCAzLjQyNXEyLjEwOCA0LjQ4MSA1LjkyOCA2Ljk4NSAzLjk1MyAyLjM3MSA5LjA5MiAyLjM3MSA5LjQ4NCAwIDE2LjczMS03LjI0NmwxMi4yNTMgMTIuMTIycS01LjQwMSA1LjkyOS0xMy4zMDUgOS4yMjItNy43NzUgMy4yOTQtMTcuNzg4IDMuMjkzLTExLjU5MyAwLTIwLjE1Ny00LjQ3OC04LjQzMi00LjQ4MS0xMy4wNDQtMTIuNjUxLTQuNDgtOC4xNjgtNC40OC0xOC45NzEgMC0xMS4wNjcgNC42MTEtMTkuMjM2IDQuNjEyLTguMyAxMy4wNDQtMTIuNzgxIDguNDMyLTQuNjExIDE5LjQ5OS00LjYxMW0uMTMxIDE2LjIwN3EtNC42MSAwLTcuOTAzIDIuNTAyLTMuMTYyIDIuMzcxLTUuMDA3IDYuNzItLjg4NSAyLjE3OC0xLjMxMiA0Ljc0M2gyNy4zOTlxLjEzMi00LjM0OC0xLjU4MS03LjM3OC0xLjU4Mi0zLjE2Mi00LjYxMy00Ljg3Ni0zLjAzLTEuNzExLTYuOTgzLTEuNzExIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiLz48cGF0aCBmaWxsPSIjZjJlZmU3IiBkPSJNNTQzLjA3NyA3Ny4xNmgxOC40NDV2MTUuMjg0aC0xOC40NDV2MjcuMjczcTAgNC4wODQgMS43MTIgNS45MyAxLjcxMyAxLjg0MyA0Ljc0MiAxLjcxMSAxLjg0NSAwIDQuMDg1LS42NTlhNDUgNDUgMCAwIDAgNC43NDMtMS43MTJsNC40OCAxNi4yMDVxLTMuODIgMi4zNzItOC45NTggMy42OWE0NC40IDQ0LjQgMCAwIDEtMTAuMjc4IDEuMTg2cS02Ljg1IDAtMTIuMjUzLTIuNTA1LTUuNDAxLTIuNjM1LTguNTYzLTcuNjQyLTMuMDMtNS4xMzctMy4wMy0xMi41MTVWOTIuNDQ0aC05Ljg4MlY3Ny4xNmg5Ljg4MlY1Ny41M2gyMy4zMnoiLz48cGF0aCBmaWxsPSIjZjJlZmU3IiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik02MDkuOTMxIDcyLjgxM3ExNC44ODggMCAyMi45MjUgNi44NTIgOC4xNjcgNi43MiA4LjI5OSAxOC45NzF2NDYuMzc3aC0yMy4wNTZ2LTguMDIxYTIxLjYgMjEuNiAwIDAgMS01LjkyOCA1LjI1NXEtNi4zMjUgMy44Mi0xNS41NDggMy44MjEtNy42NDEtLjAwMS0xMy4xNzUtMi45LTUuNDAyLTIuODk3LTguMzAxLTcuOTA0dC0yLjg5Ny0xMS40NjJxMC0xMC4xNDYgNi45ODItMTUuODEyIDcuMTE1LTUuNjY1IDIwLjI5LTUuNzk3aDE4LjU3N3YtLjc5MXEtLjAwMS01LjEzNy0zLjQyNi04LjAzNy0zLjQyNi0yLjg5Ny0xMC4xNDQtMi44OTctNC40OCAwLTEwLjAxMyAxLjQ1LTUuNTM0IDEuNDQ5LTExLjMzMiA0LjM0N2wtNi40NTYtMTUuNTQ4cTUuNjY2LTIuNTAzIDEwLjkzNy00LjIxNmE2OSA2OSAwIDAgMSAxMC45MzQtMi43NjYgNjkgNjkgMCAwIDEgMTEuMzMyLS45MjJtLTUuNzk3IDQxLjg5N3EtNS4wMDcgMC03LjUxMSAxLjg0NS0yLjM3MSAxLjcxMy0yLjM3MSA1LjUzM3QyLjUwNCA2LjA2MXEyLjUwMyAyLjEwOCA3LjExNCAyLjEwOSAzLjU1NyAwIDYuNDU2LTEuMTg2IDMuMDMtMS4xODYgNS4wMDYtMy4yOTQgMi4xMDctMi4yNCAyLjc2Ny01LjAwN3YtNi4wNjF6IiBjbGlwLXJ1bGU9ImV2ZW5vZGQiLz48L2c+PGRlZnM+PGNsaXBQYXRoIGlkPSJhIj48cGF0aCBmaWxsPSIjZmZmIiBkPSJNMCAwaDExMjd2MjAwSDB6Ii8+PC9jbGlwUGF0aD48Y2xpcFBhdGggaWQ9ImIiPjxwYXRoIGZpbGw9IiNmZmYiIGQ9Ik0wIDBoMjQ4djIwMEgweiIvPjwvY2xpcFBhdGg+PGNsaXBQYXRoIGlkPSJjIj48cGF0aCBmaWxsPSIjZmZmIiBkPSJNMCAwaDI0OHYyMDBIMHoiLz48L2NsaXBQYXRoPjwvZGVmcz48L3N2Zz4="><img class="metadataTaggerLogo metadataTaggerLogo-dark" alt="" width="1127" height="200" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMTI3IiBoZWlnaHQ9IjIwMCIgZmlsbD0ibm9uZSI+PGcgY2xpcC1wYXRoPSJ1cmwoI2EpIj48ZyBjbGlwLXBhdGg9InVybCgjYikiPjxnIGZpbGw9IiM2OWNlZDYiIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1wYXRoPSJ1cmwoI2MpIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0xNDggMjAwcS04IDAtOC04VjQ2cTAtNCAzLTdsNDUtMzdxNi00IDEyIDBsNDUgMzdxMyAzIDMgN3YxNDZxMCA4LTggOHptNTMuODI2LTEwOC4xNzRhNy44MjUgNy44MjUgMCAwIDAtMTMuMzYtNS41MzRBNy44MjUgNy44MjUgMCAwIDAgMTk0IDk5LjY1MmE3LjgyNyA3LjgyNyAwIDAgMCA3LjgyNi03LjgyNm0wIDQwLjM0OGE3LjgyNSA3LjgyNSAwIDAgMC0xMy4zNi01LjUzNEE3LjgyNSA3LjgyNSAwIDAgMCAxOTQgMTQwYTcuODMgNy44MyAwIDAgMCA3LjgyNi03LjgyNk04IDIwMHEtOCAwLTgtOFY0NnEwLTQgMy03TDQ4IDJxNi00IDEyIDBsNDUgMzdxMyAzIDMgN3YxNDZxMCA4LTggOHpNNjEuODI2IDkxLjgyNmE3LjgyNiA3LjgyNiAwIDEgMC0xNS42NTIgMCA3LjgyNiA3LjgyNiAwIDAgMCAxNS42NTIgMG0wIDQwLjM0OGE3LjgyNiA3LjgyNiAwIDEgMC0xNS42NTIgMCA3LjgyNiA3LjgyNiAwIDAgMCAxNS42NTIgMCIvPjwvZz48L2c+PHBhdGggZmlsbD0iIzE1MWExZSIgZmlsbC1ydWxlPSJldmVub2RkIiBkPSJNNzg5Ljc2NyA3My44NjhxMTQuODg4IDAgMjIuOTI1IDYuODUxIDguMTY4IDYuNzIgOC4yOTkgMTguOTcxdjQ2LjM3N2gtMjMuMDU2di04LjAyMWEyMS41IDIxLjUgMCAwIDEtNS45MjggNS4yNTVxLTYuMzI0IDMuODItMTUuNTQ4IDMuODIxLTcuNjQgMC0xMy4xNzQtMi45LTUuNDAyLTIuODk4LTguMzAxLTcuOTAzLTIuODk5LTUuMDA3LTIuODk4LTExLjQ2MyAwLTEwLjE0NSA2Ljk4My0xNS44MTIgNy4xMTUtNS42NjUgMjAuMjktNS43OTdoMTguNTc2di0uNzlxMC01LjEzOS0zLjQyNi04LjAzN3QtMTAuMTQ0LTIuODk4cS00LjQ4IDAtMTAuMDEzIDEuNDUtNS41MzQgMS40NDktMTEuMzMxIDQuMzQ3bC02LjQ1Ny0xNS41NDhxNS42NjYtMi41MDMgMTAuOTM3LTQuMjE2YTY5IDY5IDAgMCAxIDEwLjkzNC0yLjc2NiA2OSA2OSAwIDAgMSAxMS4zMzItLjkyMW0tNS43OTcgNDEuODk2cS01LjAwNyAwLTcuNTExIDEuODQ1LTIuMzcgMS43MTMtMi4zNzEgNS41MzMuMDAxIDMuODIxIDIuNTA0IDYuMDYxIDIuNTAzIDIuMTA4IDcuMTE0IDIuMTA5IDMuNTU3IDAgNi40NTYtMS4xODUgMy4wMy0xLjE4NyA1LjAwNy0zLjI5NSAyLjEwNy0yLjI0IDIuNzY2LTUuMDA3di02LjA2MXpNODYwLjMxIDczLjg3MnE4LjgyNy0uMTMyIDE1LjAxOSA0LjA4NWEyMy40IDIzLjQgMCAwIDEgNS43OTcgNS4zMXYtOC42MDVoMjMuMzIxdjY0LjgyMnEwIDEwLjAxNC00Ljg3NiAxNy4zOTMtNC44NzUgNy4zNzctMTMuNTY5IDExLjMyOS04LjY5NyA0LjA4NS0yMC4yOSA0LjA4NS05LjM1NSAwLTE3LjY1NS0yLjYzNS04LjE2OS0yLjYzNS0xNC4yMjktNi43MThsOC4xNjgtMTUuODEyYTQyIDQyIDAgMCAwIDEwLjU0MSA1LjE0cTUuNjY1IDEuODQ0IDExLjQ2MyAxLjg0NSA1LjQwMS0uMDAyIDkuMjIyLTEuNzE0IDMuODIxLTEuNzE0IDUuNzk3LTQuODc2IDIuMTA3LTMuMTYyIDIuMTA3LTcuNTA4di03LjQ0NWEyNC4zIDI0LjMgMCAwIDEtNS41MzMgNS4yMDRxLTYuMDYgNC4wODUtMTQuNzU3IDQuMDg1LTguODI3IDAtMTUuODEtNC4yMTYtNi44NS00LjM0OC0xMC44MDMtMTEuOTkxLTMuODItNy43NzMtMy44MjEtMTguMTgxIDAtMTAuMTQ1IDMuNjktMTcuNjU0IDMuODItNy41MSAxMC41MzktMTEuNzI3IDYuODUyLTQuMjE2IDE1LjY3OS00LjIxNm02LjQ1NiAxNy4zOXEtNC4zNDcgMC03LjY0MiAyLjExLTMuMTYgMi4xMDYtNS4wMDYgNS45MjctMS44NDUgMy44MjItMS44NDUgOC44MyAwIDUuMDA2IDEuODQ1IDguODI3dDUuMDA2IDUuOTI4cTMuMjk0IDIuMTA4IDcuNjQyIDIuMTA5IDQuMjE2IDAgNy4zNzgtMi4xMDkgMy4yOTQtMi4xMDggNS4xMzktNS45MjggMS44NDQtMy44MjEgMS44NDMtOC44MjcuMDAxLTUuMDA4LTEuODQzLTguODMtMS44NDUtMy44Mi01LjEzOS01LjkyOC0zLjE2Mi0yLjEwOC03LjM3OC0yLjEwOU05NDMuNzY1IDczLjg3MnE4LjgyOC0uMTMyIDE1LjAyIDQuMDg1YTIzLjQgMjMuNCAwIDAgMSA1Ljc5NyA1LjMxdi04LjYwNWgyMy4zMnY2NC44MjJxMCAxMC4wMTQtNC44NzUgMTcuMzkzLTQuODc1IDcuMzc3LTEzLjU3IDExLjMyOS04LjY5NSA0LjA4NS0yMC4yOSA0LjA4NS05LjM1NCAwLTE3LjY1NS0yLjYzNS04LjE2OC0yLjYzNS0xNC4yMjktNi43MThsOC4xNjgtMTUuODEyYTQyIDQyIDAgMCAwIDEwLjU0MiA1LjE0cTUuNjY1IDEuODQ0IDExLjQ2MiAxLjg0NSA1LjQwMi0uMDAyIDkuMjIzLTEuNzE0IDMuODItMS43MTQgNS43OTctNC44NzYgMi4xMDctMy4xNjIgMi4xMDctNy41MDh2LTcuNDQ1YTI0LjMgMjQuMyAwIDAgMS01LjUzMyA1LjIwNHEtNi4wNiA0LjA4NS0xNC43NTcgNC4wODUtOC44MjcgMC0xNS44MS00LjIxNi02Ljg1MS00LjM0OC0xMC44MDMtMTEuOTkxLTMuODItNy43NzMtMy44MjEtMTguMTgxIDAtMTAuMTQ1IDMuNjktMTcuNjU0IDMuODItNy41MSAxMC41MzktMTEuNzI3IDYuODUtNC4yMTYgMTUuNjc4LTQuMjE2bTYuNDU3IDE3LjM5cS00LjM0OCAwLTcuNjQyIDIuMTEtMy4xNjIgMi4xMDYtNS4wMDcgNS45MjctMS44NDQgMy44MjItMS44NDUgOC44My4wMDEgNS4wMDYgMS44NDUgOC44Mjd0NS4wMDcgNS45MjhxMy4yOTQgMi4xMDggNy42NDIgMi4xMDkgNC4yMTUgMCA3LjM3Ny0yLjEwOSAzLjI5NC0yLjEwOCA1LjE0LTUuOTI4IDEuODQ0LTMuODIxIDEuODQzLTguODI3LjAwMS01LjAwOC0xLjg0My04LjgzLTEuODQ2LTMuODItNS4xNC01LjkyOC0zLjE2Mi0yLjEwOC03LjM3Ny0yLjEwOU0xMDM0LjQ3IDczLjg2OGM4LjM0IDAgMTUuMjQgMS43NTcgMjAuNjggNS4yNyA1LjU0IDMuNDI2IDkuNTggOC4zNDYgMTIuMTMgMTQuNzU4IDIuNjMgNi40MTEgMy42OCAxMy45MjEgMy4xNiAyMi41MjhoLTQ5LjU5cS40OCAxLjgyMyAxLjIzIDMuNDI1YzEuNDEgMi45ODcgMy4zOCA1LjMxNiA1LjkzIDYuOTg1cTMuOTYgMi4zNzEgOS4wOSAyLjM3MWM2LjMzIDAgMTEuOS0yLjQxNiAxNi43My03LjI0NmwxMi4yNiAxMi4xMjJjLTMuNiAzLjk1Mi04LjA0IDcuMDI3LTEzLjMxIDkuMjIycS03Ljc3IDMuMjkzLTE3Ljc5IDMuMjkzYy03LjcyIDAtMTQuNDQtMS40OTItMjAuMTUtNC40NzhxLTguNDMtNC40ODEtMTMuMDUtMTIuNjUxLTQuNDc2LTguMTY4LTQuNDc3LTE4Ljk3MS4wMDEtMTEuMDY3IDQuNjA3LTE5LjIzNiA0LjYyLTguMyAxMy4wNS0xMi43ODEgOC40My00LjYxMSAxOS41LTQuNjExbS4xMyAxNi4yMDdjLTMuMDggMC01LjcxLjgzNC03LjkxIDIuNTAyLTIuMSAxLjU4MS0zLjc3IDMuODIyLTUgNi43MmEyMiAyMiAwIDAgMC0xLjMxIDQuNzQzaDI3LjRjLjA4LTIuODk4LS40NC01LjM1OC0xLjU5LTcuMzc4LTEuMDUtMi4xMDgtMi41OS0zLjczNC00LjYxLTQuODc1cy00LjM1LTEuNzEyLTYuOTgtMS43MTIiIGNsaXAtcnVsZT0iZXZlbm9kZCIvPjxwYXRoIGZpbGw9IiMxNTFhMWUiIGQ9Ik0xMTI2LjM2IDk1LjA3OWMtNC42Ni0uNTI3LTguNzQtLjEzMi0xMi4yNiAxLjE4Ni0zLjQyIDEuMzE3LTYuMSAzLjMzOC04LjAzIDYuMDYxcS0yLjE3NSAzLjEtMi42NCA3LjI1M3YzNi40ODhoLTIzLjQ1Vjc0LjkyaDIzLjQ1djExLjcxYzIuMDktMy40NCA0LjY5LTYuMjAzIDcuNzgtOC4yODRxNi40NS00LjQ3OCAxNS4xNS00LjQ3OHpNNjczLjE1NSA1My43MDloNzkuMTg0djE5LjVINzI0LjY3djcyLjg1OWgtMjQuMTExdi03Mi44NmgtMjcuNDA0ek0zMTIgNTMuNzA5aDI2LjIxOWwyNi43NDYgNTQuNDE0IDI2LjYxNC01NC40MTRoMjYuMjE5djkyLjM1OWgtMjEuMzQ0bC0uMTMyLTU5LjE1OC0yMy41ODQgNDkuOTM1aC0xNS41NDdMMzMzLjQ3NiA4Ni45MXY1OS4xNThIMzEyeiIvPjxwYXRoIGZpbGw9IiMxNTFhMWUiIGZpbGwtcnVsZT0iZXZlbm9kZCIgZD0iTTQ2NC4zNjMgNzMuMzRxMTIuNTE3IDAgMjAuNjg2IDUuMjcgOC4zIDUuMTQgMTIuMTIyIDE0Ljc1OCAzLjk1MSA5LjYxNyAzLjE2MSAyMi41MjhoLTQ5LjU5MWEyMCAyMCAwIDAgMCAxLjIzOCAzLjQyNXEyLjEwOCA0LjQ4MSA1LjkyOCA2Ljk4NSAzLjk1MyAyLjM3MSA5LjA5MiAyLjM3MSA5LjQ4NCAwIDE2LjczMS03LjI0NmwxMi4yNTMgMTIuMTIycS01LjQwMSA1LjkyOS0xMy4zMDYgOS4yMjItNy43NzQgMy4yOTQtMTcuNzg4IDMuMjkzLTExLjU5MiAwLTIwLjE1Ni00LjQ3OC04LjQzMy00LjQ4MS0xMy4wNDQtMTIuNjUxLTQuNDgtOC4xNjgtNC40OC0xOC45NzEgMC0xMS4wNjcgNC42MTEtMTkuMjM2IDQuNjExLTguMyAxMy4wNDQtMTIuNzgxIDguNDMyLTQuNjExIDE5LjQ5OS00LjYxMW0uMTMxIDE2LjIwN3EtNC42MSAwLTcuOTAzIDIuNTAyLTMuMTYzIDIuMzcxLTUuMDA3IDYuNzItLjg4NSAyLjE3OC0xLjMxMiA0Ljc0M2gyNy4zOTlxLjEzMi00LjM0OC0xLjU4MS03LjM3OC0xLjU4Mi0zLjE2Mi00LjYxMy00Ljg3Ni0zLjAzLTEuNzExLTYuOTgzLTEuNzExIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiLz48cGF0aCBmaWxsPSIjMTUxYTFlIiBkPSJNNTQzLjA3NyA3Ny4xNmgxOC40NDV2MTUuMjg0aC0xOC40NDV2MjcuMjczcTAgNC4wODQgMS43MTIgNS45MyAxLjcxMyAxLjg0MyA0Ljc0MiAxLjcxMSAxLjg0NSAwIDQuMDg1LS42NTlhNDUgNDUgMCAwIDAgNC43NDMtMS43MTJsNC40OCAxNi4yMDVxLTMuODIgMi4zNzItOC45NTggMy42OWE0NC40IDQ0LjQgMCAwIDEtMTAuMjc4IDEuMTg2cS02Ljg1IDAtMTIuMjUzLTIuNTA1LTUuNDAxLTIuNjM1LTguNTYzLTcuNjQyLTMuMDMtNS4xMzctMy4wMy0xMi41MTVWOTIuNDQ0aC05Ljg4MlY3Ny4xNmg5Ljg4MlY1Ny41M2gyMy4zMnoiLz48cGF0aCBmaWxsPSIjMTUxYTFlIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik02MDkuOTMgNzIuODEzcTE0Ljg4OSAwIDIyLjkyNiA2Ljg1MiA4LjE2NyA2LjcyIDguMjk5IDE4Ljk3MXY0Ni4zNzdoLTIzLjA1N3YtOC4wMjFhMjEuNiAyMS42IDAgMCAxLTUuOTI3IDUuMjU1cS02LjMyNiAzLjgyLTE1LjU0OCAzLjgyMS03LjY0MS0uMDAxLTEzLjE3NS0yLjktNS40MDItMi44OTctOC4zMDEtNy45MDR0LTIuODk3LTExLjQ2MnEwLTEwLjE0NiA2Ljk4Mi0xNS44MTIgNy4xMTUtNS42NjUgMjAuMjktNS43OTdoMTguNTc2di0uNzkxcTAtNS4xMzctMy40MjUtOC4wMzctMy40MjYtMi44OTctMTAuMTQ0LTIuODk3LTQuNDggMC0xMC4wMTMgMS40NS01LjUzNCAxLjQ0OS0xMS4zMzIgNC4zNDdsLTYuNDU2LTE1LjU0OHE1LjY2Ni0yLjUwMyAxMC45MzYtNC4yMTZhNjkgNjkgMCAwIDEgMTAuOTM1LTIuNzY2IDY5IDY5IDAgMCAxIDExLjMzMS0uOTIybS01Ljc5NiA0MS44OTdxLTUuMDA3IDAtNy41MTEgMS44NDUtMi4zNzEgMS43MTMtMi4zNzEgNS41MzN0Mi41MDQgNi4wNjFxMi41MDMgMi4xMDggNy4xMTMgMi4xMDkgMy41NTggMCA2LjQ1Ny0xLjE4NiAzLjAzLTEuMTg2IDUuMDA2LTMuMjk0IDIuMTA3LTIuMjQgMi43NjYtNS4wMDd2LTYuMDYxeiIgY2xpcC1ydWxlPSJldmVub2RkIi8+PC9nPjxkZWZzPjxjbGlwUGF0aCBpZD0iYSI+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTAgMGgxMTI3djIwMEgweiIvPjwvY2xpcFBhdGg+PGNsaXBQYXRoIGlkPSJiIj48cGF0aCBmaWxsPSIjZmZmIiBkPSJNMCAwaDI0OHYyMDBIMHoiLz48L2NsaXBQYXRoPjxjbGlwUGF0aCBpZD0iYyI+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTAgMGgyNDh2MjAwSDB6Ii8+PC9jbGlwUGF0aD48L2RlZnM+PC9zdmc+"><!-- brand-logo:end --></h1><p>Create tags from existing metadata.</p></div>
     </div>
 </header>
-<div class="metadataTaggerTabs" role="tablist" aria-label="Meta Tagger views">
-    <button id="TabOverview" type="button" role="tab" aria-controls="PanelOverview" aria-selected="true" tabindex="0">Workspace</button>
-    <button id="TabInspect" type="button" role="tab" aria-controls="PanelInspect" aria-selected="false" tabindex="-1">Browse items</button>
-    <button id="TabRuns" type="button" role="tab" aria-controls="PanelRuns" aria-selected="false" tabindex="-1">History</button>
-    <button id="TabMaintenance" type="button" role="tab" aria-controls="PanelMaintenance" aria-selected="false" tabindex="-1">Maintenance</button>
+<div class="metadataTaggerHeaderActions metadataTaggerViewActions" aria-label="Workspace tools">
+    <button id="WorkspaceButton" type="button" class="metadataTaggerLink" hidden>Back to workspace</button>
+    <button id="OpenInspectButton" type="button" class="metadataTaggerLink" aria-controls="PanelInspect" aria-expanded="false">Browse items</button>
+    <button id="OpenRunsButton" type="button" class="metadataTaggerLink" aria-controls="PanelRuns" aria-expanded="false">History</button>
+    <button id="OpenMaintenanceButton" type="button" class="metadataTaggerLink" aria-controls="PanelMaintenance" aria-expanded="false">Maintenance</button>
 </div>
+
 <div id="PageLoadError" class="metadataTaggerNotice" role="alert" data-feedback-tone="error" hidden><p>Settings could not be loaded. Reload the page to try again. If this continues, check the Jellyfin server log.</p><button id="ReloadSettingsButton" type="button" class="emby-button">Reload page</button></div>
-<section id="PanelOverview" role="tabpanel" aria-labelledby="TabOverview">
+<section id="PanelOverview" aria-label="Tagging workspace">
 <section id="PanelSettings" aria-label="Tag settings">
                 <div class="metadataTaggerSettingsWorkspace">
                 <form id="MetaTaggerConfigForm">
@@ -1928,6 +1895,7 @@
     <div class="metadataTaggerOutcome">
         <div><p class="metadataTaggerEyebrow">Latest run</p><h2 id="OverviewOutcome">Loading latest run…</h2><p id="OverviewWhen" class="metadataTaggerMuted"></p><p id="OverviewCounts" role="status"></p><div class="metadataTaggerHeaderActions"><button id="OverviewItemsButton" type="button" class="raised emby-button">View preview results</button><button id="OverviewRunsButton" type="button" class="metadataTaggerLink">History</button></div></div>
     </div>
+<section aria-labelledby="RecentRunsHeading"><h2 id="RecentRunsHeading">Recent runs</h2><p id="RecentRunsFeedback" role="status">Loading recent runs…</p><div id="RecentRuns"></div></section>
 <section id="CurrentApplyResults" aria-labelledby="CurrentApplyHeading" hidden>
     <h2 id="CurrentApplyHeading">Saved tag results</h2>
     <p id="CurrentApplyFeedback" role="status" aria-live="polite"></p>
@@ -1952,10 +1920,10 @@
     </section>
 </section>
 </section>
-<section id="PanelInspect" role="tabpanel" aria-labelledby="TabInspect" hidden>
+<section id="PanelInspect" aria-labelledby="BrowseHeading" hidden>
     <section id="InspectionPanel" aria-label="Browse items" hidden>
-    <h2>Browse items</h2>
-    <button id="BackToReviewButton" type="button" class="metadataTaggerLink">Back to preview results</button>
+    <h2 id="BrowseHeading" tabindex="-1">Browse items</h2>
+    <button id="BackToReviewButton" type="button" class="metadataTaggerLink">Back to workspace</button>
     <div class="metadataTaggerToolbar">
         <div><label class="inputLabel inputLabelUnfocused" for="ItemSearch">Search items</label><input id="ItemSearch" type="search" maxlength="200" is="emby-input" placeholder="Search by title" /></div>
         <div><label class="selectLabel" for="ItemLibrary">Library</label><select id="ItemLibrary" is="emby-select"><option value="">All libraries</option></select></div>
@@ -1978,13 +1946,17 @@
     </div>
     </section>
 </section>
-<section id="PanelRuns" role="tabpanel" aria-labelledby="TabRuns" hidden>
-    <button id="HistoryBackButton" type="button" class="metadataTaggerLink">Back to Overview</button>
+<section id="PanelRuns" aria-labelledby="HistoryHeading" hidden>
+    <button id="HistoryBackButton" type="button" class="metadataTaggerLink">Back to workspace</button>
     <div class="metadataTaggerSubheader"><h2 id="HistoryHeading" tabindex="-1">History</h2><button id="RefreshRunsButton" type="button" class="raised emby-button">Refresh history</button></div>
     <div class="metadataTaggerHistoryWorkspace"><section aria-label="Recorded runs"><p id="RunsFeedback" role="status">No runs recorded.</p><div id="RunList" tabindex="0" aria-label="Recorded runs"></div></section><section id="RunDetailPanel" aria-labelledby="RunDetailHeading"><h3 id="RunDetailHeading" tabindex="-1">Select a run</h3><details id="HistoryRunDetails" hidden><summary>Run details</summary><p id="HistoryRunId" class="metadataTaggerMuted"></p><dl id="HistoryRunMetadata" class="metadataTaggerRunCounts"></dl><h4>Recorded rules</h4><dl id="HistoryRunRules" class="metadataTaggerRunCounts"></dl></details><p id="RunDetailFeedback" role="status">Select a run to see its results.</p><dl id="RunDetailCounts" class="metadataTaggerRunCounts" hidden></dl><div id="RunDetails" tabindex="0" aria-label="Recorded item results"></div></section></div>
 </section>
-<section id="PanelMaintenance" role="tabpanel" aria-labelledby="TabMaintenance" hidden>
-                <h2 id="ClearPluginTagsHeading" tabindex="-1">Remove plugin tags</h2>
+<section id="PanelMaintenance" aria-labelledby="MaintenanceHeading" hidden>
+                <button id="MaintenanceBackButton" type="button" class="metadataTaggerLink">Back to workspace</button>
+                <h2 id="MaintenanceHeading" tabindex="-1">Maintenance</h2>
+                <p>Remove recorded plugin tags, or open advanced settings to rebuild tracking and claim tags from an earlier installation.</p>
+                <button id="MaintenanceSettingsButton" type="button" class="metadataTaggerLink">Tracking and legacy tag settings</button>
+                <h3 id="ClearPluginTagsHeading" tabindex="-1">Remove plugin tags</h3>
                 <p class="metadataTaggerSectionDescription">Preview tag removal before confirming. Manual and unrecorded tags stay. Protected items are skipped.</p>
                 <div class="metadataTaggerCleanup">
                     <p class="metadataTaggerSectionDescription">Includes recorded tags with older prefixes or item types no longer selected. A matching prefix alone never permits removal.</p>
@@ -2406,34 +2378,62 @@
             }
 
             function bindDashboardPreviewSession() {
-                var tabs = ['Overview', 'Inspect', 'Runs', 'Maintenance'];
+                var views = ['Overview', 'Inspect', 'Runs', 'Maintenance'];
+                var viewHeadings = { Overview: 'PluginStatusHeading', Inspect: 'BrowseHeading', Runs: 'HistoryHeading', Maintenance: 'MaintenanceHeading' };
                 var selectedView = 'Overview';
-                function selectView(name, focus) {
+                var returnViews = [];
+                var itemsNeedReload = false;
+                var historyNeedsReload = false;
+                function selectView(name, focus, returning) {
                     var destination = name === 'Settings' ? 'PluginStatusHeading' : name === 'Review' ? 'ReviewHeading' : null;
                     if (destination) { name = 'Overview'; }
-                    if (selectedView === 'Maintenance' && name !== 'Maintenance') {
-                        invalidateCleanup(pendingRequests.apply
-                            ? 'You left Maintenance while removal was running. Some tags may have changed. Preview again before retrying.'
-                            : 'You left Maintenance. Preview tag removal again before confirming.');
+                    if (name !== selectedView) {
+                        if (!returning && name !== 'Overview') {
+                            returnViews.push({ view: selectedView, trigger: document.activeElement,
+                                scroll: document.querySelector('#MetaTaggerConfigPage').scrollTop });
+                        } else if (!returning) { returnViews = []; }
+                        if (selectedView === 'Runs' && pendingRequests.runDetails) {
+                            historyNeedsReload = true;
+                            delete pendingRequests.runDetails;
+                        }
+                        if (selectedView === 'Inspect') {
+                            itemsNeedReload = itemsNeedReload || !!pendingRequests.items || !!searchTimer;
+                            if (searchTimer) { itemOffset = 0; }
+                            clearTimeout(searchTimer);
+                            searchTimer = null;
+                            delete pendingRequests.items;
+                            if (pendingRequests.itemPreview) {
+                                delete pendingRequests.itemPreview;
+                                document.querySelector('#InspectorFeedback').textContent = 'Item check closed. Select Check changes first to try again.';
+                                setFeedbackTone('InspectorFeedback', 'neutral');
+                            }
+                        }
+                        if (selectedView === 'Maintenance') {
+                            invalidateCleanup(pendingRequests.apply
+                                ? 'You left Maintenance while removal was running. Some tags may have changed. Preview again before retrying.'
+                                : 'You left Maintenance. Preview tag removal again before confirming.');
+                            delete pendingRequests.cleanup;
+                            document.querySelector('#CleanupSearchFeedback').textContent = '';
+                        }
                     }
                     selectedView = name;
-                    tabs.forEach(function (tab) {
-                        document.querySelector('#Panel' + tab).hidden = tab !== name;
-                        document.querySelector('#Tab' + tab).setAttribute('aria-selected', String(tab === name));
-                        document.querySelector('#Tab' + tab).setAttribute('tabindex', tab === name ? '0' : '-1');
+                    views.forEach(function (view) {
+                        document.querySelector('#Panel' + view).hidden = view !== name;
+                        if (view !== 'Overview') {
+                            document.querySelector('#Open' + view + 'Button').setAttribute('aria-expanded', String(view === name));
+                        }
                     });
+                    document.querySelector('#WorkspaceButton').hidden = name === 'Overview';
                     document.querySelector('#PanelSettings').hidden = name !== 'Overview';
                     document.querySelector('#PanelReview').hidden = name !== 'Overview';
-                    document.querySelector('#PanelRuns').hidden = name !== 'Runs';
-                    document.querySelector('#HistoryBackButton').textContent = 'Back to Workspace';
-                    if (name === 'Overview') {
-                        document.querySelector('#ReviewHeading').textContent = 'Proposed tag changes';
-                        document.querySelector('#ReviewResults').hidden = false;
-                        document.querySelector('#InspectionPanel').hidden = true;
-                    }
                     document.querySelector('#InspectionPanel').hidden = name !== 'Inspect';
-                    if (name === 'Inspect' && !browserItems.length && !pendingRequests.items) { loadItems(); }
-                    if (focus) { document.querySelector('#' + (destination || 'Tab' + name)).focus(); }
+                    var previous = returnViews.length ? returnViews[returnViews.length - 1].view : 'Overview';
+                    ['BackToReviewButton', 'HistoryBackButton', 'MaintenanceBackButton'].forEach(function (id) {
+                        document.querySelector('#' + id).textContent = 'Back to ' + { Overview: 'workspace', Inspect: 'Browse items', Runs: 'History', Maintenance: 'Maintenance' }[previous];
+                    });
+                    if (name === 'Inspect' && (itemsNeedReload || !browserItems.length) && !pendingRequests.items) { loadItems(); }
+                    if (name === 'Runs' && historyNeedsReload && selectedRunId) { loadRunDetails(selectedRunId); }
+                    if (focus) { document.querySelector('#' + (destination || viewHeadings[name])).focus(); }
                     if (destination) { document.querySelector('#' + destination).scrollIntoView(); }
                     if (name === 'Overview' && settingsLoaded) {
                         scheduleExampleSearch();
@@ -2446,19 +2446,34 @@
                     }
                     updateControls();
                 }
-                tabs.forEach(function (name) {
-                    document.querySelector('#Tab' + name).addEventListener('click', function () { selectView(name, true); });
-                    document.querySelector('#Tab' + name).addEventListener('keydown', function (event) {
-                        var index = tabs.indexOf(name);
-                        if (event.key === 'ArrowRight') { index = (index + 1) % tabs.length; }
-                        else if (event.key === 'ArrowLeft') { index = (index + tabs.length - 1) % tabs.length; }
-                        else if (event.key === 'Home') { index = 0; }
-                        else if (event.key === 'End') { index = tabs.length - 1; }
-                        else { return; }
+                function returnFromView() {
+                    var previous = returnViews.pop() || { view: 'Overview' };
+                    selectView(previous.view, false, true);
+                    var trigger = previous.trigger;
+                    var visible = !!trigger && trigger.isConnected !== false;
+                    for (var ancestor = trigger; ancestor; ancestor = ancestor.parentElement) {
+                        if (ancestor.hidden) { visible = false; }
+                    }
+                    (visible ? trigger : document.querySelector('#' + viewHeadings[previous.view])).focus();
+                    document.querySelector('#MetaTaggerConfigPage').scrollTop = previous.scroll || 0;
+                }
+                ['Inspect', 'Runs', 'Maintenance'].forEach(function (name) {
+                    document.querySelector('#Open' + name + 'Button').addEventListener('click', function () { selectView(name, true); });
+                });
+                document.querySelector('#WorkspaceButton').addEventListener('click', function () { selectView('Overview', true); });
+                ['BackToReviewButton', 'HistoryBackButton', 'MaintenanceBackButton'].forEach(function (id) {
+                    document.querySelector('#' + id).addEventListener('click', returnFromView);
+                });
+                document.querySelector('#MetaTaggerConfigPage').addEventListener('keydown', function (event) {
+                    if (event.key === 'Escape' && selectedView !== 'Overview' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target.tagName)) {
                         event.preventDefault();
-                        selectView(tabs[index]);
-                        document.querySelector('#Tab' + tabs[index]).focus();
-                    });
+                        returnFromView();
+                    }
+                });
+                document.querySelector('#MaintenanceSettingsButton').addEventListener('click', function () {
+                    selectView('Settings');
+                    document.querySelector('#AdvancedOptions').open = true;
+                    document.querySelector('#RebuildTrackingLedgerOnNextRun').focus();
                 });
                 var hasUnsavedChanges = false;
                 var settingsLoaded = false;
@@ -2606,6 +2621,7 @@
                 }
                 function loadItems() {
                     if (!active || !settingsLoaded) { return; }
+                    itemsNeedReload = false;
                     var params = { searchTerm: document.querySelector('#ItemSearch').value.trim(), startIndex: itemOffset, limit: 25, hierarchical: true };
                     if (browsePath.length) { params.parentId = field(browsePath[browsePath.length - 1].item, 'itemId'); }
                     renderBreadcrumbs();
@@ -2707,7 +2723,7 @@
                         : 'Apply tags now uses current metadata and saved settings. Check changes first is optional.';
                     updateControls();
                 }
-                function searchItems() { itemOffset = 0; loadItems(); }
+                function searchItems() { searchTimer = null; itemOffset = 0; loadItems(); }
                 document.querySelector('#RetryItemsButton').addEventListener('click', loadItems);
                 document.querySelector('#ItemLibrary').addEventListener('change', function () { browsePath = []; rootBrowseState = null; searchItems(); });
                 document.querySelector('#ItemStatus').addEventListener('change', function () {
@@ -2727,16 +2743,12 @@
                     openInspection({ itemId: field(item, 'itemId'), name: field(item, 'itemName') || field(item, 'name') || field(item, 'itemId'), itemType: field(item, 'itemType'), artworkItemIds: field(item, 'artworkItemIds') });
                 }
                 function openInspection(item) {
-                    selectView('Inspect');
+                    selectView('Inspect', true);
                     if (item) { selectItem(item); }
                     else { document.querySelector('#ItemSearch').focus(); }
                 }
                 document.querySelector('#InspectItemsButton').addEventListener('click', function () { openInspection(); });
-                document.querySelector('#BackToReviewButton').addEventListener('click', function () {
-                    selectView('Review'); document.querySelector('#ReviewHeading').focus();
-                });
                 document.querySelector('#ReviewRunsButton').addEventListener('click', function () { selectView('Runs', true); });
-                document.querySelector('#HistoryBackButton').addEventListener('click', function () { selectView('Overview', true); });
                 var taskTimer;
                 var requestedTask = null;
                 var generationEpoch = 0;
@@ -2843,7 +2855,7 @@
                                 ? '. Items updated: ' + (field(summary, 'writesApplied') || 0) + '. ' + (field(summary, 'failures') || 0) + ' item failures. ' + (field(summary, 'budgetLimitReached') ? 'Run limit reached; items remain.' : '')
                                 : '. Matching preview details are unavailable. See History or start a new preview.');
                             setFeedbackTone('TaskFeedback', matches ? summaryTone(summary) : 'warning');
-                            if (matches && !request.apply) { latestPreviewResult = result; latestPreviewFailed = false; renderReview(); selectView('Review'); }
+                            if (matches && !request.apply) { latestPreviewResult = result; latestPreviewFailed = false; renderReview(); }
                             loadRuns();
                         }, function () { document.querySelector('#TaskFeedback').textContent = 'Run finished. Results could not be loaded; check History.'; });
                     }, function () {
@@ -3067,7 +3079,7 @@
                 var recordedItems = {};
                 function itemKey(id) { return String(id || '').replace(/-/g, '').toLowerCase(); }
                 var selectedRunId = null;
-                function createRunRow(run) {
+                function createRunRow(run, recent) {
                     var row = document.createElement('button');
                     row.type = 'button';
                     row.className = 'metadataTaggerRunRow';
@@ -3086,7 +3098,11 @@
                     var date = document.createElement('time');
                     date.textContent = displayDate(field(run, 'startedUtc'));
                     row.appendChild(date);
-                    row.addEventListener('click', function () { selectView('Runs'); row.focus({ preventScroll: true }); loadRunDetails(field(run, 'runId')); });
+                    row.addEventListener('click', function () {
+                        loadRunDetails(field(run, 'runId'));
+                        selectView('Runs');
+                        if (recent) { document.querySelector('#RunDetailHeading').focus(); }
+                    });
                     return row;
                 }
                 document.querySelector('#OverviewItemsButton').addEventListener('click', function () { selectView('Review', true); });
@@ -3094,6 +3110,7 @@
                 function loadRuns() {
                     if (!active || !settingsLoaded) { return; }
                     historyStatus = 'loading';
+                    if (selectedRunId) { historyNeedsReload = true; delete pendingRequests.runDetails; }
                     document.querySelector('#RunsFeedback').setAttribute('role', 'status');
                     document.querySelector('#RunsFeedback').setAttribute('data-feedback-tone', 'neutral');
                     document.querySelector('#RunsFeedback').textContent = 'Loading run history…';
@@ -3112,6 +3129,10 @@
                             document.querySelector('#OverviewOutcome').textContent = displayOperation(field(latest, 'operation')) + ' · ' + displayOutcome(field(latest, 'outcome'));
                             document.querySelector('#OverviewCounts').textContent = describeRun(latest);
                         }
+                        var recent = document.querySelector('#RecentRuns');
+                        recent.replaceChildren();
+                        document.querySelector('#RecentRunsFeedback').textContent = runs.length ? 'Latest ' + Math.min(3, runs.length) + ' runs. Open a run for its recorded results.' : 'No runs recorded yet.';
+                        runs.slice(0, 3).forEach(function (run) { recent.appendChild(createRunRow(run, true)); });
                         runs.forEach(function (run) {
                             list.appendChild(createRunRow(run));
                         });
@@ -3133,10 +3154,13 @@
                             }, function () { recordedPreviewDetails = { detailsAvailable: false }; renderRecordedStatus(); });
                         }
                         renderRecordedStatus();
+                        if (selectedView === 'Runs' && selectedRunId) { loadRunDetails(selectedRunId); }
                     }, function () {
                         historyStatus = 'unavailable';
                         recordedPreviewDetails = null;
                         document.querySelector('#OverviewWhen').textContent = '';
+                        document.querySelector('#RecentRuns').replaceChildren();
+                        document.querySelector('#RecentRunsFeedback').textContent = 'Recent runs are unavailable. Open History and select Refresh history to retry.';
                         document.querySelector('#RunList').replaceChildren();
                         document.querySelector('#RunDetails').replaceChildren();
                         document.querySelector('#RunDetailCounts').hidden = true;
@@ -3387,6 +3411,7 @@
                         });
                 }
                 function loadRunDetails(id) {
+                    historyNeedsReload = false;
                     selectedRunId = id;
                     Array.from(document.querySelector('#RunList').children).forEach(function (row) {
                         row.setAttribute('aria-pressed', String(row.getAttribute('data-run-id') === id));

@@ -80,8 +80,8 @@ and installs the plugin, and watches for edits:
 - C#, project-file, and plugin catalog image changes rebuild and install the DLL, restart the disposable
   server, then reload the browser once Jellyfin is ready.
 - Unsaved settings defer automatic reload. Save them to continue, or manually
-  reload to discard them. The selected plugin tab is restored after reload;
-  item selections and unsubmitted action confirmations are cleared.
+  reload to discard them. Reload returns to the workspace; item selections and unsubmitted action
+  confirmations are cleared.
 - Build failures appear in the terminal and development banner. Fix the error
   and save again to retry. Ctrl+C stops the watcher and proxy, leaving Jellyfin running.
 
@@ -147,7 +147,7 @@ fixture exercises Jellyfin's update path; it is not a supported release.
 ## Dashboard development
 
 The plugin bundles its dashboard layout and styles, scoped to Meta Tagger.
-All six tabs use charcoal backgrounds, ivory text, cyan actions, slate borders,
+The workspace and on-demand views use charcoal backgrounds, ivory text, cyan actions, slate borders,
 and 8 px corners. Dashboard styles are defined in `configPage.html`.
 Controls inherit Jellyfin's font; metadata uses a system monospace stack.
 The plugin retains this palette in Jellyfin's light and dark themes. Error and
