@@ -45,6 +45,8 @@ public sealed class MetadataProjectionService
             ParentalRatings = SourceValues(sourceItems, EffectiveParentalRating),
             Studios = SourceStrings(sourceItems, source => source.Studios),
             ProductionCountries = SourceStrings(sourceItems, source => source.ProductionLocations),
+            AudioTrackCount = itemMediaStreams?.Count(stream => stream.Type == MediaStreamType.Audio) ?? 0,
+            SubtitleTrackCount = itemMediaStreams?.Count(stream => stream.Type == MediaStreamType.Subtitle) ?? 0,
             AudioLanguages = SourceLanguages(itemMediaStreams, MediaStreamType.Audio),
             SubtitleLanguages = SourceLanguages(itemMediaStreams, MediaStreamType.Subtitle),
             ProviderIdSources = SourceProviderIds(sourceItems),

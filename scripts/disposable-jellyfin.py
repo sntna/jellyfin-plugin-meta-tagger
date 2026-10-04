@@ -213,6 +213,22 @@ def create(args):
     return create_generated(args, REUSABLE_CONTAINER)
 
 
+def generate_track_sample(directory, destination, image, labelled=False):
+    """Generate synthetic audio only; language metadata is explicitly recorded, never inferred."""
+    media = pathlib.Path(directory).resolve() / "media"
+    relative = pathlib.Path(destination).resolve().relative_to(media)
+    languages = [("eng", "English"), ("spa", "Spanish"), ("eng", "English commentary"), ("und", "Undetermined")] if labelled else [("und", "Undetermined")]
+    tracks = ["-map", "0:v"]
+    for index, (language, title) in enumerate(languages):
+        tracks.extend(["-map", "1:a", f"-metadata:s:a:{index}", f"language={language}",
+                       f"-metadata:s:a:{index}", f"title={title}", f"-metadata:s:a:{index}", f"handler_name={title}"])
+    docker("run", "--rm", "--network", "none", "--entrypoint", "/usr/lib/jellyfin-ffmpeg/ffmpeg",
+           "-v", f"{media}:/media", image, "-hide_banner", "-loglevel", "error",
+           "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=24", "-f", "lavfi", "-i", "sine=frequency=440",
+           *tracks, "-t", "3", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart",
+           "/media/" + relative.as_posix())
+
+
 def create_generated(args, container_name=None):
     identity = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d-%H%M%S-") + secrets.token_hex(3)
     directory = ROOT / ".jellyfin-test" / ("v12-" + identity)
@@ -229,15 +245,11 @@ def create_generated(args, container_name=None):
     secret_path = directory / "credentials.json"
     secret_path.write_text(json.dumps(credentials, indent=2) + "\n")
     secret_path.chmod(0o600)
-    docker("run", "--rm", "--network", "none", "--entrypoint", "/usr/lib/jellyfin-ffmpeg/ffmpeg",
-           "-v", f"{directory / 'media'}:/media", meta["image"], "-hide_banner", "-loglevel", "error",
-           "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=24", "-f", "lavfi", "-i", "sine=frequency=440",
-           "-t", "3", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart",
-           "/media/generated-sample.mp4")
+    generate_track_sample(directory, directory / "media/generated-sample.mp4", meta["image"])
     media = directory / "media"
     movie = media / "Movies" / "Paper Satellites (2024)"
     movie.mkdir(parents=True)
-    shutil.copyfile(media / "generated-sample.mp4", movie / "Paper Satellites (2024).mp4")
+    generate_track_sample(directory, movie / "Paper Satellites (2024).mp4", meta["image"], labelled=True)
     nfo(movie / "movie.nfo", "movie", title="Paper Satellites", year=2024,
         plot="Generated local test movie. A research crew maps paper satellites.",
         genre=["Science Fiction", "Adventure"], mpaa="PG", studio="Workshop Pictures",

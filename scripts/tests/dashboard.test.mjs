@@ -1708,3 +1708,50 @@ test('initial settings expose three sources and keep optional sources collapsed'
     assert.equal(page.element('SelectedSources').textContent, 'Genres, Parental rating, Audio languages');
     assert.equal(page.element('ItemTypesSummary').textContent, 'Movies, Series');
 });
+
+test('Inspect displays missing source reasons and lookup failures without enabling Apply', async () => {
+    const page = await readyDashboard();
+    await page.activate(page.element('PreviewChanges').children[0].children.at(-1));
+    await page.respond('MetaTagger/Items/movie/Preview', {
+        status: 'Failed', reason: 'Jellyfin could not read this item\'s tracks. No tags changed.',
+        sourceExplanations: [
+            { source: 'audio-language', status: 'LookupFailed', reason: 'Track lookup failed. Check the server log.' },
+            { source: 'subtitle-language', status: 'Disabled', reason: 'This source is off in these settings.' },
+            { source: 'genre', status: 'NotChecked', reason: '<b>Not checked</b>' }
+        ]
+    });
+    assert.match(page.element('InspectorDetails').textContent, /Audio languages.*Track lookup failed/);
+    assert.match(page.element('InspectorDetails').textContent, /Subtitle languages.*source is off/);
+    assert.match(page.element('InspectorDetails').textContent, /<b>Not checked<\/b>/);
+    assert.equal(page.element('InspectorFeedback').getAttribute('data-feedback-tone'), 'error');
+    assert.equal(page.element('ApplyItemButton').disabled, true);
+});
+
+test('Settings example shows recorded mappings and reasons for sources without tags', async () => {
+    const page = await readyDashboard();
+    await chooseExample(page, { itemId: 'a', name: 'Example', itemType: 'Movie' });
+    await page.respond('MetaTagger/Example', { generatedTags: ['meta:audio-language:eng', 'meta:audio-language:spa'],
+        sources: [{ tag: 'meta:audio-language:eng', source: 'audio-language', values: ['eng', ' ENG '] }],
+        sourceExplanations: [
+            { source: 'audio-language', status: 'Generated', reason: 'Generated tags from recorded tracks.', tags: ['meta:audio-language:eng', 'meta:audio-language:spa'] },
+            { source: 'subtitle-language', status: 'NoRecordedLanguage', reason: 'Blank and undetermined codes do not produce tags.' },
+            { source: 'genre', status: 'MissingData', reason: 'No usable values are recorded for this source.' }
+        ] });
+    assert.match(page.element('ExampleTags').textContent, /meta:audio-language:eng.*meta:audio-language:spa/);
+    assert.match(page.element('ExampleTags').textContent, /Subtitle languages.*Blank and undetermined/);
+    assert.match(page.element('ExampleTags').textContent, /Genres.*No usable values/);
+    assert.equal(page.sent('save-settings').length, 0);
+});
+
+test('History displays source explanations from the recorded run', async () => {
+    const page = await readyDashboard();
+    await page.respond('MetaTagger/Runs', [{ runId: 'sources', operation: 'Preview', outcome: 'Completed', summary: {} }]);
+    await page.activate(page.element('RunList').children[0]);
+    await page.respond('MetaTagger/Runs/sources', { detailsAvailable: true, items: [
+        { name: 'Series', outcome: 'Up to date', sourceExplanations: [
+            { source: 'audio-language', status: 'NoItemTracks', reason: 'This series has no tracks of its own. Episode languages are not combined onto the series.' }
+        ] }
+    ] });
+    assert.match(page.element('RunDetails').textContent, /Audio languages.*series has no tracks.*Episode languages are not combined/);
+    assert.equal(page.sent('MetaTagger/Items/movie/Apply').length, 0);
+});

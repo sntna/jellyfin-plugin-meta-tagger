@@ -2818,6 +2818,25 @@
                     note.appendChild(document.createTextNode((identifyTags === false ? '' : '. ') + (tags.length === 1 ? singular : plural)));
                     container.appendChild(note);
                 }
+                function appendSourceExplanations(container, result) {
+                    var explanations = field(result, 'sourceExplanations') || [];
+                    if (!explanations.length) { return; }
+                    var details = document.createElement('details');
+                    details.className = 'metadataTaggerSources';
+                    // A failed lookup must remain visible even when the source details are collapsed.
+                    details.open = explanations.some(function (source) { return field(source, 'status') === 'LookupFailed'; });
+                    var heading = document.createElement('summary');
+                    heading.textContent = 'Metadata source results';
+                    details.appendChild(heading);
+                    explanations.forEach(function (source) {
+                        var row = document.createElement('p');
+                        row.textContent = displaySource(field(source, 'source')) + ': ' + field(source, 'reason');
+                        var tags = field(source, 'tags') || [];
+                        if (tags.length) { row.textContent += ' ' + tags.join(', '); }
+                        details.appendChild(row);
+                    });
+                    container.appendChild(details);
+                }
                 function renderInspection(result, reviewed) {
                     if (field(result, 'artworkItemIds')) {
                         document.querySelector('#InspectorArtwork').replaceChildren(createArtwork(result));
@@ -2880,6 +2899,7 @@
                         sources.appendChild(explanation);
                     });
                     if ((field(result, 'sources') || []).length) { details.appendChild(sources); }
+                    appendSourceExplanations(details, result);
                     if (reviewed) { itemApproval = field(result, 'token') || null; if (field(result, 'configurationRevision')) { savedConfigurationRevision = field(result, 'configurationRevision'); } }
                 }
                 function previewItem() {
@@ -3190,6 +3210,7 @@
                             appendPreviewTagGroup(article, updated ? 'Tags added' : 'Tags to add', field(item, 'addedTags') || [], 'positive');
                             appendPreviewTagGroup(article, updated ? 'Tags removed' : 'Tags to remove', field(item, 'removedTags') || [], 'negative');
                             appendPreviewTagGroup(article, 'Outdated tags to keep', field(item, 'previewRemovedTags') || []);
+                            appendSourceExplanations(article, item);
                             details.appendChild(article);
                         });
                     }, function () { document.querySelector('#RunDetailFeedback').textContent = 'This run is unavailable or has expired from history. Refresh history.'; });
@@ -3253,6 +3274,7 @@
                             container.appendChild(row);
                         });
                         if (!sources.length && tags.length) { appendPreviewTagGroup(container, 'Generated tags', tags); }
+                        appendSourceExplanations(container, result);
                         feedback.textContent = field(result, 'reason') || (tags.length
                             ? 'Calculated with the current settings, including unsaved changes. Nothing was saved.'
                             : sourceChoices.some(function (entry) { return draft[entry[0]]; })

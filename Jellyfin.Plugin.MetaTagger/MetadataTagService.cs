@@ -72,6 +72,61 @@ public sealed class MetadataTagService
         return tags.Values.ToArray();
     }
 
+    public IReadOnlyCollection<MetaTaggerSourceExplanation> ExplainSources(MetadataTagInput input, PluginConfiguration configuration)
+    {
+        var tags = ExplainTags(input, configuration);
+        return SourceSettings(configuration).Select(source =>
+        {
+            var generated = tags.Where(tag => tag.Source == source.Name).Select(tag => tag.Tag).ToArray();
+            var status = !configuration.IsEnabled || !source.Enabled ? SourceExplanationStatus.Disabled
+                : generated.Length > 0 ? SourceExplanationStatus.Generated
+                : SourceExplanationStatus.MissingData;
+            if (status == SourceExplanationStatus.MissingData && source.Name is "audio-language" or "subtitle-language")
+            {
+                var count = source.Name == "audio-language" ? input.AudioTrackCount : input.SubtitleTrackCount;
+                if (count > 0) { status = SourceExplanationStatus.NoRecordedLanguage; }
+                else if (input.ItemType == "Series") { status = SourceExplanationStatus.NoItemTracks; }
+            }
+            return new MetaTaggerSourceExplanation { Source = source.Name, Status = status, Reason = Reason(status), Tags = generated };
+        }).ToArray();
+    }
+
+    internal static IReadOnlyCollection<MetaTaggerSourceExplanation> UnavailableSources(
+        SourceExplanationStatus status, string reason, PluginConfiguration? configuration = null)
+    {
+        return SourceSettings(configuration ?? new PluginConfiguration()).Select(source =>
+        {
+            var effective = status == SourceExplanationStatus.LookupFailed
+                ? !source.Enabled ? SourceExplanationStatus.Disabled
+                    : source.Name is "audio-language" or "subtitle-language" ? status : SourceExplanationStatus.NotChecked
+                : status;
+            return new MetaTaggerSourceExplanation
+            {
+                Source = source.Name, Status = effective,
+                Reason = effective == status ? reason : Reason(effective)
+            };
+        }).ToArray();
+    }
+
+    private static (string Name, bool Enabled)[] SourceSettings(PluginConfiguration configuration) =>
+    [
+        ("genre", configuration.EnableGenres), ("rating", configuration.EnableParentalRating),
+        ("keyword", configuration.EnableExistingTagsAsKeywords), ("studio", configuration.EnableStudios),
+        ("country", configuration.EnableProductionCountries), ("provider", configuration.EnableProviderIds),
+        ("year", configuration.EnableProductionYear), ("audio-language", configuration.EnableAudioLanguages),
+        ("subtitle-language", configuration.EnableSubtitleLanguages)
+    ];
+
+    private static string Reason(SourceExplanationStatus status) => status switch
+    {
+        SourceExplanationStatus.Generated => "Generated tags from this item's metadata.",
+        SourceExplanationStatus.Disabled => "This source is off in these settings.",
+        SourceExplanationStatus.NoItemTracks => "This series has no tracks of its own. Episode languages are not combined onto the series.",
+        SourceExplanationStatus.NoRecordedLanguage => "The tracks have no usable recorded language codes. Blank and undetermined codes do not produce tags.",
+        SourceExplanationStatus.MissingData => "No usable values are recorded for this source.",
+        _ => "This source was not checked because item processing could not complete."
+    };
+
     internal static IEnumerable<string> RecordedLanguages(IEnumerable<string> values)
     {
         return values.Where(value => !string.IsNullOrWhiteSpace(value)

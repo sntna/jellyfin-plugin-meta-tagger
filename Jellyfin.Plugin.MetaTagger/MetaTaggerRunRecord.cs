@@ -43,6 +43,7 @@ public sealed class MetaTaggerRunItem
     public string Outcome { get; init; } = "Not checked";
     public string? Reason { get; init; }
     public string? GenerationEligibility { get; init; }
+    public IReadOnlyCollection<MetaTaggerSourceExplanation> SourceExplanations { get; init; } = [];
     public IReadOnlyCollection<string> AddedTags { get; init; } = [];
     public IReadOnlyCollection<string> RemovedTags { get; init; } = [];
     public IReadOnlyCollection<string> PreviewRemovedTags { get; init; } = [];

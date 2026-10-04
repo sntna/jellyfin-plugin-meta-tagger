@@ -104,14 +104,7 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
         if (change == "settings") { configuration.EnableAudioLanguages = false; }
         if (change == "lookup-failure") { host.StreamLookup = _ => throw new IOException("Injected stream failure"); }
 
-        if (change == "lookup-failure")
-        {
-            await Assert.ThrowsAsync<IOException>(() => runner.ApplyItemAsync(item.Id, preview.Token!, CancellationToken.None));
-        }
-        else
-        {
-            await Assert.ThrowsAsync<InvalidOperationException>(() => runner.ApplyItemAsync(item.Id, preview.Token!, CancellationToken.None));
-        }
+        await Assert.ThrowsAsync<InvalidOperationException>(() => runner.ApplyItemAsync(item.Id, preview.Token!, CancellationToken.None));
 
         Assert.Empty(host.UpdateAttempts);
         Assert.Empty(item.Tags);
