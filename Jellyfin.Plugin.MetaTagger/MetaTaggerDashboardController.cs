@@ -83,17 +83,41 @@ public sealed class MetaTaggerDashboardController : ControllerBase
 
     [HttpPost("Items/{itemId:guid}/Apply")]
     public async Task<ActionResult<MetaTaggerRunSummary>> ApplyItemAsync(
-        Guid itemId, [FromBody] MetaTaggerItemApplyRequest request, CancellationToken cancellationToken)
+        Guid itemId, CancellationToken cancellationToken)
     {
         try
         {
-            return await Runner.ApplyItemAsync(itemId, request.Token, cancellationToken).ConfigureAwait(false);
+            return await Runner.ApplyItemAsync(itemId, cancellationToken).ConfigureAwait(false);
         }
         catch (InvalidOperationException exception)
         {
             return Conflict(new ProblemDetails { Title = exception.Message, Status = StatusCodes.Status409Conflict });
         }
     }
+
+    [HttpPost("Items/{itemId:guid}/ApplyRuns")]
+    public ActionResult<MetaTaggerItemRun> StartItemApply(Guid itemId)
+    {
+        try { return Accepted(Runner.StartItemApply(itemId)); }
+        catch (InvalidOperationException exception)
+        {
+            return Conflict(new ProblemDetails { Title = exception.Message, Status = StatusCodes.Status409Conflict });
+        }
+    }
+
+    [HttpGet("ItemRuns/Current")]
+    public ActionResult<MetaTaggerItemRun?> GetCurrentItemRun() => new JsonResult(Runner.GetCurrentItemRun());
+
+    [HttpGet("ItemRuns/{runId:guid}")]
+    public ActionResult<MetaTaggerItemRun> GetItemRun(Guid runId)
+    {
+        var run = Runner.GetItemRun(runId);
+        return run is null ? NotFound() : run;
+    }
+
+    [HttpDelete("ItemRuns/{runId:guid}")]
+    public IActionResult CancelItemRun(Guid runId)
+        => Runner.CancelItemRun(runId) ? Accepted() : NotFound();
 
     [HttpGet("Cleanup/Items")]
     [ProducesResponseType<IReadOnlyCollection<MetaTaggerCleanupItem>>(StatusCodes.Status200OK)]

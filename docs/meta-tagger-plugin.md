@@ -21,16 +21,17 @@ The plugin does not generate interpreted policy tags such as `audience:kids`,
 
 ## Quick start
 
-1. Leave **Preview scheduled and post-scan runs** selected.
+1. Fresh installations use automatic Apply and post-scan runs. Select
+   **Preview scheduled and post-scan runs** if you want read-only automatic runs.
 2. Choose the Jellyfin details and item types you want to tag.
 3. Save the settings.
-4. Select **Preview tag changes** in Meta Tagger. It always previews the saved item types
-   across all libraries without changing tags and opens **Preview results** when results arrive.
-5. Use a preview item's **Preview this item** action, preview its current changes, confirm
-   them, and apply to that item.
-   An approval lasts 15 minutes and requires a new preview if relevant data
-   changes. Library-wide **Apply metadata tag changes** remains available in
-   Jellyfin **Scheduled Tasks**.
+4. Optionally select **Check changes first** to preview configured item types across
+   all libraries without changing tags.
+5. Select **Apply tags now** for that scope, or select one item in **Browse items**
+   and use **Apply tags now to this item**. No preview or confirmation is required.
+   Apply recalculates current metadata and saved rules. **Stop item run** also cancels
+   queued item work. **Save & apply tags now** saves the submitted draft before
+   library-wide Apply; failed saves prevent generation.
 
 **Overview** shows the latest run, saved tagging settings, scheduled run action,
 and post-scan settings. **Preview results** shows the latest generation
@@ -57,9 +58,10 @@ default. The other six sources start off inside the collapsed **More sources**
 section. The source summary names every enabled choice even while that section
 is closed. Existing saved selections are preserved.
 
-New installations select movies and series, use **New or changed items**, keep
-preview-only enabled, and keep outdated tags. Episodes, generic videos,
-parent-series inheritance, and automatic post-scan runs start off.
+New installations select movies and series, use **New or changed items** with
+automatic Apply and post-scan runs, and keep outdated tags. Episodes, generic
+videos, and parent-series inheritance start off. Existing items are excluded
+from automatic generation until explicitly authorized through Apply.
 Tag format and item types are separate disclosures with draft summaries.
 The item-type summary says whether episodes include series metadata. Native
 validation opens hidden editors so their values can be corrected.
@@ -70,7 +72,7 @@ For library tagging, Preview results' **Apply changes across all libraries** gui
 names **Apply metadata tag changes** and links to Jellyfin's Scheduled Tasks.
 The link does not save or launch anything. The task uses current saved settings
 and metadata across all libraries, with selected item types, protections, and
-run limits. Save the draft first. Default Preview does not prevent this explicit
+run limits. Save the draft first. Choosing automatic Preview does not prevent this explicit
 Apply task from writing tags. Turning off post-scan runs does not remove any
 independently configured Scheduled Tasks triggers.
 
@@ -140,8 +142,9 @@ languages always come from the item itself.
 
 ### Automation
 
-The defaults are **New or changed items**, preview-only on, and post-scan runs
-off. The minimum interval between post-scan runs is 30 minutes.
+Fresh installations default to **New or changed items**, automatic Apply, and
+post-scan runs on. Saved modes are preserved on upgrades. The minimum interval
+between post-scan runs is 30 minutes.
 
 - **Items to check per run** offers **New or changed items** to skip items whose
   metadata, tags, and settings match the plugin records, or **All selected item
