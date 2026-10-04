@@ -24,13 +24,13 @@ public sealed class PluginTests : IDisposable
     }
 
     [Fact]
-    public void GetPages_SettingsPageShowsLatestPreviewResultsWithRefreshFeedback()
+    public void GetPages_SettingsPageShowsProposedTagChangesWithRefreshFeedback()
     {
         var plugin = CreatePlugin(out _);
 
         var markup = ReadSettingsPage(plugin);
 
-        Assert.Contains("Latest preview results", markup, StringComparison.Ordinal);
+        Assert.Contains("Proposed tag changes", markup, StringComparison.Ordinal);
         Assert.Contains("id=\"PreviewFeedback\"", markup, StringComparison.Ordinal);
         Assert.Contains("aria-live=\"polite\"", markup, StringComparison.Ordinal);
         Assert.Contains("id=\"PreviewChanges\"", markup, StringComparison.Ordinal);

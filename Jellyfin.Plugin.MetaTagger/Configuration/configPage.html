@@ -1492,6 +1492,27 @@
             #MetaTaggerConfigPage .metadataTaggerRunCounts[hidden] { display: none; }
             #MetaTaggerConfigPage .metadataTaggerRunCounts dt { color: var(--mt-muted); }
             #MetaTaggerConfigPage .metadataTaggerRunCounts dd { overflow-wrap: anywhere; margin: var(--mt-space-xs) 0 0; font-weight: 600; }
+
+            #MetaTaggerConfigPage .metadataTaggerSettingsWorkspace { display: block; }
+            #MetaTaggerConfigPage #PanelOverview > #PanelSettings { padding: 0; border: 0; }
+            #MetaTaggerConfigPage .metadataTaggerSettingsLayout { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            #MetaTaggerConfigPage .metadataTaggerSettingsLayout > * { grid-column: auto; min-width: 0; }
+            #MetaTaggerConfigPage .metadataTaggerVisuallyHidden { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+            #MetaTaggerConfigPage #TaggingOptions { grid-column: 1 / -1; padding: var(--mt-space-md); }
+            #MetaTaggerConfigPage #SourceOptions { grid-column: 1; grid-row: 2; }
+            #MetaTaggerConfigPage #ItemTypeOptions { grid-column: 1; grid-row: 3; }
+            #MetaTaggerConfigPage #AutomationOptions { grid-column: 2; grid-row: 2 / span 2; }
+            #MetaTaggerConfigPage :is(#SourceOptions,#ItemTypeOptions,#AutomationOptions) { padding: var(--mt-space-md); border: 0; background: var(--mt-ink); }
+            #MetaTaggerConfigPage #ItemTypeOptions .metadataTaggerFieldset { display: flex; flex-wrap: wrap; gap: var(--mt-space-md); }
+            #MetaTaggerConfigPage #ItemTypeOptions :is(legend,.metadataTaggerSectionDescription) { display: none; }
+            #MetaTaggerConfigPage .metadataTaggerRunActions, #MetaTaggerConfigPage .metadataTaggerSaveRow { grid-column: 1 / -1; }
+            #MetaTaggerConfigPage .metadataTaggerSaveRow { flex-wrap: wrap; justify-content: flex-start; }
+            #MetaTaggerConfigPage #ExampleAside { margin-block: var(--mt-space-md); }
+            #MetaTaggerConfigPage #PanelReview { margin-top: var(--mt-space-lg); }
+            @media (max-width: 760px) {
+                #MetaTaggerConfigPage .metadataTaggerSettingsLayout { grid-template-columns: minmax(0, 1fr); }
+                #MetaTaggerConfigPage :is(#SourceOptions,#ItemTypeOptions,#AutomationOptions) { grid-column: 1; grid-row: auto; }
+            }
         </style>
         <div data-role="content">
             <div class="content-primary">
@@ -1499,115 +1520,38 @@
     <div class="metadataTaggerIdentity">
         <div><h1 aria-label="Meta Tagger"><!-- brand-logo:start --><img class="metadataTaggerLogo metadataTaggerLogo-light" alt="" width="1127" height="200" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMTI3IiBoZWlnaHQ9IjIwMCIgZmlsbD0ibm9uZSI+PGcgY2xpcC1wYXRoPSJ1cmwoI2EpIj48ZyBjbGlwLXBhdGg9InVybCgjYikiPjxnIGZpbGw9IiM2OWNlZDYiIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1wYXRoPSJ1cmwoI2MpIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0xNDggMjAwcS04IDAtOC04VjQ2cTAtNCAzLTdsNDUtMzdxNi00IDEyIDBsNDUgMzdxMyAzIDMgN3YxNDZxMCA4LTggOHptNTMuODI2LTEwOC4xNzRhNy44MjUgNy44MjUgMCAwIDAtMTMuMzYtNS41MzRBNy44MjUgNy44MjUgMCAwIDAgMTk0IDk5LjY1MmE3LjgyNyA3LjgyNyAwIDAgMCA3LjgyNi03LjgyNm0wIDQwLjM0OGE3LjgyNSA3LjgyNSAwIDAgMC0xMy4zNi01LjUzNEE3LjgyNSA3LjgyNSAwIDAgMCAxOTQgMTQwYTcuODMgNy44MyAwIDAgMCA3LjgyNi03LjgyNk04IDIwMHEtOCAwLTgtOFY0NnEwLTQgMy03TDQ4IDJxNi00IDEyIDBsNDUgMzdxMyAzIDMgN3YxNDZxMCA4LTggOHpNNjEuODI2IDkxLjgyNmE3LjgyNiA3LjgyNiAwIDEgMC0xNS42NTIgMCA3LjgyNiA3LjgyNiAwIDAgMCAxNS42NTIgMG0wIDQwLjM0OGE3LjgyNiA3LjgyNiAwIDEgMC0xNS42NTIgMCA3LjgyNiA3LjgyNiAwIDAgMCAxNS42NTIgMCIvPjwvZz48L2c+PHBhdGggZmlsbD0iI2YyZWZlNyIgZmlsbC1ydWxlPSJldmVub2RkIiBkPSJNNzg5Ljc2NyA3My44NjhxMTQuODg4IDAgMjIuOTI1IDYuODUxIDguMTY4IDYuNzIgOC4yOTkgMTguOTcxdjQ2LjM3N2gtMjMuMDU2di04LjAyMWEyMS41IDIxLjUgMCAwIDEtNS45MjggNS4yNTVxLTYuMzI0IDMuODItMTUuNTQ4IDMuODIxLTcuNjQgMC0xMy4xNzQtMi45LTUuNDAyLTIuODk4LTguMzAxLTcuOTAzLTIuODk4LTUuMDA3LTIuODk4LTExLjQ2MyAwLTEwLjE0NSA2Ljk4My0xNS44MTIgNy4xMTUtNS42NjUgMjAuMjktNS43OTdoMTguNTc2di0uNzlxMC01LjEzOS0zLjQyNi04LjAzNy0zLjQyNS0yLjg5OC0xMC4xNDQtMi44OTgtNC40OCAwLTEwLjAxMyAxLjQ1LTUuNTM0IDEuNDQ5LTExLjMzMSA0LjM0N2wtNi40NTctMTUuNTQ4cTUuNjY3LTIuNTAzIDEwLjkzNy00LjIxNmE2OSA2OSAwIDAgMSAxMC45MzQtMi43NjYgNjkgNjkgMCAwIDEgMTEuMzMyLS45MjFtLTUuNzk3IDQxLjg5NnEtNS4wMDcgMC03LjUxMSAxLjg0NS0yLjM3IDEuNzEzLTIuMzcxIDUuNTMzdDIuNTA1IDYuMDYxcTIuNTAyIDIuMTA4IDcuMTEzIDIuMTA5IDMuNTU3IDAgNi40NTYtMS4xODUgMy4wMy0xLjE4NyA1LjAwNy0zLjI5NSAyLjEwNy0yLjI0IDIuNzY2LTUuMDA3di02LjA2MXpNODYwLjMxIDczLjg3MnE4LjgyNy0uMTMyIDE1LjAxOSA0LjA4NWEyMy40IDIzLjQgMCAwIDEgNS43OTcgNS4zMXYtOC42MDVoMjMuMzIxdjY0LjgyMnEwIDEwLjAxNC00Ljg3NiAxNy4zOTMtNC44NzUgNy4zNzctMTMuNTY5IDExLjMyOS04LjY5NyA0LjA4NS0yMC4yOSA0LjA4NS05LjM1NSAwLTE3LjY1NS0yLjYzNS04LjE2OS0yLjYzNS0xNC4yMjktNi43MThsOC4xNjgtMTUuODEyYTQyIDQyIDAgMCAwIDEwLjU0MSA1LjE0cTUuNjY1IDEuODQ0IDExLjQ2MyAxLjg0NSA1LjQwMS0uMDAyIDkuMjIyLTEuNzE0IDMuODIxLTEuNzE0IDUuNzk3LTQuODc2IDIuMTA3LTMuMTYyIDIuMTA3LTcuNTA4di03LjQ0NWEyNC4zIDI0LjMgMCAwIDEtNS41MzMgNS4yMDRxLTYuMDYgNC4wODUtMTQuNzU3IDQuMDg1LTguODI3IDAtMTUuODEtNC4yMTYtNi44NS00LjM0OC0xMC44MDMtMTEuOTkxLTMuODItNy43NzMtMy44MjEtMTguMTgxIDAtMTAuMTQ1IDMuNjktMTcuNjU0IDMuODItNy41MSAxMC41MzktMTEuNzI3IDYuODUyLTQuMjE2IDE1LjY3OS00LjIxNm02LjQ1NiAxNy4zOXEtNC4zNDcgMC03LjY0MiAyLjExLTMuMTYgMi4xMDYtNS4wMDYgNS45MjctMS44NDUgMy44MjItMS44NDUgOC44MyAwIDUuMDA2IDEuODQ1IDguODI3dDUuMDA2IDUuOTI4cTMuMjk0IDIuMTA4IDcuNjQyIDIuMTA5IDQuMjE2IDAgNy4zNzgtMi4xMDkgMy4yOTQtMi4xMDggNS4xMzktNS45MjggMS44NDQtMy44MjEgMS44NDMtOC44MjcuMDAxLTUuMDA4LTEuODQzLTguODMtMS44NDUtMy44Mi01LjEzOS01LjkyOC0zLjE2Mi0yLjEwOC03LjM3OC0yLjEwOU05NDMuNzY1IDczLjg3MnE4LjgyOC0uMTMyIDE1LjAyIDQuMDg1YTIzLjQgMjMuNCAwIDAgMSA1Ljc5NyA1LjMxdi04LjYwNWgyMy4zMnY2NC44MjJxMCAxMC4wMTQtNC44NzUgMTcuMzkzLTQuODc1IDcuMzc3LTEzLjU3IDExLjMyOS04LjY5NSA0LjA4NS0yMC4yOSA0LjA4NS05LjM1NCAwLTE3LjY1NS0yLjYzNS04LjE2OC0yLjYzNS0xNC4yMjktNi43MThsOC4xNjgtMTUuODEyYTQyIDQyIDAgMCAwIDEwLjU0MiA1LjE0cTUuNjY1IDEuODQ0IDExLjQ2MiAxLjg0NSA1LjQwMi0uMDAyIDkuMjIzLTEuNzE0IDMuODItMS43MTQgNS43OTctNC44NzYgMi4xMDctMy4xNjIgMi4xMDctNy41MDh2LTcuNDQ1YTI0LjMgMjQuMyAwIDAgMS01LjUzMyA1LjIwNHEtNi4wNiA0LjA4NS0xNC43NTcgNC4wODUtOC44MjcgMC0xNS44MS00LjIxNi02Ljg1MS00LjM0OC0xMC44MDMtMTEuOTkxLTMuODItNy43NzMtMy44MjEtMTguMTgxIDAtMTAuMTQ1IDMuNjktMTcuNjU0IDMuODItNy41MSAxMC41MzktMTEuNzI3IDYuODUtNC4yMTYgMTUuNjc4LTQuMjE2bTYuNDU3IDE3LjM5cS00LjM0OCAwLTcuNjQyIDIuMTEtMy4xNjIgMi4xMDYtNS4wMDcgNS45MjctMS44NDQgMy44MjItMS44NDUgOC44My4wMDEgNS4wMDYgMS44NDUgOC44Mjd0NS4wMDcgNS45MjhxMy4yOTQgMi4xMDggNy42NDIgMi4xMDkgNC4yMTUgMCA3LjM3Ny0yLjEwOSAzLjI5NC0yLjEwOCA1LjE0LTUuOTI4IDEuODQ0LTMuODIxIDEuODQzLTguODI3LjAwMS01LjAwOC0xLjg0My04LjgzLTEuODQ2LTMuODItNS4xNC01LjkyOC0zLjE2Mi0yLjEwOC03LjM3Ny0yLjEwOU0xMDM0LjQ3IDczLjg2OGM4LjM0IDAgMTUuMjQgMS43NTcgMjAuNjggNS4yNyA1LjU0IDMuNDI2IDkuNTggOC4zNDYgMTIuMTMgMTQuNzU4IDIuNjMgNi40MTEgMy42OCAxMy45MjEgMy4xNiAyMi41MjhoLTQ5LjU5cS40OCAxLjgyMyAxLjIzIDMuNDI1YzEuNDEgMi45ODcgMy4zOCA1LjMxNiA1LjkzIDYuOTg1cTMuOTYgMi4zNzEgOS4wOSAyLjM3MWM2LjMzIDAgMTEuOS0yLjQxNiAxNi43My03LjI0NmwxMi4yNiAxMi4xMjJjLTMuNiAzLjk1Mi04LjA0IDcuMDI3LTEzLjMxIDkuMjIycS03Ljc3IDMuMjkzLTE3Ljc5IDMuMjkzYy03LjcyIDAtMTQuNDQtMS40OTItMjAuMTUtNC40NzhxLTguNDMtNC40ODEtMTMuMDUtMTIuNjUxLTQuNDc2LTguMTY4LTQuNDc3LTE4Ljk3MS4wMDEtMTEuMDY3IDQuNjA3LTE5LjIzNiA0LjYyLTguMyAxMy4wNS0xMi43ODEgOC40My00LjYxMSAxOS41LTQuNjExbS4xMyAxNi4yMDdjLTMuMDggMC01LjcxLjgzNC03LjkxIDIuNTAyLTIuMSAxLjU4MS0zLjc3IDMuODIyLTUgNi43MmEyMiAyMiAwIDAgMC0xLjMxIDQuNzQzaDI3LjRjLjA4LTIuODk4LS40NC01LjM1OC0xLjU5LTcuMzc4LTEuMDUtMi4xMDgtMi41OS0zLjczNC00LjYxLTQuODc1cy00LjM1LTEuNzEyLTYuOTgtMS43MTIiIGNsaXAtcnVsZT0iZXZlbm9kZCIvPjxwYXRoIGZpbGw9IiNmMmVmZTciIGQ9Ik0xMTI2LjM2IDk1LjA3OWMtNC42Ni0uNTI3LTguNzQtLjEzMi0xMi4yNiAxLjE4Ni0zLjQyIDEuMzE3LTYuMSAzLjMzOC04LjAzIDYuMDYxcS0yLjE3NSAzLjEtMi42NCA3LjI1M3YzNi40ODhoLTIzLjQ1Vjc0LjkyaDIzLjQ1djExLjcxYzIuMDktMy40NCA0LjY5LTYuMjAzIDcuNzgtOC4yODRxNi40NS00LjQ3OCAxNS4xNS00LjQ3OHpNNjczLjE1NSA1My43MDloNzkuMTg0djE5LjVINzI0LjY3djcyLjg1OWgtMjQuMTExdi03Mi44NmgtMjcuNDA0ek0zMTIgNTMuNzA5aDI2LjIxOWwyNi43NDYgNTQuNDE0IDI2LjYxNC01NC40MTRoMjYuMjE5djkyLjM1OWgtMjEuMzQ0bC0uMTMyLTU5LjE1OC0yMy41ODQgNDkuOTM1aC0xNS41NDdMMzMzLjQ3NiA4Ni45MXY1OS4xNThIMzEyeiIvPjxwYXRoIGZpbGw9IiNmMmVmZTciIGZpbGwtcnVsZT0iZXZlbm9kZCIgZD0iTTQ2NC4zNjMgNzMuMzRxMTIuNTE3IDAgMjAuNjg2IDUuMjcgOC4zIDUuMTQgMTIuMTIyIDE0Ljc1OCAzLjk1MSA5LjYxNyAzLjE2MSAyMi41MjhoLTQ5LjU5MWEyMCAyMCAwIDAgMCAxLjIzOCAzLjQyNXEyLjEwOCA0LjQ4MSA1LjkyOCA2Ljk4NSAzLjk1MyAyLjM3MSA5LjA5MiAyLjM3MSA5LjQ4NCAwIDE2LjczMS03LjI0NmwxMi4yNTMgMTIuMTIycS01LjQwMSA1LjkyOS0xMy4zMDUgOS4yMjItNy43NzUgMy4yOTQtMTcuNzg4IDMuMjkzLTExLjU5MyAwLTIwLjE1Ny00LjQ3OC04LjQzMi00LjQ4MS0xMy4wNDQtMTIuNjUxLTQuNDgtOC4xNjgtNC40OC0xOC45NzEgMC0xMS4wNjcgNC42MTEtMTkuMjM2IDQuNjEyLTguMyAxMy4wNDQtMTIuNzgxIDguNDMyLTQuNjExIDE5LjQ5OS00LjYxMW0uMTMxIDE2LjIwN3EtNC42MSAwLTcuOTAzIDIuNTAyLTMuMTYyIDIuMzcxLTUuMDA3IDYuNzItLjg4NSAyLjE3OC0xLjMxMiA0Ljc0M2gyNy4zOTlxLjEzMi00LjM0OC0xLjU4MS03LjM3OC0xLjU4Mi0zLjE2Mi00LjYxMy00Ljg3Ni0zLjAzLTEuNzExLTYuOTgzLTEuNzExIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiLz48cGF0aCBmaWxsPSIjZjJlZmU3IiBkPSJNNTQzLjA3NyA3Ny4xNmgxOC40NDV2MTUuMjg0aC0xOC40NDV2MjcuMjczcTAgNC4wODQgMS43MTIgNS45MyAxLjcxMyAxLjg0MyA0Ljc0MiAxLjcxMSAxLjg0NSAwIDQuMDg1LS42NTlhNDUgNDUgMCAwIDAgNC43NDMtMS43MTJsNC40OCAxNi4yMDVxLTMuODIgMi4zNzItOC45NTggMy42OWE0NC40IDQ0LjQgMCAwIDEtMTAuMjc4IDEuMTg2cS02Ljg1IDAtMTIuMjUzLTIuNTA1LTUuNDAxLTIuNjM1LTguNTYzLTcuNjQyLTMuMDMtNS4xMzctMy4wMy0xMi41MTVWOTIuNDQ0aC05Ljg4MlY3Ny4xNmg5Ljg4MlY1Ny41M2gyMy4zMnoiLz48cGF0aCBmaWxsPSIjZjJlZmU3IiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik02MDkuOTMxIDcyLjgxM3ExNC44ODggMCAyMi45MjUgNi44NTIgOC4xNjcgNi43MiA4LjI5OSAxOC45NzF2NDYuMzc3aC0yMy4wNTZ2LTguMDIxYTIxLjYgMjEuNiAwIDAgMS01LjkyOCA1LjI1NXEtNi4zMjUgMy44Mi0xNS41NDggMy44MjEtNy42NDEtLjAwMS0xMy4xNzUtMi45LTUuNDAyLTIuODk3LTguMzAxLTcuOTA0dC0yLjg5Ny0xMS40NjJxMC0xMC4xNDYgNi45ODItMTUuODEyIDcuMTE1LTUuNjY1IDIwLjI5LTUuNzk3aDE4LjU3N3YtLjc5MXEtLjAwMS01LjEzNy0zLjQyNi04LjAzNy0zLjQyNi0yLjg5Ny0xMC4xNDQtMi44OTctNC40OCAwLTEwLjAxMyAxLjQ1LTUuNTM0IDEuNDQ5LTExLjMzMiA0LjM0N2wtNi40NTYtMTUuNTQ4cTUuNjY2LTIuNTAzIDEwLjkzNy00LjIxNmE2OSA2OSAwIDAgMSAxMC45MzQtMi43NjYgNjkgNjkgMCAwIDEgMTEuMzMyLS45MjJtLTUuNzk3IDQxLjg5N3EtNS4wMDcgMC03LjUxMSAxLjg0NS0yLjM3MSAxLjcxMy0yLjM3MSA1LjUzM3QyLjUwNCA2LjA2MXEyLjUwMyAyLjEwOCA3LjExNCAyLjEwOSAzLjU1NyAwIDYuNDU2LTEuMTg2IDMuMDMtMS4xODYgNS4wMDYtMy4yOTQgMi4xMDctMi4yNCAyLjc2Ny01LjAwN3YtNi4wNjF6IiBjbGlwLXJ1bGU9ImV2ZW5vZGQiLz48L2c+PGRlZnM+PGNsaXBQYXRoIGlkPSJhIj48cGF0aCBmaWxsPSIjZmZmIiBkPSJNMCAwaDExMjd2MjAwSDB6Ii8+PC9jbGlwUGF0aD48Y2xpcFBhdGggaWQ9ImIiPjxwYXRoIGZpbGw9IiNmZmYiIGQ9Ik0wIDBoMjQ4djIwMEgweiIvPjwvY2xpcFBhdGg+PGNsaXBQYXRoIGlkPSJjIj48cGF0aCBmaWxsPSIjZmZmIiBkPSJNMCAwaDI0OHYyMDBIMHoiLz48L2NsaXBQYXRoPjwvZGVmcz48L3N2Zz4="><img class="metadataTaggerLogo metadataTaggerLogo-dark" alt="" width="1127" height="200" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMTI3IiBoZWlnaHQ9IjIwMCIgZmlsbD0ibm9uZSI+PGcgY2xpcC1wYXRoPSJ1cmwoI2EpIj48ZyBjbGlwLXBhdGg9InVybCgjYikiPjxnIGZpbGw9IiM2OWNlZDYiIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1wYXRoPSJ1cmwoI2MpIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0xNDggMjAwcS04IDAtOC04VjQ2cTAtNCAzLTdsNDUtMzdxNi00IDEyIDBsNDUgMzdxMyAzIDMgN3YxNDZxMCA4LTggOHptNTMuODI2LTEwOC4xNzRhNy44MjUgNy44MjUgMCAwIDAtMTMuMzYtNS41MzRBNy44MjUgNy44MjUgMCAwIDAgMTk0IDk5LjY1MmE3LjgyNyA3LjgyNyAwIDAgMCA3LjgyNi03LjgyNm0wIDQwLjM0OGE3LjgyNSA3LjgyNSAwIDAgMC0xMy4zNi01LjUzNEE3LjgyNSA3LjgyNSAwIDAgMCAxOTQgMTQwYTcuODMgNy44MyAwIDAgMCA3LjgyNi03LjgyNk04IDIwMHEtOCAwLTgtOFY0NnEwLTQgMy03TDQ4IDJxNi00IDEyIDBsNDUgMzdxMyAzIDMgN3YxNDZxMCA4LTggOHpNNjEuODI2IDkxLjgyNmE3LjgyNiA3LjgyNiAwIDEgMC0xNS42NTIgMCA3LjgyNiA3LjgyNiAwIDAgMCAxNS42NTIgMG0wIDQwLjM0OGE3LjgyNiA3LjgyNiAwIDEgMC0xNS42NTIgMCA3LjgyNiA3LjgyNiAwIDAgMCAxNS42NTIgMCIvPjwvZz48L2c+PHBhdGggZmlsbD0iIzE1MWExZSIgZmlsbC1ydWxlPSJldmVub2RkIiBkPSJNNzg5Ljc2NyA3My44NjhxMTQuODg4IDAgMjIuOTI1IDYuODUxIDguMTY4IDYuNzIgOC4yOTkgMTguOTcxdjQ2LjM3N2gtMjMuMDU2di04LjAyMWEyMS41IDIxLjUgMCAwIDEtNS45MjggNS4yNTVxLTYuMzI0IDMuODItMTUuNTQ4IDMuODIxLTcuNjQgMC0xMy4xNzQtMi45LTUuNDAyLTIuODk4LTguMzAxLTcuOTAzLTIuODk5LTUuMDA3LTIuODk4LTExLjQ2MyAwLTEwLjE0NSA2Ljk4My0xNS44MTIgNy4xMTUtNS42NjUgMjAuMjktNS43OTdoMTguNTc2di0uNzlxMC01LjEzOS0zLjQyNi04LjAzN3QtMTAuMTQ0LTIuODk4cS00LjQ4IDAtMTAuMDEzIDEuNDUtNS41MzQgMS40NDktMTEuMzMxIDQuMzQ3bC02LjQ1Ny0xNS41NDhxNS42NjYtMi41MDMgMTAuOTM3LTQuMjE2YTY5IDY5IDAgMCAxIDEwLjkzNC0yLjc2NiA2OSA2OSAwIDAgMSAxMS4zMzItLjkyMW0tNS43OTcgNDEuODk2cS01LjAwNyAwLTcuNTExIDEuODQ1LTIuMzcgMS43MTMtMi4zNzEgNS41MzMuMDAxIDMuODIxIDIuNTA0IDYuMDYxIDIuNTAzIDIuMTA4IDcuMTE0IDIuMTA5IDMuNTU3IDAgNi40NTYtMS4xODUgMy4wMy0xLjE4NyA1LjAwNy0zLjI5NSAyLjEwNy0yLjI0IDIuNzY2LTUuMDA3di02LjA2MXpNODYwLjMxIDczLjg3MnE4LjgyNy0uMTMyIDE1LjAxOSA0LjA4NWEyMy40IDIzLjQgMCAwIDEgNS43OTcgNS4zMXYtOC42MDVoMjMuMzIxdjY0LjgyMnEwIDEwLjAxNC00Ljg3NiAxNy4zOTMtNC44NzUgNy4zNzctMTMuNTY5IDExLjMyOS04LjY5NyA0LjA4NS0yMC4yOSA0LjA4NS05LjM1NSAwLTE3LjY1NS0yLjYzNS04LjE2OS0yLjYzNS0xNC4yMjktNi43MThsOC4xNjgtMTUuODEyYTQyIDQyIDAgMCAwIDEwLjU0MSA1LjE0cTUuNjY1IDEuODQ0IDExLjQ2MyAxLjg0NSA1LjQwMS0uMDAyIDkuMjIyLTEuNzE0IDMuODIxLTEuNzE0IDUuNzk3LTQuODc2IDIuMTA3LTMuMTYyIDIuMTA3LTcuNTA4di03LjQ0NWEyNC4zIDI0LjMgMCAwIDEtNS41MzMgNS4yMDRxLTYuMDYgNC4wODUtMTQuNzU3IDQuMDg1LTguODI3IDAtMTUuODEtNC4yMTYtNi44NS00LjM0OC0xMC44MDMtMTEuOTkxLTMuODItNy43NzMtMy44MjEtMTguMTgxIDAtMTAuMTQ1IDMuNjktMTcuNjU0IDMuODItNy41MSAxMC41MzktMTEuNzI3IDYuODUyLTQuMjE2IDE1LjY3OS00LjIxNm02LjQ1NiAxNy4zOXEtNC4zNDcgMC03LjY0MiAyLjExLTMuMTYgMi4xMDYtNS4wMDYgNS45MjctMS44NDUgMy44MjItMS44NDUgOC44MyAwIDUuMDA2IDEuODQ1IDguODI3dDUuMDA2IDUuOTI4cTMuMjk0IDIuMTA4IDcuNjQyIDIuMTA5IDQuMjE2IDAgNy4zNzgtMi4xMDkgMy4yOTQtMi4xMDggNS4xMzktNS45MjggMS44NDQtMy44MjEgMS44NDMtOC44MjcuMDAxLTUuMDA4LTEuODQzLTguODMtMS44NDUtMy44Mi01LjEzOS01LjkyOC0zLjE2Mi0yLjEwOC03LjM3OC0yLjEwOU05NDMuNzY1IDczLjg3MnE4LjgyOC0uMTMyIDE1LjAyIDQuMDg1YTIzLjQgMjMuNCAwIDAgMSA1Ljc5NyA1LjMxdi04LjYwNWgyMy4zMnY2NC44MjJxMCAxMC4wMTQtNC44NzUgMTcuMzkzLTQuODc1IDcuMzc3LTEzLjU3IDExLjMyOS04LjY5NSA0LjA4NS0yMC4yOSA0LjA4NS05LjM1NCAwLTE3LjY1NS0yLjYzNS04LjE2OC0yLjYzNS0xNC4yMjktNi43MThsOC4xNjgtMTUuODEyYTQyIDQyIDAgMCAwIDEwLjU0MiA1LjE0cTUuNjY1IDEuODQ0IDExLjQ2MiAxLjg0NSA1LjQwMi0uMDAyIDkuMjIzLTEuNzE0IDMuODItMS43MTQgNS43OTctNC44NzYgMi4xMDctMy4xNjIgMi4xMDctNy41MDh2LTcuNDQ1YTI0LjMgMjQuMyAwIDAgMS01LjUzMyA1LjIwNHEtNi4wNiA0LjA4NS0xNC43NTcgNC4wODUtOC44MjcgMC0xNS44MS00LjIxNi02Ljg1MS00LjM0OC0xMC44MDMtMTEuOTkxLTMuODItNy43NzMtMy44MjEtMTguMTgxIDAtMTAuMTQ1IDMuNjktMTcuNjU0IDMuODItNy41MSAxMC41MzktMTEuNzI3IDYuODUtNC4yMTYgMTUuNjc4LTQuMjE2bTYuNDU3IDE3LjM5cS00LjM0OCAwLTcuNjQyIDIuMTEtMy4xNjIgMi4xMDYtNS4wMDcgNS45MjctMS44NDQgMy44MjItMS44NDUgOC44My4wMDEgNS4wMDYgMS44NDUgOC44Mjd0NS4wMDcgNS45MjhxMy4yOTQgMi4xMDggNy42NDIgMi4xMDkgNC4yMTUgMCA3LjM3Ny0yLjEwOSAzLjI5NC0yLjEwOCA1LjE0LTUuOTI4IDEuODQ0LTMuODIxIDEuODQzLTguODI3LjAwMS01LjAwOC0xLjg0My04LjgzLTEuODQ2LTMuODItNS4xNC01LjkyOC0zLjE2Mi0yLjEwOC03LjM3Ny0yLjEwOU0xMDM0LjQ3IDczLjg2OGM4LjM0IDAgMTUuMjQgMS43NTcgMjAuNjggNS4yNyA1LjU0IDMuNDI2IDkuNTggOC4zNDYgMTIuMTMgMTQuNzU4IDIuNjMgNi40MTEgMy42OCAxMy45MjEgMy4xNiAyMi41MjhoLTQ5LjU5cS40OCAxLjgyMyAxLjIzIDMuNDI1YzEuNDEgMi45ODcgMy4zOCA1LjMxNiA1LjkzIDYuOTg1cTMuOTYgMi4zNzEgOS4wOSAyLjM3MWM2LjMzIDAgMTEuOS0yLjQxNiAxNi43My03LjI0NmwxMi4yNiAxMi4xMjJjLTMuNiAzLjk1Mi04LjA0IDcuMDI3LTEzLjMxIDkuMjIycS03Ljc3IDMuMjkzLTE3Ljc5IDMuMjkzYy03LjcyIDAtMTQuNDQtMS40OTItMjAuMTUtNC40NzhxLTguNDMtNC40ODEtMTMuMDUtMTIuNjUxLTQuNDc2LTguMTY4LTQuNDc3LTE4Ljk3MS4wMDEtMTEuMDY3IDQuNjA3LTE5LjIzNiA0LjYyLTguMyAxMy4wNS0xMi43ODEgOC40My00LjYxMSAxOS41LTQuNjExbS4xMyAxNi4yMDdjLTMuMDggMC01LjcxLjgzNC03LjkxIDIuNTAyLTIuMSAxLjU4MS0zLjc3IDMuODIyLTUgNi43MmEyMiAyMiAwIDAgMC0xLjMxIDQuNzQzaDI3LjRjLjA4LTIuODk4LS40NC01LjM1OC0xLjU5LTcuMzc4LTEuMDUtMi4xMDgtMi41OS0zLjczNC00LjYxLTQuODc1cy00LjM1LTEuNzEyLTYuOTgtMS43MTIiIGNsaXAtcnVsZT0iZXZlbm9kZCIvPjxwYXRoIGZpbGw9IiMxNTFhMWUiIGQ9Ik0xMTI2LjM2IDk1LjA3OWMtNC42Ni0uNTI3LTguNzQtLjEzMi0xMi4yNiAxLjE4Ni0zLjQyIDEuMzE3LTYuMSAzLjMzOC04LjAzIDYuMDYxcS0yLjE3NSAzLjEtMi42NCA3LjI1M3YzNi40ODhoLTIzLjQ1Vjc0LjkyaDIzLjQ1djExLjcxYzIuMDktMy40NCA0LjY5LTYuMjAzIDcuNzgtOC4yODRxNi40NS00LjQ3OCAxNS4xNS00LjQ3OHpNNjczLjE1NSA1My43MDloNzkuMTg0djE5LjVINzI0LjY3djcyLjg1OWgtMjQuMTExdi03Mi44NmgtMjcuNDA0ek0zMTIgNTMuNzA5aDI2LjIxOWwyNi43NDYgNTQuNDE0IDI2LjYxNC01NC40MTRoMjYuMjE5djkyLjM1OWgtMjEuMzQ0bC0uMTMyLTU5LjE1OC0yMy41ODQgNDkuOTM1aC0xNS41NDdMMzMzLjQ3NiA4Ni45MXY1OS4xNThIMzEyeiIvPjxwYXRoIGZpbGw9IiMxNTFhMWUiIGZpbGwtcnVsZT0iZXZlbm9kZCIgZD0iTTQ2NC4zNjMgNzMuMzRxMTIuNTE3IDAgMjAuNjg2IDUuMjcgOC4zIDUuMTQgMTIuMTIyIDE0Ljc1OCAzLjk1MSA5LjYxNyAzLjE2MSAyMi41MjhoLTQ5LjU5MWEyMCAyMCAwIDAgMCAxLjIzOCAzLjQyNXEyLjEwOCA0LjQ4MSA1LjkyOCA2Ljk4NSAzLjk1MyAyLjM3MSA5LjA5MiAyLjM3MSA5LjQ4NCAwIDE2LjczMS03LjI0NmwxMi4yNTMgMTIuMTIycS01LjQwMSA1LjkyOS0xMy4zMDYgOS4yMjItNy43NzQgMy4yOTQtMTcuNzg4IDMuMjkzLTExLjU5MiAwLTIwLjE1Ni00LjQ3OC04LjQzMy00LjQ4MS0xMy4wNDQtMTIuNjUxLTQuNDgtOC4xNjgtNC40OC0xOC45NzEgMC0xMS4wNjcgNC42MTEtMTkuMjM2IDQuNjExLTguMyAxMy4wNDQtMTIuNzgxIDguNDMyLTQuNjExIDE5LjQ5OS00LjYxMW0uMTMxIDE2LjIwN3EtNC42MSAwLTcuOTAzIDIuNTAyLTMuMTYzIDIuMzcxLTUuMDA3IDYuNzItLjg4NSAyLjE3OC0xLjMxMiA0Ljc0M2gyNy4zOTlxLjEzMi00LjM0OC0xLjU4MS03LjM3OC0xLjU4Mi0zLjE2Mi00LjYxMy00Ljg3Ni0zLjAzLTEuNzExLTYuOTgzLTEuNzExIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiLz48cGF0aCBmaWxsPSIjMTUxYTFlIiBkPSJNNTQzLjA3NyA3Ny4xNmgxOC40NDV2MTUuMjg0aC0xOC40NDV2MjcuMjczcTAgNC4wODQgMS43MTIgNS45MyAxLjcxMyAxLjg0MyA0Ljc0MiAxLjcxMSAxLjg0NSAwIDQuMDg1LS42NTlhNDUgNDUgMCAwIDAgNC43NDMtMS43MTJsNC40OCAxNi4yMDVxLTMuODIgMi4zNzItOC45NTggMy42OWE0NC40IDQ0LjQgMCAwIDEtMTAuMjc4IDEuMTg2cS02Ljg1IDAtMTIuMjUzLTIuNTA1LTUuNDAxLTIuNjM1LTguNTYzLTcuNjQyLTMuMDMtNS4xMzctMy4wMy0xMi41MTVWOTIuNDQ0aC05Ljg4MlY3Ny4xNmg5Ljg4MlY1Ny41M2gyMy4zMnoiLz48cGF0aCBmaWxsPSIjMTUxYTFlIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik02MDkuOTMgNzIuODEzcTE0Ljg4OSAwIDIyLjkyNiA2Ljg1MiA4LjE2NyA2LjcyIDguMjk5IDE4Ljk3MXY0Ni4zNzdoLTIzLjA1N3YtOC4wMjFhMjEuNiAyMS42IDAgMCAxLTUuOTI3IDUuMjU1cS02LjMyNiAzLjgyLTE1LjU0OCAzLjgyMS03LjY0MS0uMDAxLTEzLjE3NS0yLjktNS40MDItMi44OTctOC4zMDEtNy45MDR0LTIuODk3LTExLjQ2MnEwLTEwLjE0NiA2Ljk4Mi0xNS44MTIgNy4xMTUtNS42NjUgMjAuMjktNS43OTdoMTguNTc2di0uNzkxcTAtNS4xMzctMy40MjUtOC4wMzctMy40MjYtMi44OTctMTAuMTQ0LTIuODk3LTQuNDggMC0xMC4wMTMgMS40NS01LjUzNCAxLjQ0OS0xMS4zMzIgNC4zNDdsLTYuNDU2LTE1LjU0OHE1LjY2Ni0yLjUwMyAxMC45MzYtNC4yMTZhNjkgNjkgMCAwIDEgMTAuOTM1LTIuNzY2IDY5IDY5IDAgMCAxIDExLjMzMS0uOTIybS01Ljc5NiA0MS44OTdxLTUuMDA3IDAtNy41MTEgMS44NDUtMi4zNzEgMS43MTMtMi4zNzEgNS41MzN0Mi41MDQgNi4wNjFxMi41MDMgMi4xMDggNy4xMTMgMi4xMDkgMy41NTggMCA2LjQ1Ny0xLjE4NiAzLjAzLTEuMTg2IDUuMDA2LTMuMjk0IDIuMTA3LTIuMjQgMi43NjYtNS4wMDd2LTYuMDYxeiIgY2xpcC1ydWxlPSJldmVub2RkIi8+PC9nPjxkZWZzPjxjbGlwUGF0aCBpZD0iYSI+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTAgMGgxMTI3djIwMEgweiIvPjwvY2xpcFBhdGg+PGNsaXBQYXRoIGlkPSJiIj48cGF0aCBmaWxsPSIjZmZmIiBkPSJNMCAwaDI0OHYyMDBIMHoiLz48L2NsaXBQYXRoPjxjbGlwUGF0aCBpZD0iYyI+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTAgMGgyNDh2MjAwSDB6Ii8+PC9jbGlwUGF0aD48L2RlZnM+PC9zdmc+"><!-- brand-logo:end --></h1><p>Create tags from existing metadata.</p></div>
     </div>
-    <div class="metadataTaggerHeaderActions">
-        <button id="RunApplyButton" type="button" is="emby-button" class="raised button-submit emby-button">Apply tags now</button>
-        <button id="RunPreviewButton" type="button" is="emby-button" class="raised button-submit emby-button">Check changes first</button>
-        <button id="StopPreviewButton" type="button" is="emby-button" class="raised emby-button" disabled>Stop run</button>
-    </div>
 </header>
 <div class="metadataTaggerTabs" role="tablist" aria-label="Meta Tagger views">
-    <button id="TabOverview" type="button" role="tab" aria-controls="PanelOverview" aria-selected="true" tabindex="0">Overview</button>
-    <button id="TabReview" type="button" role="tab" aria-controls="PanelReview" aria-selected="false" tabindex="-1">Preview results</button>
+    <button id="TabOverview" type="button" role="tab" aria-controls="PanelOverview" aria-selected="true" tabindex="0">Workspace</button>
     <button id="TabInspect" type="button" role="tab" aria-controls="PanelInspect" aria-selected="false" tabindex="-1">Browse items</button>
     <button id="TabRuns" type="button" role="tab" aria-controls="PanelRuns" aria-selected="false" tabindex="-1">History</button>
-    <button id="TabSettings" type="button" role="tab" aria-controls="PanelSettings" aria-selected="false" tabindex="-1">Settings</button>
     <button id="TabMaintenance" type="button" role="tab" aria-controls="PanelMaintenance" aria-selected="false" tabindex="-1">Maintenance</button>
 </div>
 <div id="PageLoadError" class="metadataTaggerNotice" role="alert" data-feedback-tone="error" hidden><p>Settings could not be loaded. Reload the page to try again. If this continues, check the Jellyfin server log.</p><button id="ReloadSettingsButton" type="button" class="emby-button">Reload page</button></div>
-<div class="metadataTaggerTaskStatus">
-    <p id="RunScope">Scope: configured item types across all libraries. Apply tags now writes changes using current metadata and saved settings. Check changes first is read-only.</p>
-    <p id="TaskFeedback" role="status">Loading settings…</p>
-</div>
 <section id="PanelOverview" role="tabpanel" aria-labelledby="TabOverview">
-    <div class="metadataTaggerOutcome">
-        <div><p class="metadataTaggerEyebrow">Latest run</p><h2 id="OverviewOutcome">Loading latest run…</h2><p id="OverviewWhen" class="metadataTaggerMuted"></p><p id="OverviewCounts" role="status"></p><div class="metadataTaggerHeaderActions"><button id="OverviewItemsButton" type="button" class="raised emby-button">View preview results</button><button id="OverviewRunsButton" type="button" class="metadataTaggerLink">History</button></div></div>
-    </div>
-        <section aria-labelledby="SavedSettingsHeading">
-            <div class="metadataTaggerSubheader"><h2 id="SavedSettingsHeading">Saved settings</h2><button id="TaskSettingsButton" type="button" class="metadataTaggerLink">Edit settings</button></div>
-            <dl class="metadataTaggerKeyValues">
-                <div><dt>Meta Tagger</dt><dd id="OverviewEnabled">Loading…</dd></div>
-                <div><dt>Scheduled run action</dt><dd id="OverviewMode">Loading…</dd></div>
-                <div><dt>Included item types</dt><dd id="OverviewTypes">Loading…</dd></div>
-                <div><dt>Metadata sources</dt><dd id="OverviewSources">Loading…</dd></div>
-                <div><dt>Outdated tags</dt><dd id="OverviewStale">Loading…</dd></div>
-                <div><dt>Run after a library scan</dt><dd id="OverviewAutomation">Loading…</dd></div>
-            </dl>
-            <p id="OverviewTaggingHelp" class="metadataTaggerMuted"></p>
-            <p id="OverviewAutomationHelp" class="metadataTaggerMuted"></p>
-        </section>
-</section>
-<section id="PanelReview" role="tabpanel" aria-labelledby="TabReview" hidden>
-    <div class="metadataTaggerSubheader"><h2 id="ReviewHeading" tabindex="-1">Latest preview results</h2><div class="metadataTaggerHeaderActions"><button id="InspectItemsButton" type="button" class="metadataTaggerLink">Browse items</button><button id="ReviewRunsButton" type="button" class="metadataTaggerLink">History</button></div></div>
-    <section id="ReviewResults" aria-label="Latest tag preview">
-        <p id="PreviewContext" class="metadataTaggerMuted" role="status"></p>
-        <p id="PreviewRunId" class="metadataTaggerMuted" hidden></p>
-        <p id="PreviewFeedback" role="status" aria-live="polite">Loading latest preview…</p>
-        <div id="PreviewChanges"></div>
-        <button id="RefreshPreviewButton" is="emby-button" type="button" class="raised emby-button">Reload preview results</button>
-    </section>
-    <section id="LibraryApplyGuidance" aria-labelledby="LibraryApplyHeading">
-        <h3 id="LibraryApplyHeading">Apply changes across all libraries</h3>
-        <p>Apply tags now uses configured item types across all libraries. Item protections and run limits still apply.</p>
-        <p class="metadataTaggerNotice" data-feedback-tone="warning">This task checks current metadata and saved settings again, so changes may differ from this preview. It applies changes even when automatic runs are set to preview.</p>
-        <p id="LibraryApplyFeedback" role="status"></p>
-        <p><a id="OpenScheduledTasks" class="metadataTaggerLink" href="#/dashboard/tasks">Scheduled Tasks</a></p>
-    </section>
-</section>
-<section id="PanelInspect" role="tabpanel" aria-labelledby="TabInspect" hidden>
-    <section id="InspectionPanel" aria-label="Browse items" hidden>
-    <h2>Browse items</h2>
-    <button id="BackToReviewButton" type="button" class="metadataTaggerLink">Back to preview results</button>
-    <div class="metadataTaggerToolbar">
-        <div><label class="inputLabel inputLabelUnfocused" for="ItemSearch">Search items</label><input id="ItemSearch" type="search" maxlength="200" is="emby-input" placeholder="Search by title" /></div>
-        <div><label class="selectLabel" for="ItemLibrary">Library</label><select id="ItemLibrary" is="emby-select"><option value="">All libraries</option></select></div>
-        <div><label class="selectLabel" for="ItemStatus">Filter</label><select id="ItemStatus" is="emby-select" aria-describedby="ItemStatusHelp"><option value="">All statuses</option><option value="Not checked">Not checked</option><option value="Changes">Tag differences</option><option value="Up to date">No tag differences</option><option value="Protected">Skipped: protected</option><option value="Failed">Failed</option></select></div>
-    </div>
-    <p id="ItemStatusHelp" class="metadataTaggerMuted">Filters only affect browsing. The status filter applies to the loaded page.</p>
-    <p id="ItemStatusSource" role="status">No preview results are available for these items.</p>
-    <nav id="ItemBreadcrumbs" aria-label="Library navigation"></nav>
-    <div class="metadataTaggerWorkspace">
-        <div class="metadataTaggerListPanel"><div class="metadataTaggerListHeading"><span>Library items</span><span>Preview results</span></div><p id="ItemBrowserFeedback" role="status">Search by title or choose a library.</p><button id="RetryItemsButton" type="button" class="raised emby-button" is="emby-button" hidden>Retry</button><div id="ItemList"></div><div class="metadataTaggerPagination"><button id="PreviousItemsButton" type="button" class="raised emby-button" disabled>Previous</button><button id="NextItemsButton" type="button" class="raised emby-button" disabled>Next</button></div></div>
-        <aside class="metadataTaggerInspector" aria-label="Selected item tag changes"><div class="metadataTaggerInspectorHead"><div id="InspectorArtwork"></div><div><h2 id="InspectorHeading" tabindex="-1">Select an item</h2><p id="InspectorMeta"></p></div></div><p id="InspectorFeedback" role="status">Select an item to preview its tag changes using saved settings.</p><div id="InspectorDetails"></div><div class="metadataTaggerInspectorActions">
-            <button id="PreviewItemButton" type="button" class="raised emby-button" disabled>Check changes first</button>
-            <p id="ItemApplyHelp" class="metadataTaggerMuted" hidden>Apply tags now recalculates this item using current metadata and saved settings.</p>
-
-            <button id="ApplyItemButton" type="button" class="raised button-submit emby-button" disabled>Apply tags now to this item</button>
-            <button id="StopItemButton" type="button" class="raised emby-button" disabled>Stop item run</button>
-            <p id="ItemRunFeedback" role="status" aria-live="polite"></p>
-            <button id="ClearItemButton" type="button" class="emby-button" disabled>Preview tag removal</button>
-        </div></aside>
-    </div>
-    </section>
-</section>
-<section id="PanelRuns" role="tabpanel" aria-labelledby="TabRuns" hidden>
-    <button id="HistoryBackButton" type="button" class="metadataTaggerLink">Back to Overview</button>
-    <div class="metadataTaggerSubheader"><h2 id="HistoryHeading" tabindex="-1">History</h2><button id="RefreshRunsButton" type="button" class="raised emby-button">Refresh history</button></div>
-    <div class="metadataTaggerHistoryWorkspace"><section aria-label="Recorded runs"><p id="RunsFeedback" role="status">No runs recorded.</p><div id="RunList" tabindex="0" aria-label="Recorded runs"></div></section><section id="RunDetailPanel" aria-labelledby="RunDetailHeading"><h3 id="RunDetailHeading" tabindex="-1">Select a run</h3><details id="HistoryRunDetails" hidden><summary>Run details</summary><p id="HistoryRunId" class="metadataTaggerMuted"></p><dl id="HistoryRunMetadata" class="metadataTaggerRunCounts"></dl><h4>Recorded rules</h4><dl id="HistoryRunRules" class="metadataTaggerRunCounts"></dl></details><p id="RunDetailFeedback" role="status">Select a run to see its results.</p><dl id="RunDetailCounts" class="metadataTaggerRunCounts" hidden></dl><div id="RunDetails" tabindex="0" aria-label="Recorded item results"></div></section></div>
-</section>
-<section id="PanelSettings" role="tabpanel" aria-labelledby="TabSettings" hidden>
+<section id="PanelSettings" aria-label="Tag settings">
                 <div class="metadataTaggerSettingsWorkspace">
                 <form id="MetaTaggerConfigForm">
 <div class="metadataTaggerSettingsLayout">
-                    <section class="metadataTaggerSection" aria-labelledby="PluginStatusHeading">
-                        <h2 id="PluginStatusHeading">Tagging</h2>
+                    <section id="TaggingOptions" class="metadataTaggerSection" aria-labelledby="PluginStatusHeading">
+                        <h2 id="PluginStatusHeading" tabindex="-1" class="metadataTaggerVisuallyHidden">Tagging</h2>
                         <div class="checkboxContainer checkboxContainer-withDescription">
                             <label class="emby-checkbox-label">
                                 <input id="IsEnabled" type="checkbox" is="emby-checkbox" />
                                 <span>Turn on Meta Tagger</span>
                             </label>
                             <div class="fieldDescription">
-                                Stops tag generation, previews, and scheduled tasks when off. Existing tags stay in place.
-                                You can still remove plugin tags in Maintenance.
+                                When off, generation stops. Existing tags stay and Maintenance remains available.
                             </div>
                         </div>
 
                     </section>
 
-                    <section class="metadataTaggerSection" aria-labelledby="SourcesHeading">
+                    <section id="SourceOptions" class="metadataTaggerSection" aria-labelledby="SourcesHeading">
                         <h2 id="SourcesHeading">Metadata sources</h2>
 
                         <p class="metadataTaggerSectionDescription">
-                            Choose the metadata to turn into tags.
+                            Turn existing metadata into tags.
                         </p>
 
                         <fieldset class="metadataTaggerFieldset metadataTaggerSourceChoices">
@@ -1628,8 +1572,109 @@
                         <p class="fieldDescription">Parental rating uses Jellyfin's Custom rating when set.</p>
                         <p class="fieldDescription">Audio language tags copy recorded track codes, including commentary. Blank and undetermined codes are skipped.</p>
                         <p class="fieldDescription">Selected sources: <span id="SelectedSources">Loading…</span></p>
+
+                    </section>
+
+                    <section id="ItemTypeOptions">
+                        <h2 id="ItemsHeading">Item types · <span id="ItemTypesSummary">Loading…</span></h2>
+                        <p class="metadataTaggerSectionDescription">
+                            Tag these item types across all libraries. Maintenance can remove recorded tags from other item types too.
+                        </p>
+
+                        <fieldset class="metadataTaggerFieldset">
+                            <legend>Item types</legend>
+                            <div class="checkboxContainer"><label class="emby-checkbox-label"><input id="IncludeMovies" type="checkbox" is="emby-checkbox" /><span>Movies</span></label></div>
+                            <div class="checkboxContainer"><label class="emby-checkbox-label"><input id="IncludeSeries" type="checkbox" is="emby-checkbox" /><span>Series</span></label></div>
+                            <div class="checkboxContainer"><label class="emby-checkbox-label"><input id="IncludeEpisodes" type="checkbox" aria-controls="EpisodeOptions" is="emby-checkbox" /><span>Episodes</span></label></div>
+
+                            <div id="EpisodeOptions" class="metadataTaggerSubsection" hidden>
+                                <div class="checkboxContainer checkboxContainer-withDescription">
+                                    <label class="emby-checkbox-label">
+                                        <input id="IncludeParentSeriesMetadataOnEpisodes" type="checkbox" is="emby-checkbox" />
+                                        <span>Include series metadata in episode tags</span>
+                                    </label>
+                                    <div class="fieldDescription">
+                                        Use both series and episode metadata. Different ratings or years produce tags for both.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="checkboxContainer checkboxContainer-withDescription">
+                                <label class="emby-checkbox-label">
+                                    <input id="IncludeVideos" type="checkbox" is="emby-checkbox" />
+                                    <span>Videos</span>
+                                </label>
+                                <div class="fieldDescription">Checks Jellyfin video items that are not movies, series, or episodes.</div>
+                            </div>
+                        </fieldset>
+                    </section>
+
+                    <section id="AutomationOptions" class="metadataTaggerSection" aria-labelledby="RunHeading">
+                        <h2 id="RunHeading">Automation · <span id="AutomationSummary">Loading…</span></h2>
+                        <p class="metadataTaggerSectionDescription">
+                            Choose whether automatic runs preview or save tags.
+                        </p>
+
+                        <div class="selectContainer">
+                            <label class="selectLabel" for="DefaultRunMode">Items to check per run</label>
+                            <select is="emby-select" id="DefaultRunMode" class="emby-select-withcolor emby-select" aria-describedby="DefaultRunModeHelp">
+                                <option value="Incremental">New or changed items</option>
+                                <option value="FullScan">All selected item types</option>
+                            </select>
+                            <div id="DefaultRunModeHelp" class="fieldDescription">
+                                New or changed items skips items that still match the plugin's records.
+                                Both choices respect locks, skip tags, and run limits.
+                            </div>
+                        </div>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="PreviewOnly" type="checkbox" is="emby-checkbox" />
+                                <span>Preview scheduled and post-scan runs</span>
+                            </label>
+                            <div class="fieldDescription">
+                                Clear to apply tags to later additions and explicitly authorized items. Existing library items need explicit Apply authorization.
+                            </div>
+                        </div>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="RunAfterLibraryScan" type="checkbox" aria-controls="PostScanOptions" is="emby-checkbox" />
+                                <span>Run after a library scan</span>
+                            </label>
+                            <div class="fieldDescription">Uses the automatic mode above. This post-scan hook is separate from the daily Generate metadata tags task and its saved triggers.</div>
+                        </div>
+
+                        <div id="PostScanOptions" class="metadataTaggerSubsection" hidden>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="MinimumMinutesBetweenAutoRuns">Minimum time between post-scan runs (minutes)</label>
+                                <input id="MinimumMinutesBetweenAutoRuns" type="number" min="0" step="1" aria-describedby="MinimumMinutesBetweenAutoRunsHelp" is="emby-input" />
+                                <div id="MinimumMinutesBetweenAutoRunsHelp" class="fieldDescription">
+                                    Skip post-scan runs that start too soon after the latest tagging run. History records a cooldown skip with no generation. Skips do not extend the wait or queue a run. Use 0 to run after every scan.
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="fieldDescription">
+                            Manage saved triggers in <a href="#/dashboard/tasks">Scheduled Tasks</a>.
+                            The daily task follows automatic mode. Incremental runs enumerate the selected scope and skip unchanged items.
+                        </div>
+<p id="OverviewTaggingHelp" class="metadataTaggerMuted"></p><p id="OverviewAutomationHelp" class="metadataTaggerMuted"></p>
+                    </section>
+
+<div class="metadataTaggerRunActions"><div class="metadataTaggerTaskStatus">
+    <p id="RunScope">Scope: configured item types across all libraries. Apply tags now writes changes using current metadata and saved settings. Check changes first is read-only.</p>
+    <p id="TaskFeedback" role="status">Loading settings…</p>
+</div>
+    <div class="metadataTaggerHeaderActions">
+        <button id="RunApplyButton" type="button" is="emby-button" class="raised button-submit emby-button">Apply tags now</button>
+        <button id="RunPreviewButton" type="button" is="emby-button" class="raised emby-button">Check changes first</button>
+        <button id="StopPreviewButton" type="button" is="emby-button" class="raised emby-button" disabled>Stop run</button>
+    </div>
+
+</div>
                         <details id="MoreSources" class="metadataTaggerMoreSources">
-                            <summary>More sources · <span id="AdditionalSourcesCount">0 selected</span></summary>
+                            <summary>Optional sources · <span id="AdditionalSourcesCount">0 selected</span></summary>
                             <div class="metadataTaggerSourceChoices">
                             <div class="checkboxContainer checkboxContainer-withDescription">
                                 <label class="emby-checkbox-label"><input id="EnableStudios" type="checkbox" is="emby-checkbox" /><span>Studios</span></label>
@@ -1671,8 +1716,6 @@
                                 <div class="fieldDescription">A TMDb ID produces <code data-generated-tag-parts="provider,tmdb">meta:provider:tmdb</code>. The provider ID itself is not copied.</div>
                             </div>
                         </details>
-                    </section>
-
                     <details id="TagFormatOptions">
                         <summary id="TagFormatHeading">Tag format · <span id="TagFormatSummary">meta:genre:animation</span></summary>
                         <p class="metadataTaggerSectionDescription">
@@ -1737,93 +1780,6 @@
                         </details>
                     </details>
 
-                    <details id="ItemTypeOptions">
-                        <summary id="ItemsHeading">Item types · <span id="ItemTypesSummary">Loading…</span></summary>
-                        <p class="metadataTaggerSectionDescription">
-                            Tag these item types across all libraries. Maintenance can remove recorded tags from other item types too.
-                        </p>
-
-                        <fieldset class="metadataTaggerFieldset">
-                            <legend>Item types</legend>
-                            <div class="checkboxContainer"><label class="emby-checkbox-label"><input id="IncludeMovies" type="checkbox" is="emby-checkbox" /><span>Movies</span></label></div>
-                            <div class="checkboxContainer"><label class="emby-checkbox-label"><input id="IncludeSeries" type="checkbox" is="emby-checkbox" /><span>Series</span></label></div>
-                            <div class="checkboxContainer"><label class="emby-checkbox-label"><input id="IncludeEpisodes" type="checkbox" aria-controls="EpisodeOptions" is="emby-checkbox" /><span>Episodes</span></label></div>
-
-                            <div id="EpisodeOptions" class="metadataTaggerSubsection" hidden>
-                                <div class="checkboxContainer checkboxContainer-withDescription">
-                                    <label class="emby-checkbox-label">
-                                        <input id="IncludeParentSeriesMetadataOnEpisodes" type="checkbox" is="emby-checkbox" />
-                                        <span>Include series metadata in episode tags</span>
-                                    </label>
-                                    <div class="fieldDescription">
-                                        Use both series and episode metadata. Different ratings or years produce tags for both.
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="checkboxContainer checkboxContainer-withDescription">
-                                <label class="emby-checkbox-label">
-                                    <input id="IncludeVideos" type="checkbox" is="emby-checkbox" />
-                                    <span>Videos</span>
-                                </label>
-                                <div class="fieldDescription">Checks Jellyfin video items that are not movies, series, or episodes.</div>
-                            </div>
-                        </fieldset>
-                    </details>
-
-                    <details id="AutomationOptions" class="metadataTaggerSection" aria-labelledby="RunHeading">
-                        <summary id="RunHeading">Automation · <span id="AutomationSummary">Loading…</span></summary>
-                        <p class="metadataTaggerSectionDescription">
-                            Control scheduled tasks and runs after library scans.
-                        </p>
-
-                        <div class="selectContainer">
-                            <label class="selectLabel" for="DefaultRunMode">Items to check per run</label>
-                            <select is="emby-select" id="DefaultRunMode" class="emby-select-withcolor emby-select" aria-describedby="DefaultRunModeHelp">
-                                <option value="Incremental">New or changed items</option>
-                                <option value="FullScan">All selected item types</option>
-                            </select>
-                            <div id="DefaultRunModeHelp" class="fieldDescription">
-                                New or changed items skips items that still match the plugin's records.
-                                Both choices respect locks, skip tags, and run limits.
-                            </div>
-                        </div>
-
-                        <div class="checkboxContainer checkboxContainer-withDescription">
-                            <label class="emby-checkbox-label">
-                                <input id="PreviewOnly" type="checkbox" is="emby-checkbox" />
-                                <span>Preview scheduled and post-scan runs</span>
-                            </label>
-                            <div class="fieldDescription">
-                                When checked, Generate metadata tags, Check all items for metadata tag changes, and post-scan runs only preview.
-                                Uncheck to let those runs save tags for later additions and explicitly authorized items. New installations use Apply with post-scan runs on. Existing library items need explicit Apply authorization. Preview tag changes always previews; Apply metadata tag changes always applies.
-                            </div>
-                        </div>
-
-                        <div class="checkboxContainer checkboxContainer-withDescription">
-                            <label class="emby-checkbox-label">
-                                <input id="RunAfterLibraryScan" type="checkbox" aria-controls="PostScanOptions" is="emby-checkbox" />
-                                <span>Run after a library scan</span>
-                            </label>
-                            <div class="fieldDescription">Uses the automatic mode above. This post-scan hook is separate from the daily Generate metadata tags task and its saved triggers.</div>
-                        </div>
-
-                        <div id="PostScanOptions" class="metadataTaggerSubsection" hidden>
-                            <div class="inputContainer">
-                                <label class="inputLabel inputLabelUnfocused" for="MinimumMinutesBetweenAutoRuns">Minimum time between post-scan runs (minutes)</label>
-                                <input id="MinimumMinutesBetweenAutoRuns" type="number" min="0" step="1" aria-describedby="MinimumMinutesBetweenAutoRunsHelp" is="emby-input" />
-                                <div id="MinimumMinutesBetweenAutoRunsHelp" class="fieldDescription">
-                                    Skip post-scan runs that start too soon after the latest tagging run. History records a cooldown skip with no generation. Skips do not extend the wait or queue a run. Use 0 to run after every scan.
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="fieldDescription">
-                            To preview or apply changes across all libraries, use <a href="#/dashboard/tasks">Scheduled Tasks</a>.
-                            All five tasks are under Meta Tagger. Generate metadata tags has a daily trigger by default; your saved triggers remain unchanged. Meta Tagger must be on. Incremental runs can enumerate the full selected scope and skip unchanged items.
-                        </div>
-                    </details>
-
                     <details class="metadataTaggerSection" aria-labelledby="CleanupHeading">
                         <summary id="CleanupHeading">Outdated tags</summary>
                         <p class="metadataTaggerSectionDescription">
@@ -1861,12 +1817,7 @@
                         <p id="ClaimTagsWarning" class="metadataTaggerNotice" data-feedback-tone="warning" hidden>Matching tags you added yourself can also be recorded and removed when your Outdated tags setting allows removal.</p>
                     </details>
 
-                    <details id="AdvancedOptions" class="metadataTaggerAdvanced">
-                        <summary>Advanced settings</summary>
-                        <p class="fieldDescription">Run limits, log privacy, and temporary maintenance actions.</p>
-
-                        <div class="metadataTaggerAdvancedContent">
-                            <h2 class="metadataTaggerSubheading">Run limits</h2>
+<details id="RunLimitOptions">                            <summary>Run limits</summary>
                             <p class="metadataTaggerSectionDescription">
                                 Use these limits on a busy server. A value of 0 means no limit.
                             </p>
@@ -1894,6 +1845,12 @@
                                 <div id="WriteDelayMillisecondsHelp" class="fieldDescription">Waits between item updates to reduce server load.</div>
                             </div>
 
+</details>
+                    <details id="AdvancedOptions" class="metadataTaggerAdvanced">
+                        <summary>Advanced behavior</summary>
+                        <p class="fieldDescription">Log privacy and temporary maintenance actions.</p>
+
+                        <div class="metadataTaggerAdvancedContent">
                             <h2 class="metadataTaggerSubheading">Log privacy</h2>
                             <div class="checkboxContainer checkboxContainer-withDescription">
                                 <label class="emby-checkbox-label">
@@ -1952,8 +1909,8 @@
                     </div>
 </div>
                 </form>
-                    <aside id="ExampleAside" aria-labelledby="ExampleHeading">
-                        <h2 id="ExampleHeading">Try these settings</h2>
+                    <details id="ExampleAside">
+<summary id="ExampleHeading">Try unsaved settings on an item</summary>
                         <p>See which tags the current settings would generate, including unsaved changes. Nothing is saved.</p>
                         <label class="inputLabel inputLabelUnfocused" for="ExampleSearch">Find an item by title</label>
                         <input id="ExampleSearch" type="search" maxlength="200" aria-controls="ExampleResults" is="emby-input" />
@@ -1965,8 +1922,66 @@
                         <p id="ExampleRefreshHelp">Reload current metadata and recalculate the example.</p>
                         <p id="ExampleFeedback" role="status">Choose an item to see its generated tags.</p>
                         <div id="ExampleTags"></div>
-                    </aside>
+                    </details>
 </div>
+</section>
+    <div class="metadataTaggerOutcome">
+        <div><p class="metadataTaggerEyebrow">Latest run</p><h2 id="OverviewOutcome">Loading latest run…</h2><p id="OverviewWhen" class="metadataTaggerMuted"></p><p id="OverviewCounts" role="status"></p><div class="metadataTaggerHeaderActions"><button id="OverviewItemsButton" type="button" class="raised emby-button">View preview results</button><button id="OverviewRunsButton" type="button" class="metadataTaggerLink">History</button></div></div>
+    </div>
+<section id="CurrentApplyResults" aria-labelledby="CurrentApplyHeading" hidden>
+    <h2 id="CurrentApplyHeading">Saved tag results</h2>
+    <p id="CurrentApplyFeedback" role="status" aria-live="polite"></p>
+    <div id="CurrentApplyChanges"></div>
+    <button id="RetryApplyResults" type="button" class="raised emby-button" hidden>Retry loading Apply results</button>
+</section>
+<section id="PanelReview" aria-labelledby="ReviewHeading">
+    <div class="metadataTaggerSubheader"><h2 id="ReviewHeading" tabindex="-1">Proposed tag changes</h2><div class="metadataTaggerHeaderActions"><button id="InspectItemsButton" type="button" class="metadataTaggerLink">Browse items</button><button id="ReviewRunsButton" type="button" class="metadataTaggerLink">History</button></div></div>
+    <section id="ReviewResults" aria-label="Latest tag preview">
+        <p id="PreviewContext" class="metadataTaggerMuted" role="status"></p>
+        <p id="PreviewRunId" class="metadataTaggerMuted" hidden></p>
+        <p id="PreviewFeedback" role="status" aria-live="polite">Loading latest preview…</p>
+        <div id="PreviewChanges"></div>
+        <button id="RefreshPreviewButton" is="emby-button" type="button" class="raised emby-button">Reload preview results</button>
+    </section>
+    <section id="LibraryApplyGuidance" aria-labelledby="LibraryApplyHeading">
+        <h3 id="LibraryApplyHeading">Apply changes across all libraries</h3>
+        <p>Apply tags now uses configured item types across all libraries. Item protections and run limits still apply.</p>
+        <p class="metadataTaggerNotice" data-feedback-tone="warning">This task checks current metadata and saved settings again, so changes may differ from this preview. It applies changes even when automatic runs are set to preview.</p>
+        <p id="LibraryApplyFeedback" role="status"></p>
+        <p><a id="OpenScheduledTasks" class="metadataTaggerLink" href="#/dashboard/tasks">Scheduled Tasks</a></p>
+    </section>
+</section>
+</section>
+<section id="PanelInspect" role="tabpanel" aria-labelledby="TabInspect" hidden>
+    <section id="InspectionPanel" aria-label="Browse items" hidden>
+    <h2>Browse items</h2>
+    <button id="BackToReviewButton" type="button" class="metadataTaggerLink">Back to preview results</button>
+    <div class="metadataTaggerToolbar">
+        <div><label class="inputLabel inputLabelUnfocused" for="ItemSearch">Search items</label><input id="ItemSearch" type="search" maxlength="200" is="emby-input" placeholder="Search by title" /></div>
+        <div><label class="selectLabel" for="ItemLibrary">Library</label><select id="ItemLibrary" is="emby-select"><option value="">All libraries</option></select></div>
+        <div><label class="selectLabel" for="ItemStatus">Filter</label><select id="ItemStatus" is="emby-select" aria-describedby="ItemStatusHelp"><option value="">All statuses</option><option value="Not checked">Not checked</option><option value="Changes">Tag differences</option><option value="Up to date">No tag differences</option><option value="Protected">Skipped: protected</option><option value="Failed">Failed</option></select></div>
+    </div>
+    <p id="ItemStatusHelp" class="metadataTaggerMuted">Filters only affect browsing. The status filter applies to the loaded page.</p>
+    <p id="ItemStatusSource" role="status">No preview results are available for these items.</p>
+    <nav id="ItemBreadcrumbs" aria-label="Library navigation"></nav>
+    <div class="metadataTaggerWorkspace">
+        <div class="metadataTaggerListPanel"><div class="metadataTaggerListHeading"><span>Library items</span><span>Preview results</span></div><p id="ItemBrowserFeedback" role="status">Search by title or choose a library.</p><button id="RetryItemsButton" type="button" class="raised emby-button" is="emby-button" hidden>Retry</button><div id="ItemList"></div><div class="metadataTaggerPagination"><button id="PreviousItemsButton" type="button" class="raised emby-button" disabled>Previous</button><button id="NextItemsButton" type="button" class="raised emby-button" disabled>Next</button></div></div>
+        <aside class="metadataTaggerInspector" aria-label="Selected item tag changes"><div class="metadataTaggerInspectorHead"><div id="InspectorArtwork"></div><div><h2 id="InspectorHeading" tabindex="-1">Select an item</h2><p id="InspectorMeta"></p></div></div><p id="InspectorFeedback" role="status">Select an item to preview its tag changes using saved settings.</p><div id="InspectorDetails"></div><div class="metadataTaggerInspectorActions">
+            <button id="PreviewItemButton" type="button" class="raised emby-button" disabled>Check changes first</button>
+            <p id="ItemApplyHelp" class="metadataTaggerMuted" hidden>Apply tags now recalculates this item using current metadata and saved settings.</p>
+
+            <button id="ApplyItemButton" type="button" class="raised button-submit emby-button" disabled>Apply tags now to this item</button>
+            <button id="StopItemButton" type="button" class="raised emby-button" disabled>Stop item run</button>
+            <p id="ItemRunFeedback" role="status" aria-live="polite"></p>
+            <button id="ClearItemButton" type="button" class="emby-button" disabled>Preview tag removal</button>
+        </div></aside>
+    </div>
+    </section>
+</section>
+<section id="PanelRuns" role="tabpanel" aria-labelledby="TabRuns" hidden>
+    <button id="HistoryBackButton" type="button" class="metadataTaggerLink">Back to Overview</button>
+    <div class="metadataTaggerSubheader"><h2 id="HistoryHeading" tabindex="-1">History</h2><button id="RefreshRunsButton" type="button" class="raised emby-button">Refresh history</button></div>
+    <div class="metadataTaggerHistoryWorkspace"><section aria-label="Recorded runs"><p id="RunsFeedback" role="status">No runs recorded.</p><div id="RunList" tabindex="0" aria-label="Recorded runs"></div></section><section id="RunDetailPanel" aria-labelledby="RunDetailHeading"><h3 id="RunDetailHeading" tabindex="-1">Select a run</h3><details id="HistoryRunDetails" hidden><summary>Run details</summary><p id="HistoryRunId" class="metadataTaggerMuted"></p><dl id="HistoryRunMetadata" class="metadataTaggerRunCounts"></dl><h4>Recorded rules</h4><dl id="HistoryRunRules" class="metadataTaggerRunCounts"></dl></details><p id="RunDetailFeedback" role="status">Select a run to see its results.</p><dl id="RunDetailCounts" class="metadataTaggerRunCounts" hidden></dl><div id="RunDetails" tabindex="0" aria-label="Recorded item results"></div></section></div>
 </section>
 <section id="PanelMaintenance" role="tabpanel" aria-labelledby="TabMaintenance" hidden>
                 <h2 id="ClearPluginTagsHeading" tabindex="-1">Remove plugin tags</h2>
@@ -2391,11 +2406,11 @@
             }
 
             function bindDashboardPreviewSession() {
-                var tabs = ['Overview', 'Review', 'Inspect', 'Runs', 'Settings', 'Maintenance'];
-                var historyReturnView = 'Overview';
+                var tabs = ['Overview', 'Inspect', 'Runs', 'Maintenance'];
                 var selectedView = 'Overview';
                 function selectView(name, focus) {
-                    if (name === 'Runs' && selectedView !== 'Runs') { historyReturnView = selectedView === 'Review' ? 'Review' : 'Overview'; }
+                    var destination = name === 'Settings' ? 'PluginStatusHeading' : name === 'Review' ? 'ReviewHeading' : null;
+                    if (destination) { name = 'Overview'; }
                     if (selectedView === 'Maintenance' && name !== 'Maintenance') {
                         invalidateCleanup(pendingRequests.apply
                             ? 'You left Maintenance while removal was running. Some tags may have changed. Preview again before retrying.'
@@ -2407,20 +2422,23 @@
                         document.querySelector('#Tab' + tab).setAttribute('aria-selected', String(tab === name));
                         document.querySelector('#Tab' + tab).setAttribute('tabindex', tab === name ? '0' : '-1');
                     });
+                    document.querySelector('#PanelSettings').hidden = name !== 'Overview';
+                    document.querySelector('#PanelReview').hidden = name !== 'Overview';
                     document.querySelector('#PanelRuns').hidden = name !== 'Runs';
-                    document.querySelector('#HistoryBackButton').textContent = 'Back to ' + (historyReturnView === 'Review' ? 'preview results' : 'Overview');
-                    if (name === 'Review') {
-                        document.querySelector('#ReviewHeading').textContent = 'Latest preview results';
+                    document.querySelector('#HistoryBackButton').textContent = 'Back to Workspace';
+                    if (name === 'Overview') {
+                        document.querySelector('#ReviewHeading').textContent = 'Proposed tag changes';
                         document.querySelector('#ReviewResults').hidden = false;
                         document.querySelector('#InspectionPanel').hidden = true;
                     }
                     document.querySelector('#InspectionPanel').hidden = name !== 'Inspect';
                     if (name === 'Inspect' && !browserItems.length && !pendingRequests.items) { loadItems(); }
-                    if (focus) { document.querySelector('#Tab' + name).focus(); }
-                    if (name === 'Settings' && settingsLoaded) {
+                    if (focus) { document.querySelector('#' + (destination || 'Tab' + name)).focus(); }
+                    if (destination) { document.querySelector('#' + destination).scrollIntoView(); }
+                    if (name === 'Overview' && settingsLoaded) {
                         scheduleExampleSearch();
                         scheduleExample();
-                    } else if (name !== 'Settings' && pendingRequests) {
+                    } else if (name !== 'Overview' && pendingRequests) {
                         clearTimeout(exampleTimer);
                         clearTimeout(exampleSearchTimer);
                         delete pendingRequests.example;
@@ -2494,13 +2512,9 @@
                 }
                 function renderSavedConfiguration(config) {
                     savedConfiguration = config;
-                    document.querySelector('#OverviewEnabled').textContent = field(config, 'isEnabled') ? 'On' : 'Off';
-                    document.querySelector('#OverviewMode').textContent = field(config, 'previewOnly') ? 'Preview only' : 'Apply changes';
-                    document.querySelector('#OverviewTypes').textContent = [['Movies', 'includeMovies'], ['Series', 'includeSeries'], ['Episodes', 'includeEpisodes'], ['Videos', 'includeVideos']]
-                        .filter(function (entry) { return field(config, entry[1]); }).map(function (entry) { return entry[0]; }).join(', ') || 'None selected';
-                    document.querySelector('#OverviewSources').textContent = selectedSources(config);
-                    document.querySelector('#OverviewStale').textContent = { Keep: 'Keep', Preview: 'Keep and show in results', Remove: 'Remove when applying changes' }[field(config, 'staleTagMode')] || 'Keep';
-                    document.querySelector('#OverviewAutomation').textContent = field(config, 'runAfterLibraryScan') ? 'On' : 'Off';
+                    var types = [['Movies', 'includeMovies'], ['Series', 'includeSeries'], ['Episodes', 'includeEpisodes'], ['Videos', 'includeVideos']]
+                        .filter(function (entry) { return field(config, entry[1]); }).map(function (entry) { return entry[0]; }).join(', ') || 'No item types selected';
+                    document.querySelector('#RunScope').textContent = 'Saved scope: ' + types + ' across all libraries. Apply uses current metadata and saved settings and authorizes existing items in this scope. Checking is read-only.';
                     document.querySelector('#OverviewTaggingHelp').textContent = field(config, 'isEnabled')
                         ? 'Preview tag changes never changes tags. Generate metadata tags and Check all items use the scheduled run action.'
                         : 'Tagging is off. Generation and previews are stopped. Maintenance is still available.';
@@ -2722,7 +2736,7 @@
                     selectView('Review'); document.querySelector('#ReviewHeading').focus();
                 });
                 document.querySelector('#ReviewRunsButton').addEventListener('click', function () { selectView('Runs', true); });
-                document.querySelector('#HistoryBackButton').addEventListener('click', function () { selectView(historyReturnView, true); });
+                document.querySelector('#HistoryBackButton').addEventListener('click', function () { selectView('Overview', true); });
                 var taskTimer;
                 var requestedTask = null;
                 var generationEpoch = 0;
@@ -2735,6 +2749,9 @@
                     var requestRevision = revision;
                     var requestEpoch = ++generationEpoch;
                     delete pendingRequests.taskResult;
+                    delete pendingRequests.currentApply;
+                    currentApplyId = null;
+                    document.querySelector('#CurrentApplyResults').hidden = true;
                     delete pendingRequests.preview;
                     document.querySelector('#TaskFeedback').textContent = (apply ? 'Starting Apply' : 'Starting check') + ' for the configured item types across all libraries…';
                     runRequest('taskStart', function () {
@@ -2800,6 +2817,7 @@
                                     document.querySelector('#TaskFeedback').textContent = displayOutcome(field(run, 'outcome')) + '. ' + describeRun(run) +
                                         (hasUnsavedChanges ? ' Your later edits remain unsaved.' : '');
                                     setFeedbackTone('TaskFeedback', summaryTone(field(run, 'summary') || {}));
+                                    if (field(run, 'runId')) { currentApplyId = field(run, 'runId'); loadCurrentApply(); }
                                 } else {
                                     document.querySelector('#TaskFeedback').textContent = 'Apply finished, but its saved writes could not be confirmed. Some tags may have changed. Check History and the affected items before retrying.';
                                     setFeedbackTone('TaskFeedback', 'warning');
@@ -2835,7 +2853,6 @@
                 }
                 document.querySelector('#RunPreviewButton').addEventListener('click', function () { startGenerationTask(false); });
                 document.querySelector('#RunApplyButton').addEventListener('click', function () { startGenerationTask(true); });
-                document.querySelector('#TaskSettingsButton').addEventListener('click', function () { selectView('Settings', true); });
                 document.querySelector('#StopPreviewButton').addEventListener('click', function () {
                     if (!requestedTask || pendingRequests.taskStop) { return; }
                     var id = requestedTask.id;
@@ -3313,6 +3330,62 @@
                         Object.keys(recordedRules).forEach(function (label) { appendRunField(rules, label, recordedRules[label] || 'None'); });
                     } else { appendRunField(rules, 'Unavailable', 'Rules were not retained for this run. Current settings cannot explain historical results.'); }
                 }
+                var currentApplyId = null;
+                function loadCurrentApply() {
+                    var id = currentApplyId;
+                    if (!id || pendingRequests.currentApply) { return; }
+                    var feedback = document.querySelector('#CurrentApplyFeedback');
+                    var details = document.querySelector('#CurrentApplyChanges');
+                    document.querySelector('#CurrentApplyResults').hidden = false;
+                    document.querySelector('#RetryApplyResults').hidden = true;
+                    details.replaceChildren();
+                    feedback.textContent = 'Loading saved item results…';
+                    runRequest('currentApply', function () { return ApiClient.getJSON(ApiClient.getUrl('MetaTagger/Runs/' + encodeURIComponent(id))); }, function (run) {
+                        if (field(run, 'runId') !== id) { failed(); return; }
+                        feedback.textContent = displayOutcome(field(run, 'outcome')) + '. ' + describeRun(run) +
+                            (field(run, 'detailsAvailable') ? field(run, 'detailsTruncated') ? ' Some item details were not retained. Counts cover the whole run.' : '' : ' Item details are unavailable. ') +
+                            (field(run, 'detailsUnavailableReason') || '');
+                        setFeedbackTone('CurrentApplyFeedback', !field(run, 'detailsAvailable') || field(run, 'detailsTruncated') ? 'warning' : summaryTone(field(run, 'summary') || {}));
+                        renderRecordedItems(run, details);
+                    }, failed, 'CurrentApplyFeedback');
+                    function failed() {
+                        feedback.textContent = 'Saved item results could not be loaded. Some tags may have changed. Retry loading results or open History before applying again.';
+                        setFeedbackTone('CurrentApplyFeedback', 'error');
+                        document.querySelector('#RetryApplyResults').hidden = false;
+                    }
+                }
+                document.querySelector('#RetryApplyResults').addEventListener('click', loadCurrentApply);
+                function renderRecordedItems(run, details) {
+                        (field(run, 'detailsAvailable') ? field(run, 'items') || [] : []).forEach(function (item) {
+                            var article = document.createElement('article');
+                            article.className = 'metadataTaggerPreviewItem';
+                            var heading = document.createElement('h3');
+                            heading.textContent = field(item, 'name') + ' · ' + displayOutcome(field(item, 'outcome'));
+                            var header = document.createElement('div');
+                            header.className = 'metadataTaggerResultHeader';
+                            header.appendChild(createArtwork(item));
+                            header.appendChild(heading);
+                            article.appendChild(header);
+                            var reason = document.createElement('p');
+                            reason.textContent = field(item, 'reason') || '';
+                            article.appendChild(reason);
+                            var write = field(item, 'writeOutcome');
+                            var writeStatus = document.createElement('p');
+                            writeStatus.textContent = { Proposal: 'Preview proposal. No tags changed.', NotAttempted: 'No tag update attempted.',
+                                Confirmed: 'Tag update confirmed.', Unconfirmed: 'Tag update attempted; completion unconfirmed. Inspect the item before retrying.' }[write]
+                                || 'Write confirmation detail is unavailable for this older item result.';
+                            if (field(item, 'ownershipOutcome') === 'Confirmed') { writeStatus.textContent += ' Plugin tag records confirmed.'; }
+                            if (field(item, 'ownershipOutcome') === 'Unconfirmed') { writeStatus.textContent += ' Plugin tag records could not be confirmed.'; }
+                            article.appendChild(writeStatus);
+                            var updated = write === 'Confirmed' || (!write && field(item, 'outcome') === 'Applied');
+                            appendPreviewTagGroup(article, updated ? 'Tags added' : write === 'Unconfirmed' ? 'Attempted tags to add' : 'Tags to add', field(item, 'addedTags') || [], 'positive');
+                            appendPreviewTagGroup(article, updated ? 'Tags removed' : write === 'Unconfirmed' ? 'Attempted tags to remove' : 'Tags to remove', field(item, 'removedTags') || [], 'negative');
+                            appendPreviewTagGroup(article, updated ? 'Tags kept' : 'Tags kept in the plan', field(item, 'keptTags') || []);
+                            appendPreviewTagGroup(article, 'Outdated tags to keep', field(item, 'previewRemovedTags') || []);
+                            appendSourceExplanations(article, item);
+                            details.appendChild(article);
+                        });
+                }
                 function loadRunDetails(id) {
                     selectedRunId = id;
                     Array.from(document.querySelector('#RunList').children).forEach(function (row) {
@@ -3345,35 +3418,7 @@
                             : 'Item details for this run are unavailable. ' + (field(run, 'detailsUnavailableReason') || '') + ' ' + runGuidance(run);
                         renderRunCounts(run);
                         renderRecordedRun(run);
-                        (field(run, 'detailsAvailable') ? field(run, 'items') || [] : []).forEach(function (item) {
-                            var article = document.createElement('article');
-                            article.className = 'metadataTaggerPreviewItem';
-                            var heading = document.createElement('h3');
-                            heading.textContent = field(item, 'name') + ' · ' + displayOutcome(field(item, 'outcome'));
-                            var header = document.createElement('div');
-                            header.className = 'metadataTaggerResultHeader';
-                            header.appendChild(createArtwork(item));
-                            header.appendChild(heading);
-                            article.appendChild(header);
-                            var reason = document.createElement('p');
-                            reason.textContent = field(item, 'reason') || '';
-                            article.appendChild(reason);
-                            var write = field(item, 'writeOutcome');
-                            var writeStatus = document.createElement('p');
-                            writeStatus.textContent = { Proposal: 'Preview proposal. No tags changed.', NotAttempted: 'No tag update attempted.',
-                                Confirmed: 'Tag update confirmed.', Unconfirmed: 'Tag update attempted; completion unconfirmed. Inspect the item before retrying.' }[write]
-                                || 'Write confirmation detail is unavailable for this older item result.';
-                            if (field(item, 'ownershipOutcome') === 'Confirmed') { writeStatus.textContent += ' Plugin tag records confirmed.'; }
-                            if (field(item, 'ownershipOutcome') === 'Unconfirmed') { writeStatus.textContent += ' Plugin tag records could not be confirmed.'; }
-                            article.appendChild(writeStatus);
-                            var updated = write === 'Confirmed' || (!write && field(item, 'outcome') === 'Applied');
-                            appendPreviewTagGroup(article, updated ? 'Tags added' : write === 'Unconfirmed' ? 'Attempted tags to add' : 'Tags to add', field(item, 'addedTags') || [], 'positive');
-                            appendPreviewTagGroup(article, updated ? 'Tags removed' : write === 'Unconfirmed' ? 'Attempted tags to remove' : 'Tags to remove', field(item, 'removedTags') || [], 'negative');
-                            appendPreviewTagGroup(article, updated ? 'Tags kept' : 'Tags kept in the plan', field(item, 'keptTags') || []);
-                            appendPreviewTagGroup(article, 'Outdated tags to keep', field(item, 'previewRemovedTags') || []);
-                            appendSourceExplanations(article, item);
-                            details.appendChild(article);
-                        });
+                        renderRecordedItems(run, details);
                     }, function () { document.querySelector('#RunDetailFeedback').textContent = 'This run is unavailable or has expired from history. Refresh history.'; });
                 }
                 document.querySelector('#RefreshRunsButton').addEventListener('click', loadRuns);
@@ -3381,8 +3426,15 @@
                 var exampleSearchTimer;
                 var selectedExample = null;
                 var exampleItems = [];
+                document.querySelector('#ExampleAside').addEventListener('toggle', function () {
+                    if (exampleIsVisible()) { scheduleExampleSearch(); scheduleExample(); }
+                    else {
+                        clearTimeout(exampleTimer); clearTimeout(exampleSearchTimer);
+                        delete pendingRequests.example; delete pendingRequests.exampleSearch;
+                    }
+                });
                 function exampleIsVisible() {
-                    return active && settingsLoaded && selectedView === 'Settings';
+                    return active && settingsLoaded && selectedView === 'Overview' && document.querySelector('#ExampleAside').open;
                 }
                 function exampleLabel(item) {
                     return [field(item, 'name'), field(item, 'itemType'), field(item, 'year')].filter(Boolean).join(' · ');
@@ -3558,7 +3610,7 @@
                         return active && pendingRequests[channel] === pending && pending.sessionEpoch === sessionEpoch
                             && (!['example', 'exampleSearch'].includes(channel) || exampleIsVisible())
                             && (!['cleanup', 'apply'].includes(channel) || !document.querySelector('#PanelMaintenance').hidden)
-                            && (['runDetails', 'taskStart', 'taskLaunch', 'taskPoll', 'taskStop', 'taskResult', 'itemStart', 'itemPoll', 'itemStop', 'itemRecovery'].includes(channel) || pending.revision === revision)
+                            && (['currentApply', 'runDetails', 'taskStart', 'taskLaunch', 'taskPoll', 'taskStop', 'taskResult', 'itemStart', 'itemPoll', 'itemStop', 'itemRecovery'].includes(channel) || pending.revision === revision)
                             && (!['itemPreview', 'inspector'].includes(channel) || pending.selectionRevision === selectionRevision)
                             && ((channel !== 'cleanup' && channel !== 'apply') || pending.cleanupRevision === cleanupRevision);
                     }
@@ -3818,6 +3870,8 @@
                         active = true;
                         selectView('Overview');
                         sessionEpoch++;
+                        delete pendingRequests.currentApply;
+                        loadCurrentApply();
                         recoverItemRun();
                         settingsLoaded = false;
                         document.querySelector('#PageLoadError').hidden = true;
@@ -3849,7 +3903,7 @@
                             renderNamespaceExamples(normalized);
                             updateConditionalFields();
                             settingsLoaded = true;
-                            if (selectedView === 'Settings') { scheduleExampleSearch(); scheduleExample(); }
+                            if (selectedView === 'Overview') { scheduleExampleSearch(); scheduleExample(); }
                             renderSavedConfiguration(config);
                             savedConfigurationRevision = field(config, 'configurationRevision');
                             loadLibraries();
@@ -3862,7 +3916,6 @@
                             document.querySelector('#OverviewOutcome').textContent = 'Settings unavailable';
                             document.querySelector('#OverviewWhen').textContent = '';
                             document.querySelector('#OverviewCounts').textContent = '';
-                            ['OverviewEnabled', 'OverviewMode', 'OverviewTypes', 'OverviewSources', 'OverviewStale', 'OverviewAutomation'].forEach(function (id) { document.querySelector('#' + id).textContent = 'Unavailable'; });
                             setSettingsFeedback('Settings could not be loaded. Refresh the page or check the Jellyfin server log.', true);
                             document.querySelector('#PreviewFeedback').textContent = 'Load settings before refreshing preview results.';
                         }).then(function (accepted) {

@@ -1,16 +1,23 @@
 # Dashboard guide
 
-Meta Tagger has six primary destinations inside Jellyfin's dashboard:
+Meta Tagger opens in a compact workspace, with Browse items, History, and Maintenance available as tabs.
 
-- **Overview** shows the latest run and saved settings, including the scheduled
-  run action and whether post-scan runs are on. **Apply tags now** processes configured
-  item types across all libraries. **Check changes first** is optional and writes no tags.
-  **Stop run** requests cancellation. **Edit settings** opens Settings.
-- **Preview results** opens the latest available generation-preview differences. Its date,
-  run identity, settings freshness, and incomplete or unavailable details remain
-  visible. A later Apply or cleanup run does not replace these differences with
-  unrelated results. When the latest-summary preview is no longer available,
-  retained generation history supplies its own clearly identified results.
+- **Workspace** puts editable common sources, item types, automatic mode, and post-scan controls together.
+  The saved scope appears beside **Apply tags now** and **Check changes first**.
+  Apply uses current metadata and saved settings and explicitly authorizes existing items in that scope.
+  Checking writes no tags and never saves a draft. **Stop run** requests cancellation.
+  **Proposed tag changes** shows the latest available generation preview with its date,
+  settings freshness, and incomplete or unavailable details. **Saved tag results** shows
+  the current Apply run's retained item outcomes, including confirmed and unconfirmed
+  writes, failures, and missing details. Both use Jellyfin artwork with title fallbacks.
+  A failed result request offers a retry without starting another run.
+  Optional sources, Tag format, Outdated tags, Run limits, and Advanced behavior remain
+  in named disclosures. Validation reveals invalid controls before saving.
+  **Save settings** explicitly saves the draft. **Save & apply tags now** starts Apply
+  only after a successful save. Later edits remain unsaved.
+  **Try unsaved settings on an item** searches up to 25 choices and calculates an example
+  without saving. Collapsing it or leaving the workspace stops example requests and
+  retains the query and selection. Reopening it uses the latest draft.
 - **Browse items** opens search, library filtering, pages of 25, and the item
   inspector. The visible **Filter** dropdown filters preview status and applies
   only to the loaded page. A preview item's **Preview this item** action selects that item.
@@ -24,22 +31,12 @@ Meta Tagger has six primary destinations inside Jellyfin's dashboard:
   It neither extends the cooldown nor queues a later run.
   Selecting a run keeps keyboard focus and list position on that run.
   Counts appear separately from status guidance. Preview results and history items include thumbnails.
-- **Settings** shows tagging and sources, with the names of every selected source.
-  Genres, parental rating, and audio languages are prominent; the other six choices remain in
-  **More sources**. **Try these settings** sits beside the form on wide screens
-  and below it on narrow screens. It searches up to 25 choices and calculates
-  tags using the current draft while Settings is visible. Leaving Settings stops
-  requests and keeps the query and selected item. Returning uses the latest draft.
-  **Reload example** recalculates after metadata changes elsewhere in
-  Jellyfin. Tag format and item types have compact draft summaries; automation,
-  outdated tags, and Advanced remain available in disclosures. Hidden choices
-  still save, and validation opens their editors when necessary.
 - **Maintenance** shows removal controls directly for tags recorded as plugin-owned. It requires
   a fresh preview and explicit confirmation. Leaving Maintenance invalidates
   that preview and confirmation. The Browse items shortcut opens Maintenance with
   the selected item ready to preview.
 
-**History** is always available as a tab and from Overview and Preview results.
+**History** is always available as a tab and from the workspace.
 It retains the latest 20 attempts, including failures, cancellations, and
 incomplete runs. Each run keeps up to 1,000 item details and 5 MiB of detail
 data. Missing or shortened results are identified. History never authorizes an
