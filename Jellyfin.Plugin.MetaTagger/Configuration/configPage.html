@@ -1494,9 +1494,10 @@
             #MetaTaggerConfigPage .metadataTaggerRunCounts dd { overflow-wrap: anywhere; margin: var(--mt-space-xs) 0 0; font-weight: 600; }
 
             #MetaTaggerConfigPage .metadataTaggerSettingsWorkspace { display: block; }
-            #MetaTaggerConfigPage #PanelSettings { padding: 0; border: 0; }
+            #MetaTaggerConfigPage #PanelOverview > #PanelSettings { padding: 0; border: 0; }
             #MetaTaggerConfigPage .metadataTaggerSettingsLayout { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             #MetaTaggerConfigPage .metadataTaggerSettingsLayout > * { grid-column: auto; min-width: 0; }
+            #MetaTaggerConfigPage .metadataTaggerVisuallyHidden { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
             #MetaTaggerConfigPage #TaggingOptions { grid-column: 1 / -1; padding: var(--mt-space-md); }
             #MetaTaggerConfigPage #SourceOptions { grid-column: 1; grid-row: 2; }
             #MetaTaggerConfigPage #ItemTypeOptions { grid-column: 1; grid-row: 3; }
@@ -2406,12 +2407,10 @@
 
             function bindDashboardPreviewSession() {
                 var tabs = ['Overview', 'Inspect', 'Runs', 'Maintenance'];
-                var historyReturnView = 'Overview';
                 var selectedView = 'Overview';
                 function selectView(name, focus) {
                     var destination = name === 'Settings' ? 'PluginStatusHeading' : name === 'Review' ? 'ReviewHeading' : null;
                     if (destination) { name = 'Overview'; }
-                    if (name === 'Runs' && selectedView !== 'Runs') { historyReturnView = selectedView === 'Review' ? 'Review' : 'Overview'; }
                     if (selectedView === 'Maintenance' && name !== 'Maintenance') {
                         invalidateCleanup(pendingRequests.apply
                             ? 'You left Maintenance while removal was running. Some tags may have changed. Preview again before retrying.'
@@ -2737,7 +2736,7 @@
                     selectView('Review'); document.querySelector('#ReviewHeading').focus();
                 });
                 document.querySelector('#ReviewRunsButton').addEventListener('click', function () { selectView('Runs', true); });
-                document.querySelector('#HistoryBackButton').addEventListener('click', function () { selectView(historyReturnView, true); });
+                document.querySelector('#HistoryBackButton').addEventListener('click', function () { selectView('Overview', true); });
                 var taskTimer;
                 var requestedTask = null;
                 var generationEpoch = 0;
@@ -3871,6 +3870,8 @@
                         active = true;
                         selectView('Overview');
                         sessionEpoch++;
+                        delete pendingRequests.currentApply;
+                        loadCurrentApply();
                         recoverItemRun();
                         settingsLoaded = false;
                         document.querySelector('#PageLoadError').hidden = true;

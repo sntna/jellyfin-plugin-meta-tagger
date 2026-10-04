@@ -2217,3 +2217,23 @@ test('collapsing the draft example rejects a pending response and reopening reca
     assert.equal(page.request('MetaTagger/Example').body.itemId, 'movie');
     assert.equal(page.sent('save-settings').length, 0);
 });
+
+test('reopening the workspace retries pending Apply details and rejects the old session response', async () => {
+    const page = await readyDashboard();
+    await page.respond('MetaTagger/Runs', []);
+    await page.click('RunApplyButton');
+    await page.respond('load-settings', { ConfigurationRevision: 'revision' });
+    await page.respond('ScheduledTasks', [{ key: 'MetaTaggerApplyTags', id: 'apply', state: 'Running' }]);
+    await page.respond('ScheduledTasks/apply', { state: 'Idle', lastExecutionResult: { startTimeUtc: '2026-10-03T12:00:00Z', endTimeUtc: '2026-10-03T12:00:02Z', status: 'Completed' } });
+    const run = { runId: 'saved', invocation: 'MetaTaggerApplyTags', configurationRevision: 'revision', startedUtc: '2026-10-03T12:00:01Z', outcome: 'Completed', summary: { writesApplied: 1 } };
+    await page.respond('MetaTagger/Runs', [run]);
+    const old = page.request('MetaTagger/Runs/saved');
+    await page.event('MetaTaggerConfigPage', 'pagehide');
+    await page.event('MetaTaggerConfigPage', 'pageshow');
+    assert.equal(page.sent('MetaTagger/Runs/saved').length, 2);
+    old.resolve({ ...run, detailsAvailable: true, items: [{ name: 'Obsolete response', writeOutcome: 'Confirmed' }] });
+    await page.event('CurrentApplyFeedback', 'blur');
+    assert.doesNotMatch(page.element('CurrentApplyChanges').textContent, /Obsolete/);
+    await page.respond('MetaTagger/Runs/saved', { ...run, detailsAvailable: true, items: [{ name: 'Saved result', writeOutcome: 'Confirmed' }] });
+    assert.match(page.element('CurrentApplyChanges').textContent, /Saved result.*Tag update confirmed/);
+});
