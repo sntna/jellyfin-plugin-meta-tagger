@@ -100,6 +100,8 @@ public sealed partial class MetaTaggerRunner
         var checkpointPending = false;
         try
         {
+            // Waiting for another run must not consume this item's execution budget.
+            summary.LastRunUtc = _clock.UtcNow;
             onStarted?.Invoke();
             var savedConfiguration = _host.GetConfiguration();
             summary.ConfigurationRevision = savedConfiguration.ConfigurationRevision;

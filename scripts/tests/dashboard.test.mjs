@@ -79,6 +79,18 @@ function dashboard() {
         ['input', 'select', 'button'].includes(element.type) || ['text', 'number', 'checkbox'].includes(element.type))
         .filter(element => text.includes('id="' + element.id + '"'));
     const requests = [];
+    elements.get('#MetaTaggerConfigForm').reportValidity = () => {
+        const invalid = inputsIn(configForm).filter(element => {
+            if (element.disabled || element.type !== 'number' || element.value === '') return false;
+            const value = Number(element.value);
+            const min = Number(element.getAttribute('min') || 0);
+            const step = Number(element.getAttribute('step') || 1);
+            return !Number.isFinite(value) || value < min || (value - min) % step !== 0;
+        });
+        invalid.forEach(element => element.dispatch('invalid'));
+        invalid[0]?.focus();
+        return invalid.length === 0;
+    };
     const timers = new Map();
     let nextTimer = 0;
     function request(kind, body) {
@@ -1754,6 +1766,30 @@ test('save and Apply submits its draft first and preserves later edits', async (
     assert.equal(page.sent('save-settings').length, 1);
 });
 
+for (const invalidBudget of ['-1', '1.5']) {
+    test('save and Apply rejects invalid write budget ' + invalidBudget + ' and accepts its correction', async () => {
+        const page = await readyDashboard();
+        await page.edit('MaxWritesPerRun', invalidBudget);
+        const reads = page.sent('load-settings').length;
+        await page.click('SaveApplyButton');
+        assert.equal(page.sent('load-settings').length, reads, 'invalid settings must not start a save');
+        assert.equal(page.sent('save-settings').length, 0);
+        assert.equal(page.sent('ScheduledTasks').length, 0);
+        assert.equal(page.element('MaxWritesPerRun').value, invalidBudget);
+        assert.equal(page.element('AdvancedOptions').open, true);
+        assert.equal(page.element('MaxWritesPerRun').focused, true);
+
+        await page.edit('MaxWritesPerRun', '25');
+        await page.click('SaveApplyButton');
+        await page.respond('load-settings', {});
+        assert.equal(page.sent('save-settings')[0].body.MaxWritesPerRun, 25);
+        await page.respond('save-settings', {});
+        await page.respond('load-settings', { ConfigurationRevision: 'saved' });
+        await page.respond('ScheduledTasks', [{ key: 'MetaTaggerApplyTags', id: 'apply', state: 'Idle' }]);
+        assert.equal(page.sent('ScheduledTasks/Running/apply').length, 1);
+    });
+}
+
 test('a failed save prevents save-and-Apply from launching generation', async () => {
     const page = await readyDashboard();
     await page.click('SaveApplyButton');
@@ -1972,3 +2008,37 @@ test('unconfirmed library launch permits deliberate retry after bounded idle rec
     await page.respond('ScheduledTasks', [{ key: 'MetaTaggerApplyTags', id: 'apply', state: 'Idle' }]);
     assert.equal(page.sent('ScheduledTasks/Running/apply').length, 2);
 });
+
+for (const staleResult of ['success', 'failure']) {
+    test('a stale Check ' + staleResult + ' cannot replace a newer Apply lifecycle', async () => {
+        const page = await readyDashboard();
+        await page.click('RunPreviewButton');
+        await page.respond('load-settings', { ConfigurationRevision: 'revision' });
+        await page.respond('ScheduledTasks', [{ key: 'MetaTaggerPreviewTags', id: 'check', state: 'Running' }]);
+        await page.respond('ScheduledTasks/check', { state: 'Idle', lastExecutionResult: {
+            startTimeUtc: '2026-10-03T12:00:00Z', endTimeUtc: '2026-10-03T12:00:02Z', status: 'Completed'
+        } });
+        const oldCheck = page.request('MetaTagger/Preview');
+        await page.click('RunApplyButton');
+        await page.respond('load-settings', { ConfigurationRevision: 'revision' });
+        await page.respond('ScheduledTasks', [{ key: 'MetaTaggerApplyTags', id: 'apply', state: 'Idle' }]);
+        await page.respond('ScheduledTasks/Running/apply', undefined);
+        const currentFeedback = page.element('TaskFeedback').textContent;
+        assert.match(currentFeedback, /Apply requested/);
+        if (staleResult === 'success') {
+            oldCheck.resolve({ status: 'Ready', summary: { invocation: 'MetaTaggerPreviewTags', previewOnly: true,
+                configurationRevision: 'revision', lastRunUtc: '2026-10-03T12:00:01Z', writesApplied: 0 }, changes: [] });
+        } else {
+            oldCheck.reject(new Error('Delayed Check failure'));
+        }
+        await page.event('RunApplyButton', 'blur');
+        assert.equal(page.element('TaskFeedback').textContent, currentFeedback);
+        assert.equal(page.element('TaskFeedback').getAttribute('data-feedback-tone'), 'neutral');
+        assert.equal(page.element('PanelReview').hidden, true);
+        assert.equal(page.element('RunApplyButton').disabled, true);
+        assert.equal(page.element('StopPreviewButton').disabled, false);
+        await page.tick();
+        await page.respond('ScheduledTasks/apply', { state: 'Running', currentProgressPercentage: 25 });
+        assert.match(page.element('TaskFeedback').textContent, /Applying tags.*25%/);
+    });
+}

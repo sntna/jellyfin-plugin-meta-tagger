@@ -8,6 +8,30 @@ namespace Jellyfin.Plugin.MetaTagger.Tests;
 public sealed partial class MetaTaggerRunnerTests
 {
     [Fact]
+    public async Task ItemRun_QueuedTimeDoesNotConsumeExecutionBudget()
+    {
+        var item = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"] };
+        var host = new InMemoryMetaTaggerHost(new PluginConfiguration { MaxRunMinutes = 1 }, [item]);
+        var store = new BlockingLoadMetaTaggerStateStore();
+        var clock = new ItemApprovalClock();
+        var runner = CreateRunner(host, store, clock);
+        var occupyingRun = runner.RunAsync(new NoOpProgress(), CancellationToken.None);
+        await store.FirstLoadEntered.WaitAsync(AsyncTestTimeout);
+        try
+        {
+            var queued = runner.StartItemApply(item.Id);
+            Assert.Equal("Queued", queued.State);
+            clock.UtcNow += TimeSpan.FromMinutes(2);
+            store.ReleaseLoads();
+            var completed = await WaitForItemRun(runner, queued.RunId);
+            Assert.Equal(1, completed.Summary!.WritesApplied);
+            Assert.Equal("Completed", completed.State);
+            Assert.Contains("meta:genre:drama", item.Tags);
+        }
+        finally { store.ReleaseLoads(); await occupyingRun.WaitAsync(AsyncTestTimeout); }
+    }
+
+    [Fact]
     public async Task ItemRun_CancelsQueuedWorkWithoutWritingAndRejectsDuplicateStarts()
     {
         var item = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"] };

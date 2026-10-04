@@ -2735,6 +2735,7 @@
                     var requestRevision = revision;
                     var requestEpoch = ++generationEpoch;
                     delete pendingRequests.taskResult;
+                    delete pendingRequests.preview;
                     document.querySelector('#TaskFeedback').textContent = (apply ? 'Starting Apply' : 'Starting check') + ' for the configured item types across all libraries…';
                     runRequest('taskStart', function () {
                         return ApiClient.getPluginConfiguration(MetaTaggerConfig.pluginUniqueId).then(function (config) {
@@ -3811,6 +3812,7 @@
                 function saveSettings(andApply) {
                         if (andApply && (requestedTask || pendingRequests.taskStart || pendingRequests.taskLaunch)) { return; }
                         if (!active || !settingsLoaded || pendingRequests.settings) { return; }
+                        if (!document.querySelector('#MetaTaggerConfigForm').reportValidity()) { return; }
                         // Capture what this save means before any asynchronous read.
                         // Edits made afterward belong to a later settings revision.
                         var draft = readFormConfig();
