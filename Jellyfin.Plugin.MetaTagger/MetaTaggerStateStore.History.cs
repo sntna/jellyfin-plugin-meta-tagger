@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Runtime.ExceptionServices;
 
 namespace Jellyfin.Plugin.MetaTagger;
 
@@ -18,8 +19,27 @@ public sealed partial class MetaTaggerStateStore
             var bounded = CopyRun(record, includeItems: true);
             // Reapply bounds for records supplied by a caller or loaded from disk.
             bounded.Items = [];
+            if (JsonSerializer.SerializeToUtf8Bytes(bounded.RecordedRules).Length > 5 * 1024 * 1024)
+            {
+                bounded.RecordedRules = null;
+                bounded.DetailsTruncated = true;
+                bounded.DetailsUnavailableReason = "Recorded rules exceeded the detail size limit and were not retained.";
+            }
             foreach (var item in record.Items) { bounded.AddItem(item); }
-            await AtomicWriteAsync(RunPath(record.RunId), bounded, false, cancellationToken).ConfigureAwait(false);
+            ExceptionDispatchInfo? publicationFailure = null;
+            try
+            {
+                await AtomicWriteAsync(RunPath(record.RunId), bounded, false, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                // Retain the attempt and its counts even when its detail file cannot publish.
+                // Never let an earlier file for this ID masquerade as the current result.
+                bounded.DetailsAvailable = false;
+                bounded.DetailsUnavailableReason = "Item details could not be published. Counts describe the recorded attempt; do not repeat writes based on missing history.";
+                bounded.Items = [];
+                publicationFailure = ExceptionDispatchInfo.Capture(exception);
+            }
             records.RemoveAll(run => run.RunId == record.RunId);
             records.Insert(0, CopyRun(bounded, includeItems: false));
             var expired = records.Skip(20).Select(run => run.RunId).ToArray();
@@ -28,6 +48,7 @@ public sealed partial class MetaTaggerStateStore
             {
                 File.Delete(RunPath(id));
             }
+            publicationFailure?.Throw();
         }
         finally { _historyGate.Release(); }
     }
@@ -51,16 +72,26 @@ public sealed partial class MetaTaggerStateStore
         {
             var entry = (await ReadHistoryIndexAsync(cancellationToken).ConfigureAwait(false)).FirstOrDefault(run => run.RunId == runId);
             if (entry is null) { return null; }
+            if (!entry.DetailsAvailable)
+            {
+                MarkInterrupted(entry);
+                return entry;
+            }
             try
             {
                 var details = await ReadJsonAsync<MetaTaggerRunRecord>(RunPath(runId), cancellationToken).ConfigureAwait(false);
                 if (details is null || details.RunId != runId) { throw new JsonException("Run identity mismatch."); }
+                if (details.PublicationRevision != entry.PublicationRevision || details.Outcome != entry.Outcome || details.EndedUtc != entry.EndedUtc)
+                {
+                    throw new JsonException("Run detail publication does not match its retained index.");
+                }
                 MarkInterrupted(details);
                 return details;
             }
             catch (Exception exception) when (exception is IOException or JsonException or UnauthorizedAccessException)
             {
                 entry.DetailsAvailable = false;
+                entry.DetailsUnavailableReason = "Matching item details are missing, unreadable, or were not fully published. Do not repeat writes based on missing history.";
                 entry.Items = [];
                 MarkInterrupted(entry);
                 return entry;
@@ -119,7 +150,11 @@ public sealed partial class MetaTaggerStateStore
 
     private void MarkInterrupted(MetaTaggerRunRecord record)
     {
-        if (record.Outcome == "Running" && !_activeRuns.Contains(record.RunId)) { record.Outcome = "Interrupted"; }
+        if (record.Outcome == "Running" && !_activeRuns.Contains(record.RunId))
+        {
+            record.Outcome = "Interrupted";
+            record.Summary.Outcome = "Interrupted";
+        }
     }
 
     private static MetaTaggerRunRecord CopyRun(MetaTaggerRunRecord record, bool includeItems)

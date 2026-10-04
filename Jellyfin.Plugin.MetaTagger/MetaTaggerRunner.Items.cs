@@ -40,7 +40,7 @@ public sealed partial class MetaTaggerRunner
             var configuration = CloneConfiguration(_host.GetConfiguration());
             summary.ConfigurationRevision = configuration.ConfigurationRevision;
             DescribeGenerationState(summary, configuration.Installation);
-            record = CreateRunRecord(summary, "Preview", itemId.ToString("N"));
+            record = CreateRunRecord(summary, "Preview", itemId.ToString("N"), configuration: configuration);
             await PublishHistoryAsync(record).ConfigureAwait(false);
             if (configuration.IsEnabled && configuration.Installation?.Origin != InstallationOrigin.Uncertain)
             {
@@ -56,7 +56,7 @@ public sealed partial class MetaTaggerRunner
                     Status = "Budget limited", GenerationEligibility = GenerationItemEligibility.NotChecked.ToString(),
                     Reason = "The time limit was reached before this item could be checked. Preview this item again."
                 };
-                record.AddItem(InspectionHistory(limited, "Not checked"));
+                record.AddItem(InspectionHistory(limited, "Not checked", "NotAttempted"));
                 return limited;
             }
             var plan = await PlanItemAsync(itemId, configuration, cancellationToken).ConfigureAwait(false);
@@ -80,7 +80,7 @@ public sealed partial class MetaTaggerRunner
                 summary.Outcome = inspection.Status;
                 if (inspection.Status == "Failed") { summary.Failures++; }
             }
-            record.AddItem(InspectionHistory(inspection));
+            record.AddItem(InspectionHistory(inspection, writeOutcome: plan.Result is null ? "NotAttempted" : "Proposal"));
             return inspection;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { summary.Outcome = "Cancelled"; throw; }
@@ -102,6 +102,8 @@ public sealed partial class MetaTaggerRunner
         MetaTaggerRunRecord? record = null;
         ItemPlan? plan = null;
         var checkpointPending = false;
+        var writeOutcome = "NotAttempted";
+        var ownershipOutcome = "NotApplicable";
         try
         {
             // Waiting for another run must not consume this item's execution budget.
@@ -110,11 +112,13 @@ public sealed partial class MetaTaggerRunner
             var savedConfiguration = _host.GetConfiguration();
             summary.ConfigurationRevision = savedConfiguration.ConfigurationRevision;
             DescribeGenerationState(summary, savedConfiguration.Installation);
-            record = CreateRunRecord(summary, "Apply", itemId.ToString("N"));
+            summary.ItemsRemaining = 1;
+            record = CreateRunRecord(summary, "Apply", itemId.ToString("N"), configuration: CloneConfiguration(savedConfiguration));
             await PublishHistoryAsync(record).ConfigureAwait(false);
             plan = await PlanItemAsync(itemId, null, cancellationToken).ConfigureAwait(false);
             if (plan.Result is null)
             {
+                summary.ItemsScanned = 1;
                 throw new InvalidOperationException(plan.Inspection.Reason ?? "This item cannot be updated.");
             }
             var configuration = plan.Configuration!;
@@ -151,6 +155,9 @@ public sealed partial class MetaTaggerRunner
             state = plan.State!;
             budget = new MetaTaggerRunBudget(configuration, started);
             summary.ConfigurationRevision = configuration.ConfigurationRevision;
+            record.ConfigurationRevision = configuration.ConfigurationRevision;
+            record.ItemTypes = GetIncludedItemTypes(configuration).Select(type => type.ToString()).ToArray();
+            record.RecordedRules = MetaTaggerRecordedRules.Capture(configuration);
             summary.ItemsScanned = 1;
             summary.ItemsProcessed = 1;
             var result = _processor.Process(plan.Input!, configuration, state,
@@ -173,17 +180,24 @@ public sealed partial class MetaTaggerRunner
             }
             if (!result.Merge.HasChangesToApply)
             {
-                record.AddItem(InspectionHistory(plan.Inspection, "Up to date"));
+                summary.ItemsRemaining = 0;
+                record.AddItem(InspectionHistory(plan.Inspection, "Up to date", writeOutcome, ownershipOutcome));
                 CompleteOutcome(summary);
                 return summary;
             }
+            writeOutcome = "Unconfirmed";
             await _host.UpdateItemTagsAsync(plan.Item!, result.Merge.FinalTags, cancellationToken).ConfigureAwait(false);
+            writeOutcome = "Confirmed";
+            ownershipOutcome = "Unconfirmed";
             checkpointPending = true;
             summary.WritesApplied = 1;
             state.Items[itemId.ToString("N")] = result.LedgerEntry!;
             await _stateStore.SaveAsync(state, CancellationToken.None).ConfigureAwait(false);
             checkpointPending = false;
-            record.AddItem(InspectionHistory(plan.Inspection, "Applied"));
+            ownershipOutcome = "Confirmed";
+            summary.ItemsRemaining = 0;
+            record.AddItem(InspectionHistory(plan.Inspection, "Applied", writeOutcome, ownershipOutcome));
+            await PublishHistoryAsync(record).ConfigureAwait(false);
             await _clock.DelayAsync(budget.WriteDelay, cancellationToken).ConfigureAwait(false);
             CompleteOutcome(summary);
             await _stateStore.SaveSummaryAsync(summary, cancellationToken).ConfigureAwait(false);
@@ -192,23 +206,38 @@ public sealed partial class MetaTaggerRunner
         catch (Exception exception) when (checkpointPending)
         {
             summary.Outcome = "Uncertain";
+            if (record is not null) { record.FailureReason = "Tags were saved, but the plugin could not save its tag records. Inspect the item before retrying."; }
             _logger.LogError(exception, "Meta Tagger item {ItemId} was written but its ownership checkpoint failed. Inspect the item before retrying.", itemId);
             throw new InvalidOperationException("Tags were saved, but the plugin could not save its tag records. Check the item and the Jellyfin server log, then preview the item again before retrying.", exception);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { summary.Outcome = "Cancelled"; throw; }
-        catch { summary.Outcome = "Failed"; summary.Failures++; throw; }
+        catch
+        {
+            summary.Outcome = "Failed"; summary.Failures++;
+            if (record is not null) { record.FailureReason = "Item processing failed. Inspect the item and the Jellyfin server log before retrying."; }
+            throw;
+        }
         finally
         {
             if (record is not null)
             {
-                if (record.Items.Count == 0 && plan is not null) { record.AddItem(InspectionHistory(plan.Inspection, summary.BudgetLimitReached ? "Not checked" : summary.Outcome)); }
+                if (record.Items.Count == 0 && plan is not null) { record.AddItem(InspectionHistory(plan.Inspection, summary.BudgetLimitReached ? "Not applied" : summary.Outcome, writeOutcome, ownershipOutcome)); }
+                if (record.Items.Count == 0 && plan is null)
+                {
+                    record.AddItem(new MetaTaggerRunItem
+                    {
+                        ItemId = itemId.ToString("N"), Outcome = summary.Outcome, WriteOutcome = writeOutcome,
+                        OwnershipOutcome = ownershipOutcome, Reason = "Processing stopped before item details were available."
+                    });
+                }
                 await PublishHistoryAsync(record, finished: true).ConfigureAwait(false);
             }
             _runGate.Release();
         }
     }
 
-    private static MetaTaggerRunItem InspectionHistory(MetaTaggerItemInspection inspection, string? outcome = null)
+    private static MetaTaggerRunItem InspectionHistory(MetaTaggerItemInspection inspection, string? outcome = null,
+        string writeOutcome = "Proposal", string ownershipOutcome = "NotApplicable")
     {
         Enum.TryParse<GenerationItemEligibility>(inspection.GenerationEligibility, out var eligibility);
         return new MetaTaggerRunItem
@@ -216,6 +245,8 @@ public sealed partial class MetaTaggerRunner
             ItemId = inspection.ItemId.ToString("N"), Name = inspection.Name, ItemType = inspection.ItemType,
             Outcome = outcome ?? inspection.Status, Reason = inspection.Reason ?? GenerationExclusionReason(eligibility),
             GenerationEligibility = inspection.GenerationEligibility, SourceExplanations = inspection.SourceExplanations,
+            WriteOutcome = writeOutcome, OwnershipOutcome = ownershipOutcome,
+            KeptTags = inspection.ManualTags.Concat(inspection.OwnedTags).Concat(inspection.PreservedTags).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
             AddedTags = inspection.AddedTags, RemovedTags = inspection.RemovedTags, PreviewRemovedTags = inspection.PreviewRemovedTags
         };
     }
@@ -227,6 +258,7 @@ public sealed partial class MetaTaggerRunner
         var inspection = new MetaTaggerItemInspection
         {
             ItemId = itemId, Name = item?.Name ?? string.Empty, ItemType = item?.GetType().Name ?? string.Empty,
+            PreservedTags = (item?.Tags ?? []).ToArray(),
             ArtworkItemIds = MetaTaggerBrowserItem.GetArtworkItemIds(item)
         };
         ItemPlan Unavailable(string status, string reason, SourceExplanationStatus sourceStatus = SourceExplanationStatus.NotChecked, PluginConfiguration? settings = null)

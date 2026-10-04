@@ -1491,7 +1491,7 @@
             #MetaTaggerConfigPage .metadataTaggerRunCounts { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: var(--mt-space-md); padding-block: var(--mt-space-md); border-block: 1px solid var(--mt-border); }
             #MetaTaggerConfigPage .metadataTaggerRunCounts[hidden] { display: none; }
             #MetaTaggerConfigPage .metadataTaggerRunCounts dt { color: var(--mt-muted); }
-            #MetaTaggerConfigPage .metadataTaggerRunCounts dd { margin: var(--mt-space-xs) 0 0; font-weight: 600; }
+            #MetaTaggerConfigPage .metadataTaggerRunCounts dd { overflow-wrap: anywhere; margin: var(--mt-space-xs) 0 0; font-weight: 600; }
         </style>
         <div data-role="content">
             <div class="content-primary">
@@ -1582,7 +1582,7 @@
 <section id="PanelRuns" role="tabpanel" aria-labelledby="TabRuns" hidden>
     <button id="HistoryBackButton" type="button" class="metadataTaggerLink">Back to Overview</button>
     <div class="metadataTaggerSubheader"><h2 id="HistoryHeading" tabindex="-1">History</h2><button id="RefreshRunsButton" type="button" class="raised emby-button">Refresh history</button></div>
-    <div class="metadataTaggerHistoryWorkspace"><section aria-label="Recorded runs"><p id="RunsFeedback" role="status">No runs recorded.</p><div id="RunList" tabindex="0" aria-label="Recorded runs"></div></section><section id="RunDetailPanel" aria-labelledby="RunDetailHeading"><h3 id="RunDetailHeading" tabindex="-1">Select a run</h3><details id="HistoryRunDetails" hidden><summary>Run details</summary><p id="HistoryRunId" class="metadataTaggerMuted"></p></details><p id="RunDetailFeedback" role="status">Select a run to see its results.</p><dl id="RunDetailCounts" class="metadataTaggerRunCounts" hidden></dl><div id="RunDetails" tabindex="0" aria-label="Recorded item results"></div></section></div>
+    <div class="metadataTaggerHistoryWorkspace"><section aria-label="Recorded runs"><p id="RunsFeedback" role="status">No runs recorded.</p><div id="RunList" tabindex="0" aria-label="Recorded runs"></div></section><section id="RunDetailPanel" aria-labelledby="RunDetailHeading"><h3 id="RunDetailHeading" tabindex="-1">Select a run</h3><details id="HistoryRunDetails" hidden><summary>Run details</summary><p id="HistoryRunId" class="metadataTaggerMuted"></p><dl id="HistoryRunMetadata" class="metadataTaggerRunCounts"></dl><h4>Recorded rules</h4><dl id="HistoryRunRules" class="metadataTaggerRunCounts"></dl></details><p id="RunDetailFeedback" role="status">Select a run to see its results.</p><dl id="RunDetailCounts" class="metadataTaggerRunCounts" hidden></dl><div id="RunDetails" tabindex="0" aria-label="Recorded item results"></div></section></div>
 </section>
 <section id="PanelSettings" role="tabpanel" aria-labelledby="TabSettings" hidden>
                 <div class="metadataTaggerSettingsWorkspace">
@@ -3271,6 +3271,48 @@
                         : 'No library preview is available. Select Preview tag changes to check the item types saved in Settings. Items without results show Not checked.';
                     renderItems();
                 }
+                function appendRunField(container, label, value) {
+                    var pair = document.createElement('div');
+                    var term = document.createElement('dt'); term.textContent = label;
+                    var description = document.createElement('dd'); description.textContent = value;
+                    pair.appendChild(term); pair.appendChild(description); container.appendChild(pair);
+                }
+                function renderRecordedRun(run) {
+                    var metadata = document.querySelector('#HistoryRunMetadata');
+                    var rules = document.querySelector('#HistoryRunRules');
+                    metadata.replaceChildren(); rules.replaceChildren();
+                    var summary = field(run, 'summary') || {};
+                    var recordedRules = field(run, 'recordedRules');
+                    var types = field(run, 'itemTypes') || [];
+                    [['Action', field(run, 'operation') || 'Unavailable'], ['Outcome', displayOutcome(field(run, 'outcome'))],
+                        ['Error', field(run, 'failureReason') || 'None recorded'],
+                        ['Started', field(run, 'startedUtc') || 'Unavailable'], ['Ended', field(run, 'endedUtc') || 'Completion not recorded'],
+                        ['Trigger', field(run, 'invocation') || 'Unavailable'], ['Selected item types', types.join(', ') || 'Unavailable'],
+                        ['Settings revision', field(run, 'configurationRevision') || 'Unavailable'], ['Run mode', field(summary, 'runMode') || 'Unavailable'],
+                        ['Effective action', field(summary, 'previewOnly') === true ? 'Preview. No tags changed.' : field(summary, 'previewOnly') === false ? 'Apply. See each item for confirmed writes.' : 'Unavailable'],
+                        ['Backfill authorization', (field(summary, 'backfillAuthorization') || 'Unavailable') +
+                            ((field(summary, 'authorizedItemTypes') || []).length ? ' for ' + field(summary, 'authorizedItemTypes').join(', ') : '') +
+                            (field(summary, 'authorizedItemId') ? ' for item ' + field(summary, 'authorizedItemId') : '') +
+                            '. Authorization is permission, not completed processing. Counts show actual coverage.'],
+                        ['Items processed', field(summary, 'itemsProcessed') || 0],
+                        ['Baseline status', field(summary, 'baselineStatus') || 'Unavailable'],
+                        ['Baseline item count', field(summary, 'baselineItemCount') == null ? 'Unavailable' : field(summary, 'baselineItemCount')],
+                        ['Eligibility revision', field(summary, 'eligibilityRevision') == null ? 'Unavailable' : field(summary, 'eligibilityRevision')],
+                        ['Estimated updates', field(summary, 'estimatedWrites') || 0],
+                        ['Elapsed milliseconds', field(summary, 'elapsedMilliseconds') || 0],
+                        ['Excluded by baseline', field(summary, 'itemsSkippedBaseline') || 0],
+                        ['Previewed baseline items', field(summary, 'itemsPreviewedBaseline') || 0],
+                        ['Eligibility unavailable', field(summary, 'itemsSkippedEligibilityUnavailable') || 0],
+                        ['Unchanged items', field(summary, 'itemsSkippedUnchanged') || 0],
+                        ['Tags added in the plan', field(summary, 'tagsAdded') || 0], ['Tags removed in the plan', field(summary, 'tagsRemoved') || 0],
+                        ['Outdated tags previewed', field(summary, 'staleTagsPreviewed') || 0],
+                        ['Untracked tags kept', field(summary, 'legacyTagsKept') || 0], ['Untracked tags claimed', field(summary, 'legacyTagsClaimed') || 0],
+                        ['Run limit', field(summary, 'budgetLimitReached') ? field(summary, 'budgetLimitReason') || 'Reached' : 'Not reached']
+                    ].forEach(function (entry) { appendRunField(metadata, entry[0], entry[1]); });
+                    if (recordedRules) {
+                        Object.keys(recordedRules).forEach(function (label) { appendRunField(rules, label, recordedRules[label] || 'None'); });
+                    } else { appendRunField(rules, 'Unavailable', 'Rules were not retained for this run. Current settings cannot explain historical results.'); }
+                }
                 function loadRunDetails(id) {
                     selectedRunId = id;
                     Array.from(document.querySelector('#RunList').children).forEach(function (row) {
@@ -3284,15 +3326,25 @@
                     var details = document.querySelector('#RunDetails');
                     details.replaceChildren();
                     document.querySelector('#RunDetailCounts').hidden = true;
+                    document.querySelector('#HistoryRunMetadata').replaceChildren();
+                    document.querySelector('#HistoryRunRules').replaceChildren();
                     document.querySelector('#RunDetailFeedback').textContent = 'Loading recorded details…';
                     runRequest('runDetails', function () { return ApiClient.getJSON(ApiClient.getUrl('MetaTagger/Runs/' + id)); }, function (run) {
+                        if (field(run, 'runId') && field(run, 'runId') !== id) {
+                            setFeedbackTone('RunDetailFeedback', 'error');
+                            document.querySelector('#RunDetailFeedback').textContent = 'Matching details could not be loaded. Refresh history to retry.';
+                            return;
+                        }
                         var tone = summaryTone(Object.assign({}, field(run, 'summary'), { outcome: field(run, 'outcome') }));
-                        if (tone !== 'error' && (!field(run, 'detailsAvailable') || field(run, 'detailsTruncated'))) { tone = 'warning'; }
+                        var olderDetail = field(run, 'detailVersion') !== 1;
+                        var rulesUnavailable = !field(run, 'recordedRules');
+                        if (tone !== 'error' && (!field(run, 'detailsAvailable') || field(run, 'detailsTruncated') || olderDetail || rulesUnavailable)) { tone = 'warning'; }
                         setFeedbackTone('RunDetailFeedback', tone);
                         document.querySelector('#RunDetailFeedback').textContent = field(run, 'detailsAvailable')
-                            ? 'Recorded results. Preview an item again before applying changes. ' + (field(run, 'detailsTruncated') ? 'Some item details were not retained. Counts cover the whole run. ' : '') + runGuidance(run)
-                            : 'Item details for this run are unavailable. ' + runGuidance(run);
+                            ? 'Recorded results. Preview an item again before applying changes. ' + (field(run, 'detailsTruncated') ? 'Some item details were not retained. Counts cover the whole run. ' : '') + (olderDetail ? 'This older run lacks recorded rules, kept tags, or write confirmation details. ' : rulesUnavailable ? 'Recorded rules are unavailable. ' : '') + (field(run, 'detailsUnavailableReason') || '') + ' ' + runGuidance(run)
+                            : 'Item details for this run are unavailable. ' + (field(run, 'detailsUnavailableReason') || '') + ' ' + runGuidance(run);
                         renderRunCounts(run);
+                        renderRecordedRun(run);
                         (field(run, 'detailsAvailable') ? field(run, 'items') || [] : []).forEach(function (item) {
                             var article = document.createElement('article');
                             article.className = 'metadataTaggerPreviewItem';
@@ -3306,9 +3358,18 @@
                             var reason = document.createElement('p');
                             reason.textContent = field(item, 'reason') || '';
                             article.appendChild(reason);
-                            var updated = field(item, 'outcome') === 'Applied';
-                            appendPreviewTagGroup(article, updated ? 'Tags added' : 'Tags to add', field(item, 'addedTags') || [], 'positive');
-                            appendPreviewTagGroup(article, updated ? 'Tags removed' : 'Tags to remove', field(item, 'removedTags') || [], 'negative');
+                            var write = field(item, 'writeOutcome');
+                            var writeStatus = document.createElement('p');
+                            writeStatus.textContent = { Proposal: 'Preview proposal. No tags changed.', NotAttempted: 'No tag update attempted.',
+                                Confirmed: 'Tag update confirmed.', Unconfirmed: 'Tag update attempted; completion unconfirmed. Inspect the item before retrying.' }[write]
+                                || 'Write confirmation detail is unavailable for this older item result.';
+                            if (field(item, 'ownershipOutcome') === 'Confirmed') { writeStatus.textContent += ' Plugin tag records confirmed.'; }
+                            if (field(item, 'ownershipOutcome') === 'Unconfirmed') { writeStatus.textContent += ' Plugin tag records could not be confirmed.'; }
+                            article.appendChild(writeStatus);
+                            var updated = write === 'Confirmed' || (!write && field(item, 'outcome') === 'Applied');
+                            appendPreviewTagGroup(article, updated ? 'Tags added' : write === 'Unconfirmed' ? 'Attempted tags to add' : 'Tags to add', field(item, 'addedTags') || [], 'positive');
+                            appendPreviewTagGroup(article, updated ? 'Tags removed' : write === 'Unconfirmed' ? 'Attempted tags to remove' : 'Tags to remove', field(item, 'removedTags') || [], 'negative');
+                            appendPreviewTagGroup(article, updated ? 'Tags kept' : 'Tags kept in the plan', field(item, 'keptTags') || []);
                             appendPreviewTagGroup(article, 'Outdated tags to keep', field(item, 'previewRemovedTags') || []);
                             appendSourceExplanations(article, item);
                             details.appendChild(article);
@@ -3497,7 +3558,7 @@
                         return active && pendingRequests[channel] === pending && pending.sessionEpoch === sessionEpoch
                             && (!['example', 'exampleSearch'].includes(channel) || exampleIsVisible())
                             && (!['cleanup', 'apply'].includes(channel) || !document.querySelector('#PanelMaintenance').hidden)
-                            && (['taskStart', 'taskLaunch', 'taskPoll', 'taskStop', 'taskResult', 'itemStart', 'itemPoll', 'itemStop', 'itemRecovery'].includes(channel) || pending.revision === revision)
+                            && (['runDetails', 'taskStart', 'taskLaunch', 'taskPoll', 'taskStop', 'taskResult', 'itemStart', 'itemPoll', 'itemStop', 'itemRecovery'].includes(channel) || pending.revision === revision)
                             && (!['itemPreview', 'inspector'].includes(channel) || pending.selectionRevision === selectionRevision)
                             && ((channel !== 'cleanup' && channel !== 'apply') || pending.cleanupRevision === cleanupRevision);
                     }
