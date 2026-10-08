@@ -42,6 +42,10 @@ jobs:
           cache-dependency-path: "**/packages.lock.json"
       - name: Verify
         run: ./scripts/build-and-test.sh
+      - name: Install pinned dashboard browser tools
+        run: |
+          npm ci --prefix scripts/browser --ignore-scripts --no-audit --no-fund
+          npm exec --prefix scripts/browser -- playwright install --with-deps chromium
       - name: Test release ZIP lifecycle on Linux Docker
         env:
           META_TAGGER_DOCKER_CONTEXT: ""
@@ -49,6 +53,25 @@ jobs:
         run: |
           python3 scripts/disposable-jellyfin.py create
           ./scripts/test-release-lifecycle.sh
+      - name: Check installed dashboard in Jellyfin web
+        timeout-minutes: 6
+        env:
+          META_TAGGER_DOCKER_CONTEXT: ""
+        run: |
+          test_directory="$(python3 -c 'import importlib.util; s=importlib.util.spec_from_file_location("fixture", "scripts/disposable-jellyfin.py"); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); server=m.find_reusable_server(); assert server is not None, "Create the generated server first"; print(server.directory)')"
+          node scripts/check-dashboard-browser.mjs "$test_directory"
+      - name: Upload safe browser diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dashboard-browser-failure
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            artifacts/dashboard-browser/result.json
+            artifacts/dashboard-browser/diagnostics.json
+            artifacts/dashboard-browser/browser-errors.json
+            artifacts/dashboard-browser/failure.png
       - name: Verify release assets reuse the tested ZIP
         run: |
           release_tag="$(PYTHONPATH=scripts python3 -c 'from package_release import _project_versions; print("v" + _project_versions()[0])')"

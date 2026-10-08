@@ -13,17 +13,10 @@
         banner.textContent = message;
         banner.hidden = !message;
     }
-    function restoreTab() {
-        var id = sessionStorage.getItem('meta-tagger-dev-tab');
-        var tab = id && document.getElementById(id);
-        if (tab && document.querySelector('#MetaTaggerConfigPage #SaveSettingsButton:not(:disabled)')) {
-            sessionStorage.removeItem('meta-tagger-dev-tab');
-            tab.click();
-        }
-    }
+    // Older development clients remembered tabs that the workspace no longer has.
+    try { sessionStorage.removeItem('meta-tagger-dev-tab'); } catch (_) { /* Storage may be unavailable. */ }
     async function poll() {
         try {
-            restoreTab();
             var response = await fetch('/__meta_tagger_dev/status', { cache: 'no-store' });
             if (!response.ok) { throw new Error('Dev server unavailable'); }
             var state = await response.json();
@@ -33,8 +26,6 @@
                 var dirty = document.querySelector('#SettingsFeedback[data-unsaved="true"]');
                 if (dirty) { show('Development update ready. Save your settings to reload, or reload the page to discard your edits.'); }
                 else {
-                    var tab = document.querySelector('#MetaTaggerConfigPage [role="tab"][aria-selected="true"]');
-                    if (tab) { sessionStorage.setItem('meta-tagger-dev-tab', tab.id); }
                     location.reload();
                     return;
                 }
