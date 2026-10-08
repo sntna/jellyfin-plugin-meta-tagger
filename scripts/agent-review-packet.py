@@ -116,7 +116,9 @@ def build(args):
         manifest["design"] = {"path": copy_file(args.design, directory, f"design{args.design.suffix}"),
                               "approval": args.design_approval}
     diff = directory / "comparison.diff"
-    diff.write_text(dispatcher.command(["git", "diff", "--binary", f"{base}...{head}"], root) + "\n")
+    comparison = subprocess.run(["git", "diff", "--binary", f"{base}...{head}"], cwd=root,
+                                check=True, capture_output=True, timeout=dispatcher.COMMAND_TIMEOUT)
+    diff.write_bytes(comparison.stdout)
     manifest["diff"] = str(diff)
     path = directory / "manifest.json"
     save_manifest(path, manifest)
