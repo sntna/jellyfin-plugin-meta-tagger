@@ -36,6 +36,7 @@ Use these commands from the repository root:
 | --- | --- |
 | `./scripts/build.sh` | Build the Release plugin DLL. Does not install it. |
 | `./scripts/dev.sh` | Build, install into disposable Jellyfin, and watch for changes at port 8099. |
+| `./scripts/check-dashboard.sh` | Run dashboard and dev-client Node tests, then filtered C# `PluginTests` from isolated Release artifacts. Does not install or start Jellyfin. |
 | `./scripts/build-and-test.sh` | Build in isolated Release artifacts and run all dashboard, Python, and C# tests. |
 | `./scripts/serve-local-plugin-repository.sh` | Build a release ZIP and serve its install catalog at port 8098. Does not watch for changes. |
 
@@ -145,6 +146,59 @@ it. It uses only the generated disposable Jellyfin server. The temporary
 fixture exercises Jellyfin's update path; it is not a supported release.
 
 ## Dashboard development
+
+Start dashboard iteration with `./scripts/dev.sh` and open the development
+dashboard linked above. Edit the source-served page, check the result in the
+browser, and run `./scripts/check-dashboard.sh` for quick behavior and embedded-page
+feedback. The focused command restores and builds into temporary Release artifacts,
+cleans them on success or failure, and fails if either test stage fails. It does
+not reuse the project's `bin/` or `obj/` outputs.
+
+Before review, run the required `./scripts/build-and-test.sh`, the HTTP smoke
+checks relevant to the change, and the installed-package browser checks below.
+Browser verification uses the release ZIP installed in disposable Jellyfin;
+source-served development checks alone do not verify the packaged page.
+
+| Source or check | Location and purpose |
+| --- | --- |
+| Dashboard page | `Jellyfin.Plugin.MetaTagger/Configuration/configPage.html` contains the packaged markup, scoped styles, and application script. |
+| Dashboard behavior | `scripts/tests/dashboard.test.mjs` drives page events, requests, navigation, current focus, and request lifecycle behavior with Node. |
+| Development client | `scripts/dev-client.js` is injected only by the development proxy; `scripts/tests/dev-client.test.mjs` checks reload, dirty settings, build failures, and reconnect behavior. |
+| Development proxy | `scripts/dev.py` serves source edits and rebuilds C#; `scripts/tests/test_dev.py` checks watcher and proxy behavior. |
+| Embedded page | `Jellyfin.Plugin.MetaTagger.Tests/PluginTests.cs` verifies the dashboard menu entry and page embedded in the built assembly. |
+| HTTP integration | `scripts/dashboard-smoke.py` checks authenticated plugin routes, writes, and persistence against generated Jellyfin state. |
+| Browser integration | `scripts/check-dashboard-browser.mjs` checks installed-package layout, overflow, views, and keyboard focus in Jellyfin's web host, plus the development reload contract against actual markup. |
+
+Install the browser runner's pinned dependencies and Chromium once:
+
+```sh
+npm ci --prefix scripts/browser
+npm exec --prefix scripts/browser -- playwright install chromium
+```
+
+Run the release lifecycle check to install the current ZIP and record its
+package identity, then run the browser checks against the same generated server:
+
+```sh
+./scripts/test-release-lifecycle.sh TEST_DIRECTORY
+node scripts/check-dashboard-browser.mjs TEST_DIRECTORY
+```
+
+Pass the generated disposable directory printed by the server setup, never an
+arbitrary server URL. For the development-client contract against actual markup
+without Jellyfin, run `node scripts/check-dashboard-browser.mjs --development-only`.
+Verify CI retains the complete test suite, package lifecycle checks, and browser
+verification. Browser failure diagnostics and screenshots are written under
+`artifacts/dashboard-browser/`.
+
+When a ticket has an approved prototype or design reference, keep the reference
+in ignored `docs/specs/`, `docs/prototypes/`, or `docs/notes/`. Record its local
+path and the approval reference with the ticket's requirements in the local
+review packet under `<git-common-dir>/agent-review/`. The packet must identify
+the compared base and head and provide explicit paths to verification logs and
+browser evidence. See the [local automation workflow](agents/local-automation.md)
+for review handoff requirements. These local references support review without
+becoming public, issue-specific documentation.
 
 The plugin bundles its dashboard layout and styles, scoped to Meta Tagger.
 The workspace and on-demand views use charcoal backgrounds, ivory text, cyan actions, slate borders,

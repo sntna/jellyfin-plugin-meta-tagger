@@ -27,6 +27,21 @@ class ReleaseWorkflowTests(unittest.TestCase):
         verify = (ROOT / '.github/workflows/verify.yml').read_text()
         self.assertIn('pull_request:', verify)
         self.assertIn('./scripts/build-and-test.sh', verify)
+        self.assertLess(verify.index('./scripts/test-release-lifecycle.sh'),
+                        verify.index('node scripts/check-dashboard-browser.mjs "$test_directory"'))
+        self.assertIn('npm ci --prefix scripts/browser', verify)
+        self.assertIn('playwright install --with-deps chromium', verify)
+        self.assertIn('m.find_reusable_server()', verify)
+        self.assertIn('timeout-minutes: 20', verify)
+        upload = verify.split('name: Upload safe browser diagnostics', 1)[1].split('      - name:', 1)[0]
+        self.assertIn('if: failure()', upload)
+        self.assertRegex(upload, r'actions/upload-artifact@[a-f0-9]{40}')
+        paths = upload.split('path: |', 1)[1].splitlines()
+        self.assertEqual([line.strip() for line in paths if line.strip()], [
+            'artifacts/dashboard-browser/result.json',
+            'artifacts/dashboard-browser/diagnostics.json',
+            'artifacts/dashboard-browser/browser-errors.json',
+            'artifacts/dashboard-browser/failure.png'])
         self.assertIn('./scripts/test-release-lifecycle.sh', verify)
 
     def test_publisher_uses_reviewed_notes_after_verification_and_tested_zip(self):

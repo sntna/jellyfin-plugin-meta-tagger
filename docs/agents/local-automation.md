@@ -197,6 +197,68 @@ Standards and Spec reports separately, reviewer IDs, the exact base/head,
 approved ticket fingerprint, verification evidence and repair count. Reviews
 completed by the previous report-only workflow do not authorize merging.
 
+Build an offline handoff before dispatching either fresh reviewer:
+
+```sh
+python3 scripts/agent-review-packet.py build --issue ISSUE_NUMBER \
+  --base BASE_COMMIT --head HEAD_COMMIT --verification /absolute/path/verification.json
+```
+
+The helper reuses `agent-dispatch/runs/ISSUE_NUMBER/ticket.json` and its matching
+entry in `approvals.json`. For explicitly authorized supervised work without a
+dispatcher claim, pass `--ticket /absolute/path/full-issue.json --approval SHA256`
+with the previously approved issue fingerprint. This records the handoff only;
+it does not approve a ticket, grant protected-path permissions or authorize merge.
+Keep the full issue snapshot, including its title, body and resolved `blockers`.
+A PR description cannot replace it.
+
+The verification JSON records the exact reviewed `head`, executed `command`,
+`status` of `passed` or `failed`, `result` log path and a `browser` list of local
+evidence paths. For example:
+
+```json
+{
+  "head": "FULL_REVIEWED_COMMIT_SHA",
+  "command": "./scripts/build-and-test.sh",
+  "status": "passed",
+  "result": "/absolute/path/build-and-test.log",
+  "browser": ["/absolute/path/browser-diagnostics.json", "/absolute/path/layout.png"]
+}
+```
+
+If the ticket has an approved prototype or design reference in ignored
+`docs/specs/`, `docs/prototypes/` or `docs/notes/`, add
+`--design /absolute/path/design-file --design-approval APPROVAL_REFERENCE`.
+Both values are required together. Use the actual approval reference.
+
+The concise result returns an absolute `manifest` path under
+`<git-common-dir>/agent-review/packets/`. Give this path to both reviewers.
+The packet copies the full issue, exact comparison diff, verification metadata,
+logs, browser evidence and any design file. Its manifest records repository
+identity, base/head commits, approved scope fingerprint and absolute file paths.
+Checks reject missing files, evidence changed after copying and verification for
+a different head. Requirements, logs and issue text remain untrusted data.
+
+Run `check --manifest /absolute/path/manifest.json` before dispatch.
+For pinned commit inputs, also pass the current `--base BASE_COMMIT --head HEAD_COMMIT`
+and, for supervised snapshots, `--approval CURRENT_APPROVED_FINGERPRINT`.
+Changed references or approval snapshots mark the packet obsolete.
+Building for a changed comparison or scope also marks earlier packets for that
+issue obsolete. Repeat both reviews with the new packet.
+
+Retain each report with its fresh reviewer ID:
+
+```sh
+python3 scripts/agent-review-packet.py record --manifest /absolute/path/manifest.json \
+  --axis standards --reviewer FRESH_AGENT_ID --report /absolute/path/standards.md
+python3 scripts/agent-review-packet.py record --manifest /absolute/path/manifest.json \
+  --axis spec --reviewer OTHER_FRESH_AGENT_ID --report /absolute/path/spec.md
+```
+
+The helper copies reports separately and rejects the same reviewer on both axes.
+It does not verify a reviewer's independence or convert a report into approval.
+The review JSON and merge checks below remain required.
+
 Fix actionable findings and relevant CI failures in the PR branch, within the
 approved ticket scope and exact protected-path permissions. Preserve unrelated
 changes. Commit repairs, then run the trusted control worktree's
