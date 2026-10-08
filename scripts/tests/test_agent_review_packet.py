@@ -73,6 +73,24 @@ class ReviewPacketTests(unittest.TestCase):
         self.assertEqual(manifest["reports"], {})
         self.assertEqual(self.cli("check", "--manifest", manifest_path).returncode, 0)
 
+    def test_comparison_preserves_git_diff_bytes(self):
+        for content in (b"after   \n", b"after\t\r\n", b"after \xff  \n", b"before\n"):
+            with self.subTest(content=content):
+                (self.root / "source.txt").write_bytes(content)
+                self.git("commit", "-qam", "comparison fixture")
+                self.head = self.git("rev-parse", "HEAD")
+                data = json.loads(self.verification.read_text())
+                self.write_json(self.verification, dict(data, head=self.head))
+                expected = subprocess.run(
+                    ["git", "diff", "--binary", f"{self.base}...{self.head}"],
+                    cwd=self.root, capture_output=True, check=True).stdout
+                result = self.build()
+                self.assertEqual(result.returncode, 0, result.stderr)
+                manifest_path = Path(json.loads(result.stdout)["manifest"])
+                manifest = json.loads(manifest_path.read_text())
+                self.assertEqual(Path(manifest["diff"]).read_bytes(), expected)
+                self.assertEqual(self.cli("check", "--manifest", manifest_path).returncode, 0)
+
     def test_supervised_snapshot_design_and_browser_evidence_are_available_offline(self):
         ticket_path = self.root / "supervised-ticket.json"
         self.write_json(ticket_path, self.issue)
