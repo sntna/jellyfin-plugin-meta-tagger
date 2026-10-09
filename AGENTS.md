@@ -34,6 +34,7 @@
   [issue tracker instructions](docs/agents/issue-tracker.md).
 - Use the [triage label mapping](docs/agents/triage-labels.md). Approved tickets
   produced by `/to-tickets` do not need another triage pass.
-- Read [domain documentation instructions](docs/agents/domain.md) before exploring.
+- Read the [domain glossary](GLOSSARY.md) and
+  [domain documentation instructions](docs/agents/domain.md) before exploring.
 - Follow the [local automation workflow](docs/agents/local-automation.md) when
   approving or dispatching tickets. Implementation workers never merge. Only the authorized PR completion workflow may merge under its documented gates. Scheduled workers never release.

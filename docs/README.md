@@ -8,6 +8,7 @@
 
 ## Developing Meta Tagger
 
+- [Domain glossary](../GLOSSARY.md)
 - [Build, live reload, and disposable Jellyfin checks](development.md)
 - [Contribution and pull request requirements](contributing.md)
 - [Local agent ticket automation](agents/local-automation.md)
