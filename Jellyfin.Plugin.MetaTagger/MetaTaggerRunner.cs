@@ -14,8 +14,8 @@ namespace Jellyfin.Plugin.MetaTagger;
 public sealed partial class MetaTaggerRunner
 {
     private readonly IMetaTaggerHost _host;
-    private readonly MetadataProjectionService _metadataProjectionService;
-    private readonly MetadataTagProcessor _processor;
+    private readonly ItemEvaluation _itemEvaluation;
+    private readonly ItemExecution _itemExecution;
     private readonly IMetaTaggerStateStore _stateStore;
     private readonly ILogger<MetaTaggerRunner> _logger;
     private readonly IMetaTaggerClock _clock;
@@ -49,8 +49,8 @@ public sealed partial class MetaTaggerRunner
         IMetaTaggerClock clock)
     {
         _host = host;
-        _metadataProjectionService = metadataProjectionService;
-        _processor = processor;
+        _itemEvaluation = new ItemEvaluation(host, metadataProjectionService, processor, stateStore, logger, clock);
+        _itemExecution = new ItemExecution(host, processor, stateStore, clock, logger, _itemEvaluation);
         _stateStore = stateStore;
         _logger = logger;
         _clock = clock;
@@ -367,6 +367,7 @@ public sealed partial class MetaTaggerRunner
             activeCursor = cursor;
             var cycleSize = cursor!.PendingItemIds.Length;
             summary.ItemsRemaining = cycleSize;
+            var itemContext = new LibraryItemContext(configuration, state, cursor, options, generationSnapshot, budget, started, summary);
             while (cursor.NextIndex < cursor.PendingItemIds.Length)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -381,33 +382,16 @@ public sealed partial class MetaTaggerRunner
                 summary.ItemsScanned++;
                 try
                 {
-                    var result = await ProcessItemAsync(
-                            item,
-                            configuration,
-                            state,
-                            cursor,
-                            options,
-                            generationSnapshot,
-                            budget,
-                            started,
-                            summary,
-                            record,
-                            cancellationToken,
-                            missingRecordedTags)
-                        .ConfigureAwait(false);
-                    if (result.IsTerminal && !result.CursorAdvancePersisted)
+                    var result = await _itemExecution.ExecuteAsync(
+                        new ItemWork.LibraryItem(item, itemContext, missingRecordedTags), cancellationToken).ConfigureAwait(false);
+                    record.AddItem(result.Detail);
+                    if (result.PreviewChange is not null) { previewChanges.Add(result.PreviewChange); }
+                    if (result.Status == ItemExecutionStatus.Deferred) { break; }
+                    if (result.Status is ItemExecutionStatus.Uncertain or ItemExecutionStatus.Cancelled) { result.Error!.Throw(); }
+                    if (result.WriteDelay is { } delay)
                     {
-                        AdvanceCursor(cursor, itemId);
-                    }
-
-                    if (result.PreviewChange is not null)
-                    {
-                        previewChanges.Add(result.PreviewChange);
-                    }
-
-                    if (!result.IsTerminal)
-                    {
-                        break;
+                        await PublishHistoryAsync(record).ConfigureAwait(false);
+                        await _clock.DelayAsync(delay, cancellationToken).ConfigureAwait(false);
                     }
                 }
                 finally
@@ -507,209 +491,6 @@ public sealed partial class MetaTaggerRunner
             summary.ElapsedMilliseconds = stopwatch.Elapsed.TotalMilliseconds;
             if (activeCursor is not null) { summary.ItemsRemaining = ItemsRemaining(activeCursor); }
             await PublishHistoryAsync(record, finished: true).ConfigureAwait(false);
-        }
-    }
-
-    private async Task<ItemProcessingResult> ProcessItemAsync(
-        BaseItem item,
-        PluginConfiguration configuration,
-        MetaTaggerState state,
-        MetaTaggerRunCursor cursor,
-        MetaTaggerRunOptions options,
-        GenerationEligibilitySnapshot? generationSnapshot,
-        MetaTaggerRunBudget budget,
-        DateTimeOffset started,
-        MetaTaggerRunSummary summary,
-        MetaTaggerRunRecord record,
-        CancellationToken cancellationToken,
-        List<string>? missingRecordedTags)
-    {
-        GenerationItemEligibility? generationEligibility = null;
-        IReadOnlyCollection<MetaTaggerSourceExplanation> sourceExplanations = [];
-        var writeOutcome = "NotAttempted";
-        var ownershipOutcome = "NotApplicable";
-        var detailRecorded = false;
-        var originalTags = (item.Tags ?? []).ToArray();
-        void RecordItem(string outcome, string? reason = null, TagMergeResult? merge = null)
-        {
-            detailRecorded = true;
-            record.AddItem(new MetaTaggerRunItem
-            {
-                ItemId = item.Id.ToString("N"), Name = item.Name, ItemType = item.GetType().Name, Outcome = outcome,
-                SourceExplanations = sourceExplanations.Count > 0 ? sourceExplanations
-                    : options.ClearGeneratedTags ? [] : MetadataTagService.UnavailableSources(
-                        outcome == "Protected" ? SourceExplanationStatus.Protected : SourceExplanationStatus.NotChecked,
-                        reason ?? GenerationExclusionReason(generationEligibility) ?? "This source was not checked."),
-                Reason = reason ?? GenerationExclusionReason(generationEligibility), GenerationEligibility = generationEligibility?.ToString(),
-                WriteOutcome = options.PreviewOnly && merge is not null ? "Proposal" : writeOutcome, OwnershipOutcome = ownershipOutcome,
-                KeptTags = originalTags.Except(merge?.RemovedTags ?? [], StringComparer.OrdinalIgnoreCase).ToArray(),
-                AddedTags = merge?.AddedTags ?? [], RemovedTags = merge?.RemovedTags ?? [], PreviewRemovedTags = merge?.PreviewRemovedTags ?? []
-            });
-        }
-
-        var checkpointPending = false;
-        var cursorAdvancePersisted = false;
-        TagMergeResult? attemptedMerge = null;
-
-        try
-        {
-            item = _host.GetItem(item.Id)
-                ?? throw new InvalidOperationException("The queued item is no longer available.");
-            originalTags = (item.Tags ?? []).ToArray();
-            if (item.IsLocked || item.LockedFields?.Contains(MetadataField.Tags) == true)
-            {
-                summary.ItemsSkippedLocked++;
-                RecordItem("Protected", item.IsLocked ? "Jellyfin metadata lock protects this item." : "Jellyfin metadata lock on Tags protects this item.");
-                return ItemProcessingResult.Completed();
-            }
-
-            if ((item.Tags ?? []).Any(tag => string.Equals(tag, TagFormat.ManualControlTag(configuration, "skip"), StringComparison.OrdinalIgnoreCase)
-                || string.Equals(tag, TagFormat.ManualControlTag(configuration, "lock"), StringComparison.OrdinalIgnoreCase)))
-            {
-                summary.ItemsSkippedManual++;
-                RecordItem("Protected", "Skipped because this item has a manual skip tag or its older lock alias.");
-                return ItemProcessingResult.Completed();
-            }
-
-            if (!options.ClearGeneratedTags && options.RunMode != MetadataTagRunMode.RebuildTrackingLedger)
-            {
-                generationEligibility = generationSnapshot!.Decide(item);
-                if (!options.PreviewOnly && generationEligibility != GenerationItemEligibility.Eligible)
-                {
-                    if (generationEligibility == GenerationItemEligibility.BackfillRequired) { summary.ItemsSkippedBaseline++; }
-                    else { summary.ItemsSkippedEligibilityUnavailable++; }
-                    RecordItem(generationEligibility.Value.ToString());
-                    return ItemProcessingResult.Completed();
-                }
-            }
-
-            var input = options.ClearGeneratedTags
-                ? new MetadataTagInput
-                {
-                    ItemId = item.Id.ToString("N"),
-                    ItemPath = item.Path,
-                    ItemType = item.GetType().Name,
-                    ExistingTags = item.Tags ?? []
-                }
-                : ProjectMetadata(item, configuration, state, cancellationToken);
-            if (!options.ClearGeneratedTags) { sourceExplanations = new MetadataTagService().ExplainSources(input, configuration); }
-            // Capture only the selected item's current comparison before refreshing ownership.
-            if (options.ClearGeneratedTags && options.PreviewOnly && options.CleanupItemId == item.Id
-                && state.Items.TryGetValue(input.ItemId, out var previous))
-            {
-                missingRecordedTags?.AddRange(previous.LastAppliedTags.Except(input.ExistingTags, StringComparer.OrdinalIgnoreCase));
-            }
-            summary.ItemsProcessed++;
-            var result = _processor.Process(input, configuration, state, options, started);
-            if (options.PreviewOnly && generationEligibility == GenerationItemEligibility.BackfillRequired)
-            {
-                summary.ItemsPreviewedBaseline++;
-            }
-            if (result.SkipReason is MetadataTagSkipReason.Unchanged)
-            {
-                summary.ItemsSkippedUnchanged++;
-                RecordItem("Up to date");
-                return ItemProcessingResult.Completed();
-            }
-
-            if (result.SkipReason is MetadataTagSkipReason.ManualSkip)
-            {
-                summary.ItemsSkippedManual++;
-                RecordItem("Protected", "Skipped because this item has a manual skip tag or its older lock alias.");
-                return ItemProcessingResult.Completed();
-            }
-
-            var merge = result.Merge;
-            attemptedMerge = merge;
-            AddCounts(summary, merge, configuration);
-
-            if (merge.HasChangesToApply || merge.PreviewRemovedTags.Count > 0)
-            {
-                summary.ItemsChanged++;
-                if (options.PreviewOnly && merge.HasChangesToApply)
-                {
-                    summary.EstimatedWrites++;
-                }
-
-                LogItemChange(configuration, options, item, merge);
-
-                if (result.ShouldWriteTags)
-                {
-                    if (!budget.CanWrite(summary, out var budgetReason))
-                    {
-                        MarkBudgetLimitReached(summary, budgetReason, ItemsRemaining(cursor));
-                        RecordItem("Not applied", "Item update limit reached.", merge);
-                        return ItemProcessingResult.Deferred();
-                    }
-
-                    writeOutcome = "Unconfirmed";
-                    await _host
-                        .UpdateItemTagsAsync(item, merge.FinalTags, cancellationToken)
-                        .ConfigureAwait(false);
-                    writeOutcome = "Confirmed";
-                    ownershipOutcome = "Unconfirmed";
-                    summary.WritesApplied++;
-                    checkpointPending = true;
-                    var ledgerEntry = result.LedgerEntry
-                        ?? throw new InvalidOperationException(
-                            "A successful item write must have a corresponding ledger entry.");
-                    state.Items[input.ItemId] = ledgerEntry;
-                    AdvanceCursor(cursor, input.ItemId);
-                    await _stateStore.SaveAsync(state, CancellationToken.None).ConfigureAwait(false);
-                    checkpointPending = false;
-                    cursorAdvancePersisted = true;
-                    ownershipOutcome = "Confirmed";
-                    RecordItem("Applied", merge: merge);
-                    summary.ItemsRemaining = ItemsRemaining(cursor);
-                    await PublishHistoryAsync(record).ConfigureAwait(false);
-                    await _clock.DelayAsync(budget.WriteDelay, cancellationToken).ConfigureAwait(false);
-                }
-            }
-
-            if (!result.ShouldWriteTags && result.LedgerEntry is not null
-                && generationEligibility is null or GenerationItemEligibility.Eligible)
-            {
-                state.Items[input.ItemId] = result.LedgerEntry;
-            }
-
-            if (merge.PreviewRemovedTags.Count > 0)
-            {
-                LogPreviewRemovals(configuration, item, merge);
-            }
-
-            if (!result.ShouldWriteTags) { RecordItem(merge.HasChangesToApply || merge.PreviewRemovedTags.Count > 0 ? "Changes" : "Up to date", merge: merge); }
-            var previewChange = options.PreviewOnly
-                && (merge.HasChangesToApply || merge.PreviewRemovedTags.Count > 0)
-                    ? CreatePreviewChange(item, merge, generationEligibility)
-                    : null;
-            return ItemProcessingResult.Completed(cursorAdvancePersisted, previewChange);
-        }
-        catch (Exception) when (checkpointPending)
-        {
-            summary.Outcome = "Uncertain";
-            RecordItem("Uncertain", "Tags were saved, but the plugin could not save its tag records. Check the item and the Jellyfin server log before previewing again.", attemptedMerge);
-            throw;
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            if (!detailRecorded) { RecordItem("Cancelled", "Item processing stopped. Any attempted update may be unconfirmed.", attemptedMerge); }
-            throw;
-        }
-        catch (Exception exception) when (!checkpointPending
-            && (exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested))
-        {
-            summary.Failures++;
-            if (exception is MediaStreamLookupException)
-            {
-                sourceExplanations = MetadataTagService.UnavailableSources(SourceExplanationStatus.LookupFailed,
-                    "Jellyfin could not read this item's tracks. No tags or plugin tag records were changed. Try again after checking the server log.", configuration);
-            }
-            RecordItem("Failed", exception is MediaStreamLookupException
-                ? "Jellyfin could not read this item's tracks. No tags or plugin tag records were changed."
-                : "Item processing failed. Check the server log.", attemptedMerge);
-            if (configuration.QuietLogging) { _logger.LogError(exception, "Meta Tagger failed for item {ItemId}.", item.Id); }
-            else { _logger.LogError(exception, "Meta Tagger failed for item {ItemName} ({ItemId}).", item.Name, item.Id); }
-            return ItemProcessingResult.Completed(cursorAdvancePersisted);
         }
     }
 
@@ -827,24 +608,6 @@ public sealed partial class MetaTaggerRunner
             .Append(';');
     }
 
-    private sealed record ItemProcessingResult(
-        bool IsTerminal,
-        bool CursorAdvancePersisted,
-        MetaTaggerPreviewChange? PreviewChange)
-    {
-        public static ItemProcessingResult Completed(
-            bool cursorAdvancePersisted = false,
-            MetaTaggerPreviewChange? previewChange = null)
-        {
-            return new ItemProcessingResult(true, cursorAdvancePersisted, previewChange);
-        }
-
-        public static ItemProcessingResult Deferred()
-        {
-            return new ItemProcessingResult(false, false, null);
-        }
-    }
-
     private static void AddCounts(MetaTaggerRunSummary summary, TagMergeResult merge, PluginConfiguration configuration)
     {
         summary.TagsAdded += merge.AddedTags.Count;
@@ -957,50 +720,6 @@ public sealed partial class MetaTaggerRunner
         summary.ItemsRemaining = Math.Max(0, itemsRemaining);
     }
 
-    private void LogItemChange(
-        PluginConfiguration configuration,
-        MetaTaggerRunOptions options,
-        BaseItem item,
-        TagMergeResult merge)
-    {
-        if (configuration.QuietLogging)
-        {
-            _logger.LogInformation(
-                "Meta Tagger {Mode} item {ItemId}: +{AddedCount} -{RemovedCount}",
-                options.PreviewOnly ? "would update" : "updating",
-                item.Id,
-                merge.AddedTags.Count,
-                merge.RemovedTags.Count);
-            return;
-        }
-
-        _logger.LogInformation(
-            "Meta Tagger {Mode} item {ItemName} ({ItemId}): +{AddedCount} -{RemovedCount}",
-            options.PreviewOnly ? "would update" : "updating",
-            item.Name,
-            item.Id,
-            merge.AddedTags.Count,
-            merge.RemovedTags.Count);
-    }
-
-    private void LogPreviewRemovals(PluginConfiguration configuration, BaseItem item, TagMergeResult merge)
-    {
-        if (configuration.QuietLogging)
-        {
-            _logger.LogInformation(
-                "Meta Tagger preview stale removals for item {ItemId}: {Count} tags",
-                item.Id,
-                merge.PreviewRemovedTags.Count);
-            return;
-        }
-
-        _logger.LogInformation(
-            "Meta Tagger preview stale removals for {ItemName} ({ItemId}): {Tags}",
-            item.Name,
-            item.Id,
-            string.Join(", ", merge.PreviewRemovedTags));
-    }
-
     private static MetaTaggerPreviewChange CreatePreviewChange(BaseItem item, TagMergeResult merge, GenerationItemEligibility? eligibility)
     {
         return new MetaTaggerPreviewChange
@@ -1020,26 +739,6 @@ public sealed partial class MetaTaggerRunner
     {
         return PluginConfigurationValidator.Sanitize(configuration);
     }
-
-    private MetadataTagInput ProjectMetadata(BaseItem item, PluginConfiguration configuration, MetaTaggerState state, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        IReadOnlyList<MediaStream> streams = [];
-        if (configuration.EnableAudioLanguages || configuration.EnableSubtitleLanguages)
-        {
-            try { streams = _host.GetMediaStreams(item.Id); }
-            catch (Exception exception) when (exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                throw new MediaStreamLookupException(exception);
-            }
-        }
-        cancellationToken.ThrowIfCancellationRequested();
-        return _metadataProjectionService.Project(item, configuration.IncludeParentSeriesMetadataOnEpisodes, state.Items, streams);
-    }
-
-    private sealed class MediaStreamLookupException(Exception innerException)
-        : IOException("Jellyfin media-stream lookup failed.", innerException);
 
     private static BaseItemKind[] GetIncludedItemTypes(PluginConfiguration configuration)
     {

@@ -492,6 +492,7 @@ public sealed class MetaTaggerResumableCycleTests
 
         public Task UpdateItemTagsAsync(
             BaseItem item,
+            System.Collections.Immutable.ImmutableArray<string> expectedTags,
             IReadOnlyCollection<string> tags,
             CancellationToken cancellationToken)
         {
