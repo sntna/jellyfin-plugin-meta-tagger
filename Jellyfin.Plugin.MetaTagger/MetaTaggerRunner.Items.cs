@@ -180,13 +180,17 @@ public sealed partial class MetaTaggerRunner
             }
             if (!result.Merge.HasChangesToApply)
             {
+                ownershipOutcome = "Unconfirmed";
+                state.Items[itemId.ToString("N")] = result.LedgerEntry!;
+                await _stateStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
+                ownershipOutcome = "Confirmed";
                 summary.ItemsRemaining = 0;
                 record.AddItem(InspectionHistory(plan.Inspection, "Up to date", writeOutcome, ownershipOutcome));
                 CompleteOutcome(summary);
                 return summary;
             }
             writeOutcome = "Unconfirmed";
-            await _host.UpdateItemTagsAsync(plan.Item!, result.Merge.FinalTags, cancellationToken).ConfigureAwait(false);
+            await _host.UpdateItemTagsAsync(plan.Item!, plan.ExpectedTags, result.Merge.FinalTags, cancellationToken).ConfigureAwait(false);
             writeOutcome = "Confirmed";
             ownershipOutcome = "Unconfirmed";
             checkpointPending = true;
@@ -255,6 +259,7 @@ public sealed partial class MetaTaggerRunner
     {
         cancellationToken.ThrowIfCancellationRequested();
         var item = _host.GetItem(itemId);
+        System.Collections.Immutable.ImmutableArray<string> expectedTags = [.. item?.Tags ?? []];
         var inspection = new MetaTaggerItemInspection
         {
             ItemId = itemId, Name = item?.Name ?? string.Empty, ItemType = item?.GetType().Name ?? string.Empty,
@@ -266,7 +271,7 @@ public sealed partial class MetaTaggerRunner
             inspection.Status = status;
             inspection.Reason = reason;
             inspection.SourceExplanations = MetadataTagService.UnavailableSources(sourceStatus, reason, settings);
-            return new ItemPlan(inspection, item, null, null, null, null);
+            return new ItemPlan(inspection, item, null, null, null, null, expectedTags);
         }
 
         if (item is null) { return Unavailable("Unavailable", "This item was deleted or is unavailable."); }
@@ -345,9 +350,10 @@ public sealed partial class MetaTaggerRunner
         inspection.PreservedTags = retained.Where(tag => !TagFormat.IsManual(tag, configuration)
             && !inspection.OwnedTags.Contains(tag, StringComparer.OrdinalIgnoreCase)).ToArray();
         inspection.Status = merge.HasChangesToApply || merge.PreviewRemovedTags.Count > 0 ? "Changes" : "Up to date";
-        return new ItemPlan(inspection, item, configuration, state, result, input);
+        return new ItemPlan(inspection, item, configuration, state, result, input, expectedTags);
     }
 
     private sealed record ItemPlan(MetaTaggerItemInspection Inspection, MediaBrowser.Controller.Entities.BaseItem? Item,
-        PluginConfiguration? Configuration, MetaTaggerState? State, MetadataTagProcessResult? Result, MetadataTagInput? Input);
+        PluginConfiguration? Configuration, MetaTaggerState? State, MetadataTagProcessResult? Result, MetadataTagInput? Input,
+        System.Collections.Immutable.ImmutableArray<string> ExpectedTags);
 }

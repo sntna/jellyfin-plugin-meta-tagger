@@ -196,6 +196,73 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
         Assert.Equal(["meta:genre:drama"], item.Tags);
         Assert.Equal(0, (await runner.ApplyItemAsync(item.Id, CancellationToken.None)).WritesApplied);
         Assert.Single(host.UpdateAttempts);
+        Assert.Equal(["meta:genre:drama"], (await store.LoadAsync(CancellationToken.None)).Items[item.Id.ToString("N")].LastAppliedTags);
+    }
+
+    [Fact]
+    public async Task ApplyItemAsync_RecognizesExistingGeneratedTagsWithoutWritingMedia()
+    {
+        var item = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"], Tags = ["meta:genre:drama", "manual:keep", "Favorite"] };
+        var host = new InMemoryMetaTaggerHost(new PluginConfiguration { EnableExistingTagsAsKeywords = false }, [item]);
+        var store = new MetaTaggerStateStore(_directory);
+
+        var summary = await CreateRunner(host, store).ApplyItemAsync(item.Id, CancellationToken.None);
+
+        Assert.Equal("Completed", summary.Outcome);
+        Assert.Equal(0, summary.WritesApplied);
+        Assert.Empty(host.UpdateAttempts);
+        Assert.Equal(["meta:genre:drama", "manual:keep", "Favorite"], item.Tags);
+        Assert.Equal(["meta:genre:drama"], (await store.LoadAsync(CancellationToken.None)).Items[item.Id.ToString("N")].LastAppliedTags);
+        var detail = await store.LoadRunAsync(summary.RunId, CancellationToken.None);
+        Assert.Equal("Confirmed", Assert.Single(detail!.Items).OwnershipOutcome);
+        Assert.Equal("NotAttempted", detail.Items[0].WriteOutcome);
+    }
+
+    [Fact]
+    public async Task ApplyItemAsync_NoWriteOwnershipSaveFailureDoesNotReportAMediaWriteOrSuccess()
+    {
+        var item = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"], Tags = ["meta:genre:drama"] };
+        var host = new InMemoryMetaTaggerHost(new PluginConfiguration(), [item]);
+        var store = new MetaTaggerStateStore(_directory, new ItemPublicationFailure(true));
+
+        await Assert.ThrowsAsync<IOException>(() => CreateRunner(host, store).ApplyItemAsync(item.Id, CancellationToken.None));
+
+        Assert.Empty(host.UpdateAttempts);
+        Assert.Empty((await store.LoadAsync(CancellationToken.None)).Items);
+        var run = Assert.Single(await store.LoadRunsAsync(CancellationToken.None));
+        var detail = await store.LoadRunAsync(run.RunId, CancellationToken.None);
+        Assert.Equal("Failed", run.Outcome);
+        Assert.Equal(0, run.Summary.WritesApplied);
+        Assert.Equal("NotAttempted", Assert.Single(detail!.Items).WriteOutcome);
+        Assert.Equal("Unconfirmed", detail.Items[0].OwnershipOutcome);
+    }
+
+    [Theory]
+    [InlineData(false, "Favorite")]
+    [InlineData(false, "manual:keep")]
+    [InlineData(true, "Favorite")]
+    [InlineData(true, "manual:keep")]
+    public async Task Apply_FrozenExpectedTagsRejectConcurrentSameInstanceEdits(bool singleItem, string concurrentTag)
+    {
+        var item = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"] };
+        var host = new InMemoryMetaTaggerHost(new PluginConfiguration { PreviewOnly = false }, [item]);
+        host.BeforeWrite = () => item.Tags = [concurrentTag];
+        var store = new MetaTaggerStateStore(_directory);
+        var runner = CreateRunner(host, store);
+
+        if (singleItem)
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => runner.ApplyItemAsync(item.Id, CancellationToken.None));
+        }
+        else
+        {
+            var summary = await runner.RunAsync(new NoOpProgress(), CancellationToken.None);
+            Assert.Equal(1, summary.Failures);
+            Assert.Equal(0, summary.WritesApplied);
+        }
+
+        Assert.Equal([concurrentTag], item.Tags);
+        Assert.Empty((await store.LoadAsync(CancellationToken.None)).Items);
     }
 
     private sealed class ItemPublicationFailure(bool failCheckpoint) : IMetaTaggerStateFilePromoter
@@ -213,6 +280,29 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
             }
             File.Move(tempPath, destinationPath, overwrite: true);
         }
+    }
+
+    [Fact]
+    public async Task RunAsync_MetadataLookupExhaustsTimeBudgetAndLeavesItemPending()
+    {
+        var item = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"] };
+        var host = new InMemoryMetaTaggerHost(new PluginConfiguration { PreviewOnly = false, EnableAudioLanguages = true, MaxRunMinutes = 1 }, [item]);
+        var clock = new ItemApprovalClock();
+        host.StreamLookup = _ => { clock.UtcNow += TimeSpan.FromMinutes(2); return []; };
+        var store = new MetaTaggerStateStore(_directory);
+        var runner = CreateRunner(host, store, clock);
+
+        var summary = await runner.RunAsync(new NoOpProgress(), CancellationToken.None);
+
+        Assert.True(summary.BudgetLimitReached);
+        Assert.Equal("max-run-minutes", summary.BudgetLimitReason);
+        Assert.Equal(1, summary.ItemsRemaining);
+        Assert.Empty(host.UpdateAttempts);
+        var state = await store.LoadAsync(CancellationToken.None);
+        Assert.Empty(state.Items);
+        Assert.Equal([item.Id.ToString("N")], PendingIds(Assert.Single(state.RunCursors).Value));
+        host.StreamLookup = _ => [];
+        Assert.Equal(1, (await runner.RunAsync(new NoOpProgress(), CancellationToken.None)).WritesApplied);
     }
 
     [Fact]
@@ -2290,6 +2380,8 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
 
         public Func<Guid, IReadOnlyList<MediaStream>> StreamLookup { get; set; } = _ => [];
 
+        public Action? BeforeWrite { get; set; }
+
         public IReadOnlyList<MediaStream> GetMediaStreams(Guid itemId) => StreamLookup(itemId);
 
         public List<(string ItemId, string[] Tags)> UpdateAttempts { get; } = [];
@@ -2343,10 +2435,16 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
 
         public Task UpdateItemTagsAsync(
             BaseItem item,
+            System.Collections.Immutable.ImmutableArray<string> expectedTags,
             IReadOnlyCollection<string> tags,
             CancellationToken cancellationToken)
         {
             var itemId = item.Id.ToString("N");
+            BeforeWrite?.Invoke();
+            if (!(item.Tags ?? []).SequenceEqual(expectedTags, StringComparer.Ordinal))
+            {
+                throw new InvalidOperationException("Item tags changed while planning.");
+            }
             UpdateAttempts.Add((itemId, tags.ToArray()));
             if (string.Equals(itemId, failWriteItemId, StringComparison.OrdinalIgnoreCase))
             {

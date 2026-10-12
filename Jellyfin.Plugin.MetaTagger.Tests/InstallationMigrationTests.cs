@@ -589,7 +589,7 @@ public sealed partial class MetaTaggerRunnerTests
 
         public IReadOnlyList<MediaStream> GetMediaStreams(Guid itemId) => [];
 
-        public Task UpdateItemTagsAsync(BaseItem item, IReadOnlyCollection<string> tags, CancellationToken cancellationToken)
+        public Task UpdateItemTagsAsync(BaseItem item, System.Collections.Immutable.ImmutableArray<string> expectedTags, IReadOnlyCollection<string> tags, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             item.Tags = tags.ToArray();

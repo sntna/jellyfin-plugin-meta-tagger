@@ -121,7 +121,7 @@ public sealed class JellyfinMetaTaggerHostTests
         var current = new RecordingMovie { Id = planned.Id, Tags = ["manual:keep"], Overview = "New description" };
         var host = CreateHost(current);
 
-        await host.UpdateItemTagsAsync(planned, ["manual:keep", "meta:genre:drama"], CancellationToken.None);
+        await host.UpdateItemTagsAsync(planned, [.. planned.Tags], ["manual:keep", "meta:genre:drama"], CancellationToken.None);
 
         Assert.Equal("New description", current.PersistedOverview);
         Assert.NotNull(current.PersistedTags);
@@ -153,7 +153,7 @@ public sealed class JellyfinMetaTaggerHostTests
         var expectedTags = current.Tags.ToArray();
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => CreateHost(current)
-            .UpdateItemTagsAsync(planned, ["manual:keep", "meta:genre:drama"], CancellationToken.None));
+            .UpdateItemTagsAsync(planned, [.. planned.Tags], ["manual:keep", "meta:genre:drama"], CancellationToken.None));
 
         Assert.Null(current.PersistedTags);
         Assert.Equal(expectedTags, current.Tags);
@@ -172,14 +172,31 @@ public sealed class JellyfinMetaTaggerHostTests
         var host = CreateHost(current);
 
         await Assert.ThrowsAsync<IOException>(() => host
-            .UpdateItemTagsAsync(planned, ["manual:keep", "meta:genre:drama"], CancellationToken.None));
+            .UpdateItemTagsAsync(planned, [.. planned.Tags], ["manual:keep", "meta:genre:drama"], CancellationToken.None));
 
         Assert.Equal(["manual:keep"], current.Tags);
         Assert.Null(current.PersistedTags);
         current.WriteFailure = null;
-        await host.UpdateItemTagsAsync(planned, ["manual:keep", "meta:genre:drama"], CancellationToken.None);
+        await host.UpdateItemTagsAsync(planned, [.. planned.Tags], ["manual:keep", "meta:genre:drama"], CancellationToken.None);
         Assert.NotNull(current.PersistedTags);
         Assert.Equal(["manual:keep", "meta:genre:drama"], current.PersistedTags);
+    }
+
+    [Theory]
+    [InlineData("Favorite")]
+    [InlineData("manual:keep")]
+    public async Task UpdateItemTagsAsync_RejectsSameInstanceMutation(string concurrentTag)
+    {
+        var item = new RecordingMovie { Id = Guid.NewGuid(), Tags = [] };
+        var host = CreateHost(item);
+        System.Collections.Immutable.ImmutableArray<string> expectedTags = [.. item.Tags];
+        item.Tags = [concurrentTag];
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => host.UpdateItemTagsAsync(
+            item, expectedTags, ["meta:genre:drama"], CancellationToken.None));
+
+        Assert.Equal([concurrentTag], item.Tags);
+        Assert.Null(item.PersistedTags);
     }
 
     [Fact]
@@ -189,7 +206,7 @@ public sealed class JellyfinMetaTaggerHostTests
         var current = new RecordingMovie { Id = planned.Id, Tags = ["manual:keep"] };
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => CreateHost(current)
-            .UpdateItemTagsAsync(planned, ["meta:genre:drama"], new CancellationToken(canceled: true)));
+            .UpdateItemTagsAsync(planned, [.. planned.Tags], ["meta:genre:drama"], new CancellationToken(canceled: true)));
 
         Assert.Equal(["manual:keep"], current.Tags);
         Assert.Null(current.PersistedTags);

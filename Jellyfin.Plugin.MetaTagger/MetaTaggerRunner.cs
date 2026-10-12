@@ -635,16 +635,17 @@ public sealed partial class MetaTaggerRunner
 
                 if (result.ShouldWriteTags)
                 {
-                    if (!budget.CanWrite(summary, out var budgetReason))
+                    if (budget.ShouldStopBeforeItem(new MetaTaggerRunSummary(), _clock.UtcNow, out var budgetReason)
+                        || !budget.CanWrite(summary, out budgetReason))
                     {
                         MarkBudgetLimitReached(summary, budgetReason, ItemsRemaining(cursor));
-                        RecordItem("Not applied", "Item update limit reached.", merge);
+                        RecordItem("Not applied", "Item update or time limit reached.", merge);
                         return ItemProcessingResult.Deferred();
                     }
 
                     writeOutcome = "Unconfirmed";
                     await _host
-                        .UpdateItemTagsAsync(item, merge.FinalTags, cancellationToken)
+                        .UpdateItemTagsAsync(item, [.. originalTags], merge.FinalTags, cancellationToken)
                         .ConfigureAwait(false);
                     writeOutcome = "Confirmed";
                     ownershipOutcome = "Unconfirmed";

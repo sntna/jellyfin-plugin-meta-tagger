@@ -99,6 +99,7 @@ internal interface IMetaTaggerHost
 
     Task UpdateItemTagsAsync(
         BaseItem item,
+        System.Collections.Immutable.ImmutableArray<string> expectedTags,
         IReadOnlyCollection<string> tags,
         CancellationToken cancellationToken);
 
@@ -214,6 +215,7 @@ internal sealed class JellyfinMetaTaggerHost : IMetaTaggerHost
 
     public async Task UpdateItemTagsAsync(
         BaseItem item,
+        System.Collections.Immutable.ImmutableArray<string> expectedTags,
         IReadOnlyCollection<string> tags,
         CancellationToken cancellationToken)
     {
@@ -222,7 +224,7 @@ internal sealed class JellyfinMetaTaggerHost : IMetaTaggerHost
             ?? throw new InvalidOperationException("The item is no longer available for writing.");
         if (current.IsLocked
             || current.LockedFields?.Contains(MetadataField.Tags) == true
-            || !(current.Tags ?? []).SequenceEqual(item.Tags ?? [], StringComparer.Ordinal))
+            || !(current.Tags ?? []).SequenceEqual(expectedTags, StringComparer.Ordinal))
         {
             throw new InvalidOperationException("Item tags or metadata protection changed while planning; retry the item.");
         }
