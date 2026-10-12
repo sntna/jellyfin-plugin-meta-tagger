@@ -2382,6 +2382,8 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
 
         public Action? BeforeWrite { get; set; }
 
+        public Action? AfterWrite { get; set; }
+
         public IReadOnlyList<MediaStream> GetMediaStreams(Guid itemId) => StreamLookup(itemId);
 
         public List<(string ItemId, string[] Tags)> UpdateAttempts { get; } = [];
@@ -2464,6 +2466,7 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
             }
 
             item.Tags = tags.ToArray();
+            AfterWrite?.Invoke();
             return Task.CompletedTask;
         }
 

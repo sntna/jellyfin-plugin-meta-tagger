@@ -25,7 +25,7 @@ public sealed partial class MetaTaggerRunner
         await _runGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            return (await PlanItemAsync(itemId, draft, cancellationToken).ConfigureAwait(false)).Inspection;
+            return (await _itemEvaluation.PlanAsync(itemId, draft, cancellationToken).ConfigureAwait(false)).Inspection;
         }
         finally { _runGate.Release(); }
     }
@@ -59,7 +59,7 @@ public sealed partial class MetaTaggerRunner
                 record.AddItem(InspectionHistory(limited, "Not checked", "NotAttempted"));
                 return limited;
             }
-            var plan = await PlanItemAsync(itemId, configuration, cancellationToken).ConfigureAwait(false);
+            var plan = await _itemEvaluation.PlanAsync(itemId, configuration, cancellationToken).ConfigureAwait(false);
             var inspection = plan.Inspection;
             summary.ItemsScanned = 1;
             if (plan.Result is not null)
@@ -101,9 +101,8 @@ public sealed partial class MetaTaggerRunner
         await _runGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         MetaTaggerRunRecord? record = null;
         ItemPlan? plan = null;
-        var checkpointPending = false;
-        var writeOutcome = "NotAttempted";
-        var ownershipOutcome = "NotApplicable";
+        MetaTaggerItemInspection? inspection = null;
+        ItemOutcome? execution = null;
         try
         {
             // Waiting for another run must not consume this item's execution budget.
@@ -115,14 +114,14 @@ public sealed partial class MetaTaggerRunner
             summary.ItemsRemaining = 1;
             record = CreateRunRecord(summary, "Apply", itemId.ToString("N"), configuration: CloneConfiguration(savedConfiguration));
             await PublishHistoryAsync(record).ConfigureAwait(false);
-            plan = await PlanItemAsync(itemId, null, cancellationToken).ConfigureAwait(false);
+            plan = await _itemEvaluation.PlanAsync(itemId, null, cancellationToken).ConfigureAwait(false);
+            inspection = plan.Inspection;
             if (plan.Result is null)
             {
                 summary.ItemsScanned = 1;
                 throw new InvalidOperationException(plan.Inspection.Reason ?? "This item cannot be updated.");
             }
             var configuration = plan.Configuration!;
-            var state = plan.State!;
             var started = summary.LastRunUtc!.Value;
             var budget = new MetaTaggerRunBudget(configuration, started);
             if (budget.ShouldStopBeforeItem(summary, _clock.UtcNow, out var reason))
@@ -137,77 +136,40 @@ public sealed partial class MetaTaggerRunner
                 summary.ItemsRemaining = 1;
                 return summary;
             }
-            // Confirm storage can checkpoint before crossing the media-write boundary.
-            await _stateStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
-            cancellationToken.ThrowIfCancellationRequested();
-            if (budget.ShouldStopBeforeItem(new MetaTaggerRunSummary(), _clock.UtcNow, out reason))
+            var preparation = await _itemExecution.PrepareSingleAsync(plan, summary, cancellationToken).ConfigureAwait(false);
+            inspection = preparation.Inspection;
+            if (preparation.Configuration is { } preparedConfiguration)
             {
-                MarkBudgetLimitReached(summary, reason, 1);
-                return summary;
+                record.ConfigurationRevision = preparedConfiguration.ConfigurationRevision;
+                record.ItemTypes = GetIncludedItemTypes(preparedConfiguration).Select(type => type.ToString()).ToArray();
+                record.RecordedRules = MetaTaggerRecordedRules.Capture(preparedConfiguration);
             }
-            // Recalculate after the storage wait using current metadata and saved settings.
-            plan = await PlanItemAsync(itemId, null, cancellationToken).ConfigureAwait(false);
-            if (plan.Result is null)
+            if (summary.BudgetLimitReached) { return summary; }
+            if (preparation.Work is null)
             {
-                throw new InvalidOperationException(plan.Inspection.Reason ?? "This item cannot be updated.");
+                throw new InvalidOperationException(inspection.Reason ?? "This item cannot be updated.");
             }
-            configuration = plan.Configuration!;
-            state = plan.State!;
-            budget = new MetaTaggerRunBudget(configuration, started);
-            summary.ConfigurationRevision = configuration.ConfigurationRevision;
-            record.ConfigurationRevision = configuration.ConfigurationRevision;
-            record.ItemTypes = GetIncludedItemTypes(configuration).Select(type => type.ToString()).ToArray();
-            record.RecordedRules = MetaTaggerRecordedRules.Capture(configuration);
-            summary.ItemsScanned = 1;
-            summary.ItemsProcessed = 1;
-            var result = _processor.Process(plan.Input!, configuration, state,
-                new MetaTaggerRunOptions { Force = true, PreviewOnly = false }, started);
-            AddCounts(summary, result.Merge, configuration);
-            summary.ItemsChanged = result.Merge.HasChangesToApply ? 1 : 0;
-            if (budget.ShouldStopBeforeItem(new MetaTaggerRunSummary(), _clock.UtcNow, out reason)
-                || (result.Merge.HasChangesToApply && !budget.CanWrite(summary, out reason)))
+            AuthorizeGenerationScope(preparation.Configuration!, [], inspection.ItemId, summary, cancellationToken);
+            inspection.GenerationEligibility = GenerationItemEligibility.Eligible.ToString();
+            execution = await _itemExecution.ExecuteAsync(preparation.Work, cancellationToken).ConfigureAwait(false);
+            record.AddItem(execution.Detail);
+            if (execution.Status == ItemExecutionStatus.Deferred) { return summary; }
+            execution.Error?.Throw();
+            if (execution.WriteDelay is { } delay)
             {
-                MarkBudgetLimitReached(summary, reason, 1);
-                return summary;
+                await PublishHistoryAsync(record).ConfigureAwait(false);
+                await _clock.DelayAsync(delay, cancellationToken).ConfigureAwait(false);
             }
-            AuthorizeGenerationScope(configuration, [], itemId, summary, cancellationToken);
-            plan.Inspection.GenerationEligibility = GenerationItemEligibility.Eligible.ToString();
-            cancellationToken.ThrowIfCancellationRequested();
-            if (budget.ShouldStopBeforeItem(new MetaTaggerRunSummary(), _clock.UtcNow, out reason))
+            else
             {
-                MarkBudgetLimitReached(summary, reason, 1);
-                return summary;
-            }
-            if (!result.Merge.HasChangesToApply)
-            {
-                ownershipOutcome = "Unconfirmed";
-                state.Items[itemId.ToString("N")] = result.LedgerEntry!;
-                await _stateStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
-                ownershipOutcome = "Confirmed";
-                summary.ItemsRemaining = 0;
-                record.AddItem(InspectionHistory(plan.Inspection, "Up to date", writeOutcome, ownershipOutcome));
                 CompleteOutcome(summary);
                 return summary;
             }
-            writeOutcome = "Unconfirmed";
-            await _host.UpdateItemTagsAsync(plan.Item!, plan.ExpectedTags, result.Merge.FinalTags, cancellationToken).ConfigureAwait(false);
-            writeOutcome = "Confirmed";
-            ownershipOutcome = "Unconfirmed";
-            checkpointPending = true;
-            summary.WritesApplied = 1;
-            state.Items[itemId.ToString("N")] = result.LedgerEntry!;
-            await _stateStore.SaveAsync(state, CancellationToken.None).ConfigureAwait(false);
-            checkpointPending = false;
-            ownershipOutcome = "Confirmed";
-            summary.ItemsRemaining = 0;
-            record.AddItem(InspectionHistory(plan.Inspection, "Applied", writeOutcome, ownershipOutcome));
-            await PublishHistoryAsync(record).ConfigureAwait(false);
-            await _clock.DelayAsync(budget.WriteDelay, cancellationToken).ConfigureAwait(false);
             CompleteOutcome(summary);
             await _stateStore.SaveSummaryAsync(summary, cancellationToken).ConfigureAwait(false);
             return summary;
         }
-        catch (Exception exception) when (checkpointPending)
+        catch (Exception exception) when (execution?.Status == ItemExecutionStatus.Uncertain)
         {
             summary.Outcome = "Uncertain";
             if (record is not null) { record.FailureReason = "Tags were saved, but the plugin could not save its tag records. Inspect the item before retrying."; }
@@ -225,13 +187,13 @@ public sealed partial class MetaTaggerRunner
         {
             if (record is not null)
             {
-                if (record.Items.Count == 0 && plan is not null) { record.AddItem(InspectionHistory(plan.Inspection, summary.BudgetLimitReached ? "Not applied" : summary.Outcome, writeOutcome, ownershipOutcome)); }
-                if (record.Items.Count == 0 && plan is null)
+                if (record.Items.Count == 0 && inspection is not null) { record.AddItem(InspectionHistory(inspection, summary.BudgetLimitReached ? "Not applied" : summary.Outcome, "NotAttempted", "NotApplicable")); }
+                if (record.Items.Count == 0 && inspection is null)
                 {
                     record.AddItem(new MetaTaggerRunItem
                     {
-                        ItemId = itemId.ToString("N"), Outcome = summary.Outcome, WriteOutcome = writeOutcome,
-                        OwnershipOutcome = ownershipOutcome, Reason = "Processing stopped before item details were available."
+                        ItemId = itemId.ToString("N"), Outcome = summary.Outcome, WriteOutcome = "NotAttempted",
+                        OwnershipOutcome = "NotApplicable", Reason = "Processing stopped before item details were available."
                     });
                 }
                 await PublishHistoryAsync(record, finished: true).ConfigureAwait(false);
@@ -255,105 +217,4 @@ public sealed partial class MetaTaggerRunner
         };
     }
 
-    private async Task<ItemPlan> PlanItemAsync(Guid itemId, PluginConfiguration? draft, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        var item = _host.GetItem(itemId);
-        System.Collections.Immutable.ImmutableArray<string> expectedTags = [.. item?.Tags ?? []];
-        var inspection = new MetaTaggerItemInspection
-        {
-            ItemId = itemId, Name = item?.Name ?? string.Empty, ItemType = item?.GetType().Name ?? string.Empty,
-            PreservedTags = (item?.Tags ?? []).ToArray(),
-            ArtworkItemIds = MetaTaggerBrowserItem.GetArtworkItemIds(item)
-        };
-        ItemPlan Unavailable(string status, string reason, SourceExplanationStatus sourceStatus = SourceExplanationStatus.NotChecked, PluginConfiguration? settings = null)
-        {
-            inspection.Status = status;
-            inspection.Reason = reason;
-            inspection.SourceExplanations = MetadataTagService.UnavailableSources(sourceStatus, reason, settings);
-            return new ItemPlan(inspection, item, null, null, null, null, expectedTags);
-        }
-
-        if (item is null) { return Unavailable("Unavailable", "This item was deleted or is unavailable."); }
-        // Check locks before reading the ledger or projecting any metadata, including parent data.
-        if (item.IsLocked) { return Unavailable("Protected", "Jellyfin metadata lock protects this item.", SourceExplanationStatus.Protected); }
-        if (item.LockedFields?.Contains(MetadataField.Tags) == true) { return Unavailable("Protected", "Jellyfin metadata lock on Tags protects this item.", SourceExplanationStatus.Protected); }
-        var source = draft ?? _host.GetConfiguration();
-        var validation = PluginConfigurationValidator.Validate(source);
-        if (!validation.IsValid) { return Unavailable("InvalidSettings", string.Join(" ", validation.Errors)); }
-        var configuration = CloneConfiguration(source);
-        if (draft is not null) { configuration.Installation = _host.GetConfiguration().Installation?.Copy(); }
-        inspection.ConfigurationRevision = configuration.ConfigurationRevision;
-        inspection.GenerationEligibility = new GenerationEligibilitySnapshot(configuration.Installation, RunInvocation.ConfiguredDefault).Decide(item).ToString();
-        if (configuration.Installation?.Origin == InstallationOrigin.Uncertain)
-        {
-            return Unavailable("InstallationUnavailable", "The saved installation policy is unavailable. Restore the plugin configuration before applying tags.");
-        }
-        if (!configuration.IsEnabled) { return Unavailable("Disabled", "Tagging is off in these settings. Select Turn on Meta Tagger to generate tags.", SourceExplanationStatus.Disabled); }
-        if (!GetIncludedItemTypes(configuration).Any(type => type.ToString() == GenerationItemType(item)))
-        {
-            return Unavailable("OutOfScope", "This item type is not selected in these settings. Select it under Item types to include it.", SourceExplanationStatus.ExcludedItemType);
-        }
-
-        if ((item.Tags ?? []).Contains(TagFormat.ManualControlTag(configuration, "skip"), StringComparer.OrdinalIgnoreCase))
-        {
-            return Unavailable("Protected", "Skipped because this item has the manual skip tag.", SourceExplanationStatus.Protected);
-        }
-
-        if ((item.Tags ?? []).Contains(TagFormat.ManualControlTag(configuration, "lock"), StringComparer.OrdinalIgnoreCase))
-        {
-            return Unavailable("Protected", "Skipped because this item has the older manual lock tag, which works like the skip tag.", SourceExplanationStatus.Protected);
-        }
-
-        // Item inspection and approval never claim untracked tags or consume maintenance actions.
-        configuration.ClaimExistingGeneratedTagsForCleanup = false;
-        configuration.LastRunSummaryText = string.Empty;
-        var state = await _stateStore.LoadAsync(cancellationToken).ConfigureAwait(false);
-        MetadataTagInput input;
-        try { input = ProjectMetadata(item, configuration, state, cancellationToken); }
-        catch (MediaStreamLookupException exception)
-        {
-            _logger.LogError(exception, "Meta Tagger could not read media streams for item {ItemId}.", itemId);
-            return Unavailable("Failed", "Jellyfin could not read this item's tracks. No tags or plugin tag records were changed. Try again after checking the server log.",
-                SourceExplanationStatus.LookupFailed, configuration);
-        }
-        var result = _processor.Process(input, configuration, state, new MetaTaggerRunOptions { Force = true }, _clock.UtcNow);
-        var merge = result.Merge;
-        state.Items.TryGetValue(input.ItemId, out var owned);
-        inspection.MissingRecordedTags = (owned?.LastAppliedTags ?? [])
-            .Except(input.ExistingTags, StringComparer.OrdinalIgnoreCase).ToArray();
-        inspection.MissingTagsWithSourceOff = inspection.MissingRecordedTags.Where(tag =>
-            !merge.AddedTags.Contains(tag, StringComparer.OrdinalIgnoreCase)
-            && (TagFormat.TryGetGeneratedSource(tag, configuration)?.ToLowerInvariant() switch
-            {
-                "genre" => !configuration.EnableGenres,
-                "rating" => !configuration.EnableParentalRating,
-                "keyword" => !configuration.EnableExistingTagsAsKeywords,
-                "studio" => !configuration.EnableStudios,
-                "country" => !configuration.EnableProductionCountries,
-                "provider" => !configuration.EnableProviderIds,
-                "year" => !configuration.EnableProductionYear,
-                "audio-language" => !configuration.EnableAudioLanguages,
-                "subtitle-language" => !configuration.EnableSubtitleLanguages,
-                _ => false
-            })).ToArray();
-        inspection.Sources = new MetadataTagService().ExplainTags(input, configuration);
-        inspection.SourceExplanations = new MetadataTagService().ExplainSources(input, configuration);
-        inspection.GeneratedTags = result.LedgerEntry?.LastGeneratedTags ?? [];
-        inspection.AddedTags = merge.AddedTags;
-        inspection.RemovedTags = merge.RemovedTags;
-        inspection.PreviewRemovedTags = merge.PreviewRemovedTags;
-        var retained = input.ExistingTags.Where(tag => !merge.RemovedTags.Contains(tag, StringComparer.OrdinalIgnoreCase)).ToArray();
-        inspection.ManualTags = retained.Where(tag => TagFormat.IsManual(tag, configuration)).ToArray();
-        inspection.OwnedTags = retained.Where(tag => !TagFormat.IsManual(tag, configuration)
-            && (owned?.LastAppliedTags ?? []).Contains(tag, StringComparer.OrdinalIgnoreCase)).ToArray();
-        inspection.PreservedTags = retained.Where(tag => !TagFormat.IsManual(tag, configuration)
-            && !inspection.OwnedTags.Contains(tag, StringComparer.OrdinalIgnoreCase)).ToArray();
-        inspection.Status = merge.HasChangesToApply || merge.PreviewRemovedTags.Count > 0 ? "Changes" : "Up to date";
-        return new ItemPlan(inspection, item, configuration, state, result, input, expectedTags);
-    }
-
-    private sealed record ItemPlan(MetaTaggerItemInspection Inspection, MediaBrowser.Controller.Entities.BaseItem? Item,
-        PluginConfiguration? Configuration, MetaTaggerState? State, MetadataTagProcessResult? Result, MetadataTagInput? Input,
-        System.Collections.Immutable.ImmutableArray<string> ExpectedTags);
 }
