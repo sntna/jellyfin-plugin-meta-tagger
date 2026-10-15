@@ -135,6 +135,10 @@ function dashboard() {
             this.element(id).open = open;
             await this.event(id, 'toggle');
         },
+        async go(name) {
+            assert.ok(['Activity', 'Items', 'Settings', 'Maintenance'].includes(name), 'Unknown dashboard section ' + name);
+            await this.click('Tab' + name);
+        },
         async activate(element) { element.focus(); element.dispatch("click"); await flush(); },
         focused() { return focusedElement; },
         detach() { attached = false; },
@@ -180,7 +184,7 @@ const preview = {
 
 test('settings item choices search automatically and show selection with source values', async () => {
     const page = await readyDashboard();
-    await page.click('WorkspaceButton');
+    await page.go('Settings');
     page.element('ExampleAside').open = true;
     await page.event('ExampleAside', 'toggle');
     page.element('ExampleSearch').value = 'Apollo';
@@ -220,7 +224,7 @@ test('editing settings prevents a pending cleanup preview from restoring approva
     const page = dashboard();
     await page.open();
     await page.respond('MetaTagger/Preview', preview);
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     await page.click('PreviewCleanupButton');
     await page.edit('GeneratedTagPrefix', 'custom');
     await page.respond('MetaTagger/Cleanup/Preview', cleanupPreview);
@@ -315,7 +319,7 @@ function assertNoReadWrites(page) {
 
 test('a fresh cleanup requires confirmation and consumes approval before sending one apply', async () => {
     const page = await readyDashboard();
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     await page.click('PreviewCleanupButton');
     assert.equal(page.element('PreviewCleanupButton').disabled, true);
     await page.respond('MetaTagger/Cleanup/Preview', cleanupPreview);
@@ -335,7 +339,7 @@ test('a fresh cleanup requires confirmation and consumes approval before sending
 
 test('a late cleanup failure cannot replace the settings-changed warning', async () => {
     const page = await readyDashboard();
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     await page.click('PreviewCleanupButton');
     await page.edit('EnableGenres', true);
     await page.fail('MetaTagger/Cleanup/Preview');
@@ -346,12 +350,12 @@ test('a late cleanup failure cannot replace the settings-changed warning', async
 
 test('current preview failures release controls and allow a successful retry', async () => {
     const page = await readyDashboard();
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     await page.click('PreviewCleanupButton');
     await page.fail('MetaTagger/Cleanup/Preview');
     assert.match(page.element('CleanupFeedback').textContent, /Tag removal preview failed/);
     assert.equal(page.element('PreviewCleanupButton').disabled, false);
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     await page.click('PreviewCleanupButton');
     await page.respond('MetaTagger/Cleanup/Preview', cleanupPreview);
     assert.equal(page.element('ConfirmCleanup').disabled, false);
@@ -359,7 +363,7 @@ test('current preview failures release controls and allow a successful retry', a
 
 test('a removal preview explains unavailable plugin records instead of implying there are no tags to remove', async () => {
     const page = await readyDashboard();
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     await page.click('PreviewCleanupButton');
     await page.respond('MetaTagger/Cleanup/Preview', {
         summary: { outcome: 'Preview fallback', previewOnly: true, itemsScanned: 0 }, changes: []
@@ -371,7 +375,7 @@ test('a removal preview explains unavailable plugin records instead of implying 
 
 test('saving settings keeps old approval invalid and permits a newly calculated preview', async () => {
     const page = await readyDashboard();
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     await page.click('PreviewCleanupButton');
     await page.respond('MetaTagger/Cleanup/Preview', cleanupPreview);
     await confirmCleanup(page);
@@ -384,7 +388,7 @@ test('saving settings keeps old approval invalid and permits a newly calculated 
     await page.respond('save-settings', {});
     assert.equal(page.element('PreviewCleanupButton').disabled, false);
     assert.equal(page.element('ApplyCleanupButton').disabled, true);
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     await page.click('PreviewCleanupButton');
     await page.respond('MetaTagger/Cleanup/Preview', { ...cleanupPreview, token: 'new-approval' });
     await confirmCleanup(page);
@@ -394,7 +398,7 @@ test('saving settings keeps old approval invalid and permits a newly calculated 
 
 test('changing the cleanup target clears both displayed removals and confirmation', async () => {
     const page = await readyDashboard();
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     await page.click('PreviewCleanupButton');
     await page.respond('MetaTagger/Cleanup/Preview', cleanupPreview);
     await confirmCleanup(page);
@@ -489,16 +493,16 @@ test('requests finishing after the page is removed do not touch its DOM', async 
     assert.equal(page.element('PreviewChanges').children.length, 0);
 });
 
-test('switching the workspace to History and back preserves the unsaved draft without requests', async () => {
+test('leaving Settings for Activity and back preserves the unsaved draft without requests', async () => {
     const page = await readyDashboard();
-    await page.click('WorkspaceButton');
+    await page.go('Settings');
     page.element('ExampleAside').open = true;
     await page.event('ExampleAside', 'toggle');
     await page.edit('GeneratedTagPrefix', 'draft');
-    await page.click('OpenRunsButton');
-    assert.equal(page.element('PanelReview').hidden, true);
+    await page.go('Activity');
+    assert.equal(page.element('PanelActivity').hidden, false);
     assert.equal(page.element('PanelSettings').hidden, true);
-    await page.click('WorkspaceButton');
+    await page.go('Settings');
     page.element('ExampleAside').open = true;
     await page.event('ExampleAside', 'toggle');
     assert.equal(page.element('GeneratedTagPrefix').value, 'draft');
@@ -506,15 +510,6 @@ test('switching the workspace to History and back preserves the unsaved draft wi
     assert.equal(page.sent('load-settings').length, 1);
     assert.equal(page.sent('save-settings').length, 0);
     assert.equal(page.sent('MetaTagger/Cleanup/Apply').length, 0);
-});
-
-test('Escape closes an on-demand view and restores entry focus', async () => {
-    const page = await readyDashboard();
-    await page.click('OpenMaintenanceButton');
-    assert.equal(page.element('PanelMaintenance').hidden, false);
-    await page.event('MetaTaggerConfigPage', 'keydown', { key: 'Escape' });
-    assert.equal(page.element('PanelOverview').hidden, false);
-    assert.equal(page.focused(), page.element('OpenMaintenanceButton'));
 });
 
 test('the example uses draft settings and ignores a slower response from an older draft', async () => {
@@ -620,7 +615,7 @@ test('item Apply submits no approval and prevents duplicate starts', async () =>
     assert.equal(page.element('ApplyCleanupButton').disabled, true);
 });
 
-test('Overview and Runs use persisted outcomes and historical details never authorize Apply', async () => {
+test('Activity uses persisted outcomes and historical details never authorize Apply', async () => {
     const page = await readyDashboard();
     await page.respond('MetaTagger/Runs', [{ runId: 'run-a', operation: 'Preview', outcome: 'Budget limited',
         scope: 'Configured item types across all libraries', configurationRevision: 'revision', startedUtc: '2026-09-13T12:00:00Z',
@@ -628,18 +623,18 @@ test('Overview and Runs use persisted outcomes and historical details never auth
     assert.match(page.element('OverviewOutcome').textContent, /Run limit reached/);
     assert.match(page.element('OverviewCounts').textContent, /25/);
     await page.respond('MetaTagger/Runs/run-a', { detailsAvailable: true, items: [] });
-    await page.activate(page.element('RunList').children[0]);
+    await page.activate(feedToggle(page, 'run-a'));
     await page.respond('MetaTagger/Runs/run-a', { runId: 'run-a', operation: 'Preview', outcome: 'Budget limited', detailsAvailable: true,
         items: [
             { name: '<img onerror=alert(1)>', outcome: 'Changes', addedTags: ['<script>literal</script>'] },
             { name: 'Updated movie', outcome: 'Applied', addedTags: ['meta:year:2023'] },
             { name: 'Uncertain movie', outcome: 'Uncertain', removedTags: ['meta:year:2022'] }
         ] });
-    assert.match(page.element('RunDetails').textContent, /<img onerror=alert\(1\)>/);
-    assert.match(page.element('RunDetails').textContent, /<script>literal<\/script>/);
-    assert.match(page.element('RunDetails').children[0].textContent, /Tag differences.*Tags to add/);
-    assert.match(page.element('RunDetails').children[1].textContent, /Updated movie · Updated.*Tags added/);
-    assert.match(page.element('RunDetails').children[2].textContent, /Update not confirmed.*Tags to remove/);
+    assert.match(feedItems(page, 'run-a').textContent, /<img onerror=alert\(1\)>/);
+    assert.match(feedItems(page, 'run-a').textContent, /<script>literal<\/script>/);
+    assert.match(feedItems(page, 'run-a').children[0].textContent, /Tag differences.*Tags to add/);
+    assert.match(feedItems(page, 'run-a').children[1].textContent, /Updated movie · Updated.*Tags added/);
+    assert.match(feedItems(page, 'run-a').children[2].textContent, /Update not confirmed.*Tags to remove/);
     assert.equal(page.element('ApplyItemButton').disabled, true);
     assert.equal(page.element('ApplyCleanupButton').disabled, true);
 });
@@ -653,8 +648,6 @@ test('overview counts use the latest run and clear when history becomes unavaila
     assert.match(page.element('OverviewCounts').textContent, /Items with tag differences: 3.*Items updated: 2.*Items skipped for protection: 2/);
     assert.match(page.element('OverviewCounts').textContent, /One item/);
     assert.match(page.element('OverviewCounts').textContent, /Items with tag differences: 3 · Items updated: 2/);
-    await page.click('OverviewRunsButton');
-    assert.equal(page.element('PanelRuns').hidden, false);
     await page.click('RefreshRunsButton');
     await page.fail('MetaTagger/Runs');
     assert.match(page.element('OverviewOutcome').textContent, /unavailable/);
@@ -753,7 +746,7 @@ test('searching for a new example invalidates the earlier example response and t
 });
 
 async function chooseExample(page, item) {
-    await page.click('WorkspaceButton');
+    await page.go('Settings');
     page.element('ExampleAside').open = true;
     await page.event('ExampleAside', 'toggle');
     await page.tick();
@@ -779,7 +772,7 @@ test('example selection rejects older targets and navigation responses without s
     first.resolve({ generatedTags: ['obsolete:first'] });
     await page.event('ExampleSearch', 'blur');
     assert.doesNotMatch(page.element('ExampleTags').textContent, /obsolete/);
-    await page.click('WorkspaceButton');
+    await page.go('Settings');
     second.resolve({ generatedTags: ['obsolete:second'] });
     await page.event('ExampleSearch', 'blur');
     assert.doesNotMatch(page.element('ExampleTags').textContent, /obsolete/);
@@ -789,7 +782,7 @@ test('example selection rejects older targets and navigation responses without s
 
 test('search feedback handles no matches, failure, retry, and Enter without saving', async () => {
     const page = await readyDashboard();
-    await page.click('WorkspaceButton');
+    await page.go('Settings');
     page.element('ExampleAside').open = true;
     await page.event('ExampleAside', 'toggle');
     await page.event('ExampleSearch', 'keydown', { key: 'Enter' });
@@ -837,7 +830,7 @@ test('language choices save and stay selected while metadata refresh preserves t
 test('opening Settings during configuration loading starts item choices when loading finishes', async () => {
     const page = dashboard();
     await page.event('MetaTaggerConfigPage', 'pageshow');
-    await page.click('WorkspaceButton');
+    await page.go('Settings');
     page.element('ExampleAside').open = true;
     await page.event('ExampleAside', 'toggle');
     await page.respond('load-settings', { GeneratedTagPrefix: 'meta', ManualTagPrefix: 'manual', TagSeparator: ':', IsEnabled: true });
@@ -849,8 +842,8 @@ test('saving settings restarts pending item search and selected item calculation
     const page = await readyDashboard();
     await chooseExample(page, { itemId: 'a', name: 'Keep selected', itemType: 'Movie' });
     const earlierExample = page.request('MetaTagger/Example');
-    await page.click('WorkspaceButton');
-    await page.click('WorkspaceButton');
+    await page.go('Settings');
+    await page.go('Settings');
     page.element('ExampleAside').open = true;
     await page.event('ExampleAside', 'toggle');
     await page.tick();
@@ -903,7 +896,7 @@ test('source summaries name every saved selection while later edits remain a sep
 
 test('the Settings aside requests only while visible and rejects responses after navigation', async () => {
     const page = await readyDashboard();
-    await page.click('WorkspaceButton');
+    await page.go('Settings');
     page.element('ExampleAside').open = true;
     await page.event('ExampleAside', 'toggle');
     await page.tick();
@@ -912,14 +905,14 @@ test('the Settings aside requests only while visible and rejects responses after
     await page.activate(page.element('ExampleResults').children[0].children[0]);
     await page.tick();
     const older = page.request('MetaTagger/Example');
-    await page.click('OpenRunsButton');
+    await page.go('Activity');
     await page.edit('GeneratedTagPrefix', 'latest');
     await page.tick();
     older.resolve({ generatedTags: ['obsolete:tag'] });
     await page.event('ExampleSearch', 'blur');
     assert.equal(page.sent('MetaTagger/Example').length, 1);
     assert.doesNotMatch(page.element('ExampleTags').textContent, /obsolete/);
-    await page.click('WorkspaceButton');
+    await page.go('Settings');
     page.element('ExampleAside').open = true;
     await page.event('ExampleAside', 'toggle');
     await page.tick();
@@ -956,17 +949,17 @@ test('collapsed setup summaries follow the draft and validation opens its enclos
 
 test('leaving Maintenance rejects a pending removal preview even after returning', async () => {
     const page = await readyDashboard();
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     assert.equal(page.element('PreviewCleanupButton').disabled, false);
     assert.equal(page.element('CleanupDisclosure'), undefined);
     assert.equal(page.element('CleanupScope').closest('details'), null);
     await page.click('PreviewCleanupButton');
     const pending = page.request('MetaTagger/Cleanup/Preview');
-    await page.click('WorkspaceButton');
+    await page.go('Activity');
     assert.equal(page.element('PreviewCleanupButton').disabled, true);
     assert.equal(page.element('ConfirmCleanup').checked, false);
     assert.equal(page.element('ApplyCleanupButton').disabled, true);
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     pending.resolve(cleanupPreview);
     await page.event('CleanupScope', 'blur');
     assert.equal(page.element('CleanupChanges').children.length, 0);
@@ -993,9 +986,9 @@ test('invalid saved values in conditional controls can be corrected even when th
 test('saved run action stays explicit and editing settings or opening Scheduled Tasks never applies a draft', async () => {
     const page = await readyDashboard();
     assert.equal(page.element('PreviewOnly').checked, true);
-    assert.match(page.element('OverviewAutomationHelp').textContent, /Scheduled Tasks/);
+    assert.match(page.element('OverviewAutomationText').textContent, /Post-scan/);
     assert.equal(page.element('EditAutomationButton'), undefined);
-    await page.click('WorkspaceButton');
+    await page.go('Settings');
     assert.equal(page.element('PanelSettings').hidden, false);
     await page.edit('PreviewOnly', false);
     await page.edit('RunAfterLibraryScan', true);
@@ -1030,59 +1023,49 @@ test('Overview describes the actual latest operation once with its time and exce
     assert.match(page.element('OverviewCounts').textContent, /Run limit reached/);
     assert.match(page.element('OverviewCounts').textContent, /could not be confirmed/);
     assert.equal(page.element('OverviewStats'), undefined);
-    assert.equal(page.element('RecentRuns').children.length, 2);
+    assert.equal(page.element('RunFeed').children.length, 2);
     await page.click('RefreshRunsButton');
     await page.fail('MetaTagger/Runs');
     assert.equal(page.element('OverviewWhen').textContent, '');
     assert.doesNotMatch(page.element('OverviewCounts').textContent, /Items updated: 2/);
-    assert.match(page.element('RunsFeedback').textContent, /Refresh history/);
-    assert.equal(page.element('RunList').children.length, 0);
+    assert.match(page.element('RunsFeedback').textContent, /Refresh activity/);
+    assert.equal(page.element('RunFeed').children.length, 0);
 });
 
-test('Review opens latest differences and links to persistent inspection and history destinations', async () => {
+test('Activity shows the latest differences and Review all opens Items filtered to them', async () => {
     const page = await readyDashboard();
-    await page.click('OverviewItemsButton');
     assert.equal(page.element('PanelReview').hidden, false);
     assert.equal(page.element('ReviewResults').hidden, false);
-    assert.equal(page.element('InspectionPanel').hidden, true);
-    assert.ok(page.element('OpenRunsButton'));
+    assert.equal(page.element('PanelItems').hidden, true);
     assert.equal(page.sent('MetaTagger/Items').length, 0);
     assert.match(page.element('PreviewChanges').textContent, /Old preview/);
-    await page.click('InspectItemsButton');
-    assert.equal(page.element('PanelReview').hidden, true);
-    assert.equal(page.element('InspectionPanel').hidden, false);
-    assert.equal(page.focused(), page.element('ItemSearch'));
+    await page.click('ReviewAllItemsButton');
+    assert.equal(page.element('PanelActivity').hidden, true);
+    assert.equal(page.element('PanelItems').hidden, false);
+    assert.equal(page.focused(), page.element('BrowseHeading'));
     await page.respond('MetaTagger/Items', { totalCount: 0, items: [] });
     assert.equal(page.element('ItemStatus').closest('details'), null);
-    assert.equal(page.element('ItemStatus').value, '');
+    assert.equal(page.element('ItemStatus').value, 'Changes');
     assert.equal(page.element('ItemStatus').getAttribute('aria-describedby'), 'ItemStatusHelp');
     assert.match(markup, /<label[^>]*for="ItemStatus">Filter<\/label>/);
     page.element('ItemStatus').value = 'Protected';
     await page.event('ItemStatus', 'change');
     assert.equal(page.element('ItemStatus').value, 'Protected');
-    await page.click('BackToReviewButton');
+    await page.go('Activity');
     assert.equal(page.element('ReviewResults').hidden, false);
-    await page.click('ReviewRunsButton');
-    assert.equal(page.element('PanelRuns').hidden, false);
-    assert.equal(page.element('PanelReview').hidden, true);
-    assert.equal(page.element('PanelRuns').getAttribute('aria-labelledby'), 'HistoryHeading');
-    assert.match(page.element('HistoryBackButton').textContent, /workspace/i);
-    await page.click('HistoryBackButton');
-    assert.equal(page.element('PanelReview').hidden, false);
-    assert.equal(page.element('PanelRuns').hidden, true);
+    assert.equal(page.element('PanelItems').hidden, true);
 });
 
 test('a preview Inspect action targets its own item without borrowing history approval', async () => {
     const page = await readyDashboard();
-    await page.click('OverviewItemsButton');
     const article = page.element('PreviewChanges').children[0];
     const inspect = article.children.find(child => child.textContent === 'Preview this item');
     assert.ok(inspect, 'preview item offers inspection');
     await page.activate(inspect);
     assert.equal(page.focused(), page.element('InspectorHeading'));
     await page.click('PreviewItemButton');
-    assert.equal(page.element('InspectionPanel').hidden, false);
-    assert.equal(page.element('PanelReview').hidden, true);
+    assert.equal(page.element('PanelItems').hidden, false);
+    assert.equal(page.element('PanelActivity').hidden, true);
     assert.equal(page.element('InspectorHeading').textContent, 'Old preview');
     assert.equal(page.focused(), page.element('PreviewItemButton'));
     await page.respond('MetaTagger/Items/movie/Preview', { status: 'Unavailable', reason: 'This item was deleted or is unavailable.' });
@@ -1106,7 +1089,6 @@ test('Review falls back to one identified generation preview after a later Apply
         await page.respond('MetaTagger/Runs/generation', { runId: 'generation', detailsAvailable: true, detailsTruncated: true,
             items: [{ itemId: 'kept', name: 'Outdated only', itemType: 'Movie', previewRemovedTags: ['meta:year:2023'] }] });
         if (!previewFirst) await respondPreview();
-        await page.click('OverviewItemsButton');
         assert.match(page.element('OverviewOutcome').textContent, /Apply tag changes/);
         assert.match(page.element('PreviewContext').textContent, /tag preview.*Sep.*13/i);
         assert.equal(page.element('PreviewRunId').textContent, 'Run generation');
@@ -1114,7 +1096,7 @@ test('Review falls back to one identified generation preview after a later Apply
         assert.equal(page.element('PreviewRunId').hidden, false);
         assert.equal(page.element('PreviewRunId').closest('details'), null);
         assert.match(page.element('PreviewContext').textContent, /Some item details were not retained.*Run limit reached/);
-        assert.match(page.element('PreviewChanges').textContent, /Outdated only.*Outdated tags to keep.*meta:year:2023/);
+        assert.match(page.element('PreviewChanges').textContent, /Outdated only.*1 outdated kept/);
         assert.equal(page.element('PreviewChanges').children.length, 1);
         assert.equal(page.element('ApplyItemButton').disabled, true);
     }
@@ -1148,7 +1130,7 @@ test('an interrupted preview keeps its incomplete, protection, and failure conte
 test('a newer direct generation preview survives late older history without merging changes or moving focus', async () => {
     const page = dashboard();
     await page.open();
-    await page.click('WorkspaceButton');
+    await page.go('Settings');
     page.element('ExampleAside').open = true;
     await page.event('ExampleAside', 'toggle');
     await page.respond('MetaTagger/Preview', { status: 'Ready', summary: {
@@ -1211,32 +1193,27 @@ test('correcting an invalid conditional value keeps its editor reachable through
     assert.equal(page.element('PostScanOptions').hidden, true);
 });
 
-test('history selection reveals matching details and ignores a slower previous selection', async () => {
+test('expanding run cards keeps each response with its own card', async () => {
     const page = await readyDashboard();
     await page.respond('MetaTagger/Runs', [{ runId: 'a', operation: 'Apply' }, { runId: 'b', operation: 'Apply' }]);
-    const [first, second] = page.element('RunList').children;
-    await page.activate(first);
-    const older = page.request('MetaTagger/Runs/a');
-    assert.equal(first.getAttribute('aria-pressed'), 'true');
-    assert.equal(page.focused(), first);
-    assert.match(page.element('RunDetailFeedback').textContent, /Loading/);
-    await page.activate(second);
-    assert.equal(first.getAttribute('aria-pressed'), 'false');
-    assert.equal(second.getAttribute('aria-pressed'), 'true');
-    assert.match(page.element('HistoryRunId').textContent, /Run b/);
-    await page.respond('MetaTagger/Runs/b', { detailsAvailable: true, items: [{ name: 'Selected result' }] });
-    older.resolve({ detailsAvailable: true, items: [{ name: 'Obsolete result' }] });
-    await page.event('RunDetails', 'blur');
-    assert.equal(page.element('RunDetailHeading').scrolledIntoView, undefined);
-    assert.match(page.element('RunDetails').textContent, /Selected result/);
-    assert.doesNotMatch(page.element('RunDetails').textContent, /Obsolete/);
-    await page.activate(first);
-    await page.fail('MetaTagger/Runs/a');
-    assert.match(page.element('RunDetailFeedback').textContent, /unavailable/);
-    assert.equal(page.element('RunDetails').textContent, '');
-    await page.activate(second);
-    await page.respond('MetaTagger/Runs/b', { detailsAvailable: false });
-    assert.match(page.element('RunDetailFeedback').textContent, /details.*unavailable/);
+    await page.activate(feedToggle(page, 'a'));
+    const first = page.request('MetaTagger/Runs/a');
+    assert.equal(feedToggle(page, 'a').getAttribute('aria-expanded'), 'true');
+    assert.equal(page.focused(), feedToggle(page, 'a'));
+    assert.match(feedStatus(page, 'a').textContent, /Loading/);
+    await page.activate(feedToggle(page, 'b'));
+    assert.equal(feedToggle(page, 'a').getAttribute('aria-expanded'), 'true');
+    assert.equal(feedToggle(page, 'b').getAttribute('aria-expanded'), 'true');
+    await page.respond('MetaTagger/Runs/b', { detailsAvailable: true, items: [{ name: 'Second result' }] });
+    first.resolve({ detailsAvailable: true, items: [{ name: 'First result' }] });
+    await page.event('RunFeed', 'blur');
+    assert.match(feedItems(page, 'b').textContent, /Second result/);
+    assert.doesNotMatch(feedItems(page, 'b').textContent, /First result/);
+    assert.match(feedItems(page, 'a').textContent, /First result/);
+    await page.activate(feedToggle(page, 'a'));
+    await page.activate(feedToggle(page, 'a'));
+    await page.activate(feedToggle(page, 'a'));
+    assert.equal(page.sent('MetaTagger/Runs/a').length, 1);
     assert.equal(page.element('ApplyItemButton').disabled, true);
 });
 
@@ -1294,22 +1271,19 @@ test('an item selected with unsaved settings explains why Apply is unavailable',
     assert.equal(page.sent('MetaTagger/Items/a/Preview').length, 0);
 });
 
-test('Inspect and History open on demand and retain browsing context', async () => {
+test('Items and Activity tabs retain browsing context', async () => {
     const page = await readyDashboard();
-    assert.ok(page.element('OpenInspectButton'));
-    assert.ok(page.element('OpenRunsButton'));
-    await page.click('OpenInspectButton');
-    assert.equal(page.element('InspectionPanel').hidden, false);
-    assert.equal(page.element('OpenInspectButton').getAttribute('aria-expanded'), 'true');
+    await page.go('Items');
+    assert.equal(page.element('PanelItems').hidden, false);
+    assert.equal(page.element('TabItems').getAttribute('aria-selected'), 'true');
     page.element('ItemSearch').value = 'Dune';
-    await page.click('OpenRunsButton');
-    assert.equal(page.element('OpenRunsButton').getAttribute('aria-expanded'), 'true');
-    await page.click('OpenInspectButton');
+    await page.go('Activity');
+    assert.equal(page.element('TabActivity').getAttribute('aria-selected'), 'true');
+    await page.go('Items');
     assert.equal(page.element('ItemSearch').value, 'Dune');
-    await page.click('OpenRunsButton');
-    assert.equal(page.element('OpenRunsButton').getAttribute('aria-expanded'), 'true');
+    await page.go('Activity');
+    assert.equal(page.element('PanelActivity').hidden, false);
 });
-
 test('Preview tag removal opens a dedicated destination and lists the selected item tags before confirmation', async () => {
     const page = await readyDashboard();
     await page.activate(page.element('PreviewChanges').children[0].children.at(-1));
@@ -1349,14 +1323,12 @@ test('failed and no-change checks permit direct Apply and refresh', async () => 
 
 test('Maintenance opens on demand and leaving it invalidates removal approval', async () => {
     const page = await readyDashboard();
-    await page.click('OpenMaintenanceButton');
-    assert.equal(page.element('OpenMaintenanceButton').getAttribute('aria-expanded'), 'true');
-    assert.equal(page.focused(), page.element('MaintenanceHeading'));
+    await page.go('Maintenance');
     await page.click('PreviewCleanupButton');
     await page.respond('MetaTagger/Cleanup/Preview', cleanupPreview);
     await confirmCleanup(page);
     assert.equal(page.element('ApplyCleanupButton').disabled, false);
-    await page.click('WorkspaceButton');
+    await page.go('Settings');
     page.element('ExampleAside').open = true;
     await page.event('ExampleAside', 'toggle');
     assert.equal(page.element('PanelSettings').hidden, false);
@@ -1469,7 +1441,7 @@ test('claim warnings follow draft choices while the tag-return warning follows s
 
 test('partial removal reports updated items without claiming all removals succeeded', async () => {
     const page = await readyDashboard();
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     await page.click('PreviewCleanupButton');
     await page.respond('MetaTagger/Cleanup/Preview', cleanupPreview);
     await confirmCleanup(page);
@@ -1529,25 +1501,25 @@ test('item feedback distinguishes blocked settings from protection and clears an
     assert.equal(page.element('InspectorFeedback').getAttribute('data-feedback-tone'), 'warning');
 });
 
-test('history failure clears on retry and incomplete retained results receive a warning', async () => {
+test('run card failures clear on retry and incomplete retained results receive a warning', async () => {
     const page = await readyDashboard();
     await page.respond('MetaTagger/Runs', [{ runId: 'history', operation: 'Apply', outcome: 'Completed' }]);
-    const row = page.element('RunList').children[0];
-    await page.activate(row);
+    await page.activate(feedToggle(page, 'history'));
     await page.fail('MetaTagger/Runs/history');
-    assert.equal(page.element('RunDetailFeedback').getAttribute('role'), 'alert');
-    assert.equal(page.element('RunDetailFeedback').getAttribute('data-feedback-tone'), 'error');
-    await page.activate(row);
-    assert.equal(page.element('RunDetailFeedback').getAttribute('role'), 'status');
-    assert.equal(page.element('RunDetailFeedback').getAttribute('data-feedback-tone'), 'neutral');
+    assert.equal(feedStatus(page, 'history').getAttribute('role'), 'alert');
+    assert.equal(feedStatus(page, 'history').getAttribute('data-feedback-tone'), 'error');
+    await page.activate(feedRetry(page, 'history'));
+    assert.equal(feedStatus(page, 'history').getAttribute('role'), 'status');
+    assert.equal(feedStatus(page, 'history').getAttribute('data-feedback-tone'), 'neutral');
     await page.respond('MetaTagger/Runs/history', { outcome: 'Completed', detailsAvailable: true, detailsTruncated: true, items: [] });
-    assert.equal(page.element('RunDetailFeedback').getAttribute('data-feedback-tone'), 'warning');
-    assert.match(page.element('RunDetailFeedback').textContent, /Some item details were not retained/);
-    await page.activate(row);
-    await page.respond('MetaTagger/Runs/history', { outcome: 'Completed', detailVersion: 1, recordedRules: {}, detailsAvailable: true, items: [] });
-    assert.equal(page.element('RunDetailFeedback').getAttribute('data-feedback-tone'), 'neutral');
+    assert.equal(feedStatus(page, 'history').getAttribute('data-feedback-tone'), 'warning');
+    assert.match(feedStatus(page, 'history').textContent, /Some item details were not retained/);
+    await page.click('RefreshRunsButton');
+    await page.respond('MetaTagger/Runs', [{ runId: 'history', operation: 'Apply', outcome: 'Completed' }, { runId: 'complete', operation: 'Apply', outcome: 'Completed' }]);
+    await page.activate(feedToggle(page, 'complete'));
+    await page.respond('MetaTagger/Runs/complete', { outcome: 'Completed', detailVersion: 1, recordedRules: {}, detailsAvailable: true, items: [] });
+    assert.equal(feedStatus(page, 'complete').getAttribute('data-feedback-tone'), 'neutral');
 });
-
 test('history continuation guidance requires a new approval for cleanup and single-item runs', async () => {
     for (const [operation, scope, expected] of [
         ['Cleanup apply', 'Entire library', /Preview tag removal again, then confirm/],
@@ -1560,13 +1532,13 @@ test('history continuation guidance requires a new approval for cleanup and sing
     }
 });
 
-test('outdated tags kept by policy stay neutral in Review, Inspect, and History', async () => {
+test('outdated tags kept by policy stay neutral in Proposed changes, Items, and Earlier activity', async () => {
     const page = dashboard();
     await page.open();
     const item = { itemId: 'movie', itemName: 'Movie', previewRemovedTags: ['meta:year:2025'] };
     await page.respond('MetaTagger/Preview', { status: 'Ready', summary: {}, changes: [item] });
     const review = page.element('PreviewChanges').children[0];
-    assert.equal(review.children.find(child => child.textContent.includes('Outdated tags to keep')).getAttribute('data-feedback-tone'), undefined);
+    assert.equal(review.children[1].children.find(child => child.textContent.includes('outdated kept')).getAttribute('data-feedback-tone'), undefined);
     await page.activate(review.children.at(-1));
     await page.click('PreviewItemButton');
     await page.respond('MetaTagger/Items/movie/Preview', { status: 'Changes', previewRemovedTags: item.previewRemovedTags });
@@ -1574,9 +1546,10 @@ test('outdated tags kept by policy stay neutral in Review, Inspect, and History'
     assert.equal(inspector.getAttribute('data-feedback-tone'), undefined);
     assert.equal(page.element('ApplyItemButton').disabled, false);
     await page.respond('MetaTagger/Runs', [{ runId: 'kept', operation: 'Apply' }]);
-    await page.activate(page.element('RunList').children[0]);
+    await page.go('Activity');
+    await page.activate(feedToggle(page, 'kept'));
     await page.respond('MetaTagger/Runs/kept', { detailsAvailable: true, items: [item] });
-    const history = page.element('RunDetails').children[0].children.find(child => child.textContent.includes('Outdated tags to keep'));
+    const history = feedItems(page, 'kept').children[0].children.find(child => child.textContent.includes('Outdated tags to keep'));
     assert.equal(history.getAttribute('data-feedback-tone'), undefined);
 });
 
@@ -1601,7 +1574,7 @@ test('a failed save stays an error with unsaved settings, then becomes plain loa
 
 test('cleanup search errors appear beside search and clear when searching again', async () => {
     const page = await readyDashboard();
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     page.element('CleanupScope').value = 'item';
     await page.event('CleanupScope', 'change');
     page.element('CleanupSearchTerm').value = 'Movie';
@@ -1654,7 +1627,7 @@ test('preview-result inspection requests artwork immediately and adds parent fal
     const page = dashboard();
     await page.open();
     await page.respond('MetaTagger/Preview', { status: 'Ready', changes: [{ itemId: 'episode', itemName: 'Pilot', itemType: 'Episode', addedTags: ['meta:genre:drama'] }], summary: {} });
-    await page.click('WorkspaceButton');
+    await page.go('Activity');
     const article = page.element('PreviewChanges').children[0];
     await page.activate(article.children.find(child => child.textContent === 'Preview this item'));
     assert.match(page.element('InspectorArtwork').children[0].children[1].src, /Items\/episode\/Images\/Primary/);
@@ -1745,15 +1718,15 @@ test('live item filters search without a button and retry preserves the failed p
 });
 
 
-test('tag changes expose feedback tones while the overview heading stays unstyled', async () => {
+test('proposed tag counts expose feedback tones while the overview heading stays unstyled', async () => {
     const page = dashboard();
     await page.open();
     await page.respond('MetaTagger/Preview', { status: 'Ready', summary: {}, changes: [
         { itemId: 'movie', itemName: 'Movie', addedTags: ['meta:year:2026'], removedTags: ['meta:year:2025'] }
     ] });
-    const groups = page.element('PreviewChanges').children[0].children;
-    assert.equal(groups.find(child => child.textContent.includes('Tags to add')).getAttribute('data-feedback-tone'), 'positive');
-    assert.equal(groups.find(child => child.textContent.includes('Tags to remove')).getAttribute('data-feedback-tone'), 'negative');
+    const deltas = page.element('PreviewChanges').children[0].children[1].children;
+    assert.equal(deltas.find(child => child.textContent === '+1').getAttribute('data-feedback-tone'), 'positive');
+    assert.equal(deltas.find(child => child.textContent === '\u22121').getAttribute('data-feedback-tone'), 'negative');
     await page.respond('MetaTagger/Runs', [{ runId: 'finished', operation: 'Preview', outcome: 'Completed', summary: {} }]);
     assert.equal(page.element('OverviewOutcome').getAttribute('data-feedback-tone'), undefined);
     assert.doesNotMatch(markup, /data-tone/);
@@ -1762,7 +1735,7 @@ test('tag changes expose feedback tones while the overview heading stays unstyle
 test('cleanup uses the danger variant while remaining disabled until approved', async () => {
     assert.match(markup, /id="ApplyCleanupButton"[^>]*class="[^"]*button-danger[^"]*"[^>]*disabled/);
     const page = await readyDashboard();
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     assert.equal(page.element('ApplyCleanupButton').disabled, true);
     await page.click('PreviewCleanupButton');
     await page.respond('MetaTagger/Cleanup/Preview', cleanupPreview);
@@ -1771,32 +1744,27 @@ test('cleanup uses the danger variant while remaining disabled until approved', 
     assert.equal(page.element('ApplyCleanupButton').disabled, false);
 });
 
-test('review and history thumbnails share lazy loading and missing-artwork fallback', async () => {
+test('proposed and earlier-activity thumbnails share lazy loading and missing-artwork fallback', async () => {
     const page = await readyDashboard();
     const reviewArtwork = page.element('PreviewChanges').children[0].children[0].children[0];
     assert.match(reviewArtwork.children[1].src, /Items\/movie\/Images\/Primary/);
     assert.equal(reviewArtwork.children[1].loading, 'lazy');
     assert.equal(reviewArtwork.children[1].alt, '');
     await page.respond('MetaTagger/Runs', [{ runId: 'recorded', operation: 'Apply', outcome: 'Completed' }]);
-    await page.activate(page.element('RunList').children[0]);
+    await page.activate(feedToggle(page, 'recorded'));
     await page.respond('MetaTagger/Runs/recorded', { detailsAvailable: true, scope: 'One item', outcome: 'Completed',
         summary: { itemsScanned: 1, itemsChanged: 1, writesApplied: 0, itemsSkippedLocked: 2, itemsSkippedManual: 1, failures: 0, itemsRemaining: 4 },
         items: [{ itemId: 'movie', name: 'Movie', itemType: 'Movie' }] });
-    const artwork = page.element('RunDetails').children[0].children[0].children[0];
+    const artwork = feedItems(page, 'recorded').children[0].children[0].children[0];
     assert.match(artwork.children[1].src, /Items\/movie\/Images\/Primary/);
     artwork.children[1].dispatch('error');
     assert.equal(artwork.children[1].hidden, true);
     assert.equal(artwork.children[0].hidden, false);
-    assert.doesNotMatch(page.element('RunDetailFeedback').textContent, /Items checked|Items updated/);
-    assert.match(page.element('RunDetailFeedback').textContent, /Preview an item again/);
-    assert.deepEqual(page.element('RunDetailCounts').children.map(pair => pair.children.map(child => child.textContent)),
+    assert.doesNotMatch(feedStatus(page, 'recorded').textContent, /Items checked|Items updated/);
+    assert.match(feedStatus(page, 'recorded').textContent, /Preview an item again/);
+    assert.deepEqual(feedCounts(page, 'recorded').children.map(pair => pair.children.map(child => child.textContent)),
         [['Scope', 'One item'], ['Items checked', '1'], ['With tag differences', '1'], ['Updated', '0'], ['Skipped for protection', '3'], ['Failures', '0'], ['Remaining', '4']]);
-    await page.activate(page.element('RunList').children[0]);
-    assert.equal(page.element('RunDetailCounts').hidden, true);
-    await page.fail('MetaTagger/Runs/recorded');
-    assert.equal(page.element('RunDetailCounts').hidden, true);
 });
-
 
 test('initial settings expose three sources and keep optional sources collapsed', async () => {
     const primary = markup.slice(markup.indexOf('<h2 id="SourcesHeading">'), markup.indexOf('<details id="MoreSources"'));
@@ -1845,19 +1813,18 @@ test('Settings example shows recorded mappings and reasons for sources without t
     assert.equal(page.sent('save-settings').length, 0);
 });
 
-test('History displays source explanations from the recorded run', async () => {
+test('Earlier activity displays source explanations from the recorded run', async () => {
     const page = await readyDashboard();
     await page.respond('MetaTagger/Runs', [{ runId: 'sources', operation: 'Preview', outcome: 'Completed', summary: {} }]);
-    await page.activate(page.element('RunList').children[0]);
+    await page.activate(feedToggle(page, 'sources'));
     await page.respond('MetaTagger/Runs/sources', { detailsAvailable: true, items: [
         { name: 'Series', outcome: 'Up to date', sourceExplanations: [
             { source: 'audio-language', status: 'NoItemTracks', reason: 'This series has no tracks of its own. Episode languages are not combined onto the series.' }
         ] }
     ] });
-    assert.match(page.element('RunDetails').textContent, /Audio languages.*series has no tracks.*Episode languages are not combined/);
+    assert.match(feedItems(page, 'sources').textContent, /Audio languages.*series has no tracks.*Episode languages are not combined/);
     assert.equal(page.sent('MetaTagger/Items/movie/Apply').length, 0);
 });
-
 test('direct library Apply starts once without a check or save', async () => {
     const page = await readyDashboard();
     await page.click('RunApplyButton');
@@ -2079,7 +2046,7 @@ test('an obsolete library result failure cannot mark a newer run as failed', asy
     assert.notEqual(page.element('TaskFeedback').getAttribute('data-feedback-tone'), 'error');
 });
 
-test('cooldown skips show no generation and explain eligibility in overview and history', async () => {
+test('cooldown skips show no generation and explain eligibility in the latest run and Earlier activity', async () => {
     const page = await readyDashboard();
     const skip = { runId: 'cooldown', operation: 'Automatic run', outcome: 'Skipped: cooldown', invocation: 'PostScan',
         scope: 'Configured item types across all libraries', summary: { itemsScanned: 0, writesApplied: 0 } };
@@ -2087,11 +2054,10 @@ test('cooldown skips show no generation and explain eligibility in overview and 
     assert.match(page.element('OverviewOutcome').textContent, /Automatic run.*Skipped: cooldown/);
     assert.match(page.element('OverviewCounts').textContent, /No items checked or tags changed/);
     assert.match(page.element('OverviewCounts').textContent, /next library scan/);
-    await page.activate(page.element('RunList').children[0]);
+    await page.activate(feedToggle(page, 'cooldown'));
     await page.respond('MetaTagger/Runs/cooldown', { ...skip, detailsAvailable: true, items: [] });
-    assert.match(page.element('RunDetailFeedback').textContent, /No items checked or tags changed/);
+    assert.match(feedStatus(page, 'cooldown').textContent, /No items checked or tags changed/);
 });
-
 test('lost library Apply response recovers the running task without allowing duplicate starts', async () => {
     const page = await readyDashboard();
     await page.respond('MetaTagger/Runs', []);
@@ -2121,7 +2087,7 @@ test('unconfirmed library launch permits deliberate retry after bounded idle rec
         await page.respond('ScheduledTasks/apply', { state: 'Idle' });
         if (index < 2) { await page.tick(); }
     }
-    assert.match(page.element('TaskFeedback').textContent, /Start could not be confirmed.*Check History before retrying/);
+    assert.match(page.element('TaskFeedback').textContent, /Start could not be confirmed.*Check Earlier activity before retrying/);
     assert.equal(page.element('RunApplyButton').disabled, false);
     await page.click('RunApplyButton');
     await page.respond('load-settings', { ConfigurationRevision: 'revision' });
@@ -2163,10 +2129,10 @@ for (const staleResult of ['success', 'failure']) {
     });
 }
 
-test('History shows recorded rules and coverage and separates confirmed writes from proposals and unconfirmed attempts', async () => {
+test('Earlier activity shows recorded rules and coverage and separates confirmed writes from proposals and unconfirmed attempts', async () => {
     const page = await readyDashboard();
     await page.respond('MetaTagger/Runs', [{ runId: 'immutable', operation: 'Apply', outcome: 'Cancelled' }]);
-    await page.activate(page.element('RunList').children[0]);
+    await page.activate(feedToggle(page, 'immutable'));
     await page.respond('MetaTagger/Runs/immutable', {
         runId: 'immutable', detailVersion: 1, detailsAvailable: true, operation: 'Apply', outcome: 'Cancelled',
         scope: 'Configured item types across all libraries', invocation: 'ApplyTask', itemTypes: ['Movie'],
@@ -2181,51 +2147,40 @@ test('History shows recorded rules and coverage and separates confirmed writes f
                 addedTags: ['recorded:genre:comedy'], keptTags: ['manual:keep'] }
         ]
     });
-    assert.match(page.element('HistoryRunMetadata').textContent, /ApplyTask.*Movie.*recorded-revision/);
-    assert.match(page.element('HistoryRunMetadata').textContent, /SelectedTypes.*Movie.*permission.*completed processing/);
-    assert.match(page.element('HistoryRunRules').textContent, /Generated tag prefixrecordedGenresOnItem limit2/);
-    assert.match(page.element('RunDetails').children[0].textContent, /Tag update confirmed.*tag records confirmed.*Tags added.*Tags removed.*Tags kept.*Favorites/);
-    assert.match(page.element('RunDetails').children[1].textContent, /completion unconfirmed.*Attempted tags to add.*recorded:genre:comedy.*Tags kept in the plan.*manual:keep/);
+    const [metadata, rules] = feedRunDetails(page, 'immutable');
+    assert.match(metadata.textContent, /ApplyTask.*Movie.*recorded-revision/);
+    assert.match(metadata.textContent, /SelectedTypes.*Movie.*permission.*completed processing/);
+    assert.match(rules.textContent, /Generated tag prefixrecordedGenresOnItem limit2/);
+    assert.match(feedItems(page, 'immutable').children[0].textContent, /Tag update confirmed.*tag records confirmed.*Tags added.*Tags removed.*Tags kept.*Favorites/);
+    assert.match(feedItems(page, 'immutable').children[1].textContent, /completion unconfirmed.*Attempted tags to add.*recorded:genre:comedy.*Tags kept in the plan.*manual:keep/);
+    await page.go('Settings');
     await page.edit('GeneratedTagPrefix', 'later');
-    assert.match(page.element('HistoryRunRules').textContent, /Generated tag prefixrecorded/);
+    assert.match(feedRunDetails(page, 'immutable')[1].textContent, /Generated tag prefixrecorded/);
     assert.equal(page.element('ApplyItemButton').disabled, true);
     assert.equal(page.element('ApplyCleanupButton').disabled, true);
 });
-
-test('History details remain independent of edits while loading and disclose older and failed publication details', async () => {
+test('Earlier activity details remain independent of edits while loading and disclose older and failed publication details', async () => {
     const page = await readyDashboard();
     await page.respond('MetaTagger/Runs', [{ runId: 'old', operation: 'Preview' }]);
-    const row = page.element('RunList').children[0];
-    await page.activate(row);
+    await page.activate(feedToggle(page, 'old'));
+    await page.go('Settings');
     await page.edit('EnableGenres', false);
+    await page.go('Activity');
+    page.request('MetaTagger/Runs/old'); // The read started before leaving Activity was abandoned.
     await page.respond('MetaTagger/Runs/old', { runId: 'old', detailsAvailable: true, items: [{ name: 'Older proposal', outcome: 'Changes' }] });
-    assert.match(page.element('RunDetailFeedback').textContent, /older run lacks recorded rules/);
-    assert.match(page.element('HistoryRunRules').textContent, /Current settings cannot explain historical results/);
-    assert.match(page.element('RunDetails').textContent, /Older proposal.*confirmation detail is unavailable/);
-    await page.activate(row);
-    assert.equal(page.element('HistoryRunRules').textContent, '');
-    await page.respond('MetaTagger/Runs/old', { runId: 'old', detailsAvailable: false, detailsUnavailableReason: 'Item details could not be published.', items: [{ name: 'Stale success' }] });
-    assert.match(page.element('RunDetailFeedback').textContent, /unavailable.*could not be published/);
-    assert.equal(page.element('RunDetails').textContent, '');
+    assert.match(feedStatus(page, 'old').textContent, /older run lacks recorded rules/);
+    assert.match(feedRunDetails(page, 'old')[1].textContent, /Current settings cannot explain historical results/);
+    assert.match(feedItems(page, 'old').textContent, /Older proposal.*confirmation detail is unavailable/);
+    await page.click('RefreshRunsButton');
+    await page.respond('MetaTagger/Runs', [{ runId: 'old', operation: 'Preview' }, { runId: 'failed-publish', operation: 'Preview' }]);
+    await page.activate(feedToggle(page, 'failed-publish'));
+    assert.equal(feedRunDetails(page, 'failed-publish'), undefined);
+    await page.respond('MetaTagger/Runs/failed-publish', { runId: 'failed-publish', detailsAvailable: false, detailsUnavailableReason: 'Item details could not be published.', items: [{ name: 'Stale success' }] });
+    assert.match(feedStatus(page, 'failed-publish').textContent, /unavailable.*could not be published/);
+    assert.equal(feedItems(page, 'failed-publish').textContent, '');
     assert.equal(page.sent('MetaTagger/Items/old/ApplyRuns').length, 0);
 });
-
-test('the main workspace exposes editable settings and results together and retains drafts across browsing', async () => {
-    const page = await readyDashboard();
-    assert.equal(page.element('PanelSettings').hidden, false);
-    assert.equal(page.element('PanelReview').hidden, false);
-    assert.equal(page.element('ItemTypeOptions').tagName, 'SECTION');
-    assert.equal(page.element('AutomationOptions').tagName, 'SECTION');
-    await page.edit('EnableGenres', true);
-    await page.click('OpenInspectButton');
-    await page.click('WorkspaceButton');
-    assert.equal(page.element('EnableGenres').checked, true);
-    assert.equal(page.element('PanelSettings').hidden, false);
-    assert.equal(page.sent('save-settings').length, 0);
-});
-
-
-test('current Apply results show retained saved outcomes and artwork with recoverable detail loading', async () => {
+test('a finished Apply opens its retained saved outcomes and artwork in Earlier activity with recoverable detail loading', async () => {
     const page = await readyDashboard();
     await page.respond('MetaTagger/Runs', []);
     await page.click('RunApplyButton');
@@ -2234,17 +2189,19 @@ test('current Apply results show retained saved outcomes and artwork with recove
     await page.respond('ScheduledTasks/apply', { state: 'Idle', lastExecutionResult: { startTimeUtc: '2026-10-03T12:00:00Z', endTimeUtc: '2026-10-03T12:00:02Z', status: 'Completed' } });
     const run = { runId: 'saved', invocation: 'MetaTaggerApplyTags', configurationRevision: 'revision', startedUtc: '2026-10-03T12:00:01Z', outcome: 'Partial failure', summary: { writesApplied: 1, failures: 1 } };
     await page.respond('MetaTagger/Runs', [run]);
+    await page.respond('MetaTagger/Runs', [run]);
+    assert.equal(feedToggle(page, 'saved').getAttribute('aria-expanded'), 'true');
     await page.fail('MetaTagger/Runs/saved');
-    assert.match(page.element('CurrentApplyFeedback').textContent, /Retry/);
-    await page.click('RetryApplyResults');
+    assert.match(feedStatus(page, 'saved').textContent, /unavailable/);
+    await page.activate(feedRetry(page, 'saved'));
     await page.respond('MetaTagger/Runs/saved', { ...run, detailsAvailable: true, detailsTruncated: true, items: [
         { itemId: 'episode', name: 'Saved episode', itemType: 'Episode', artworkItemIds: ['episode', 'season', 'series'], outcome: 'Applied', writeOutcome: 'Confirmed', addedTags: ['meta:genre:drama'] },
         { itemId: 'failed', name: 'Failed movie', outcome: 'Failed', writeOutcome: 'Unconfirmed', addedTags: ['meta:genre:comedy'] }
     ] });
-    assert.equal(page.element('PanelSettings').hidden, false);
-    assert.match(page.element('CurrentApplyFeedback').textContent, /Some items failed.*Items updated: 1.*Some item details were not retained/);
-    assert.match(page.element('CurrentApplyChanges').textContent, /Saved episode.*Tag update confirmed.*Tags added.*Failed movie.*completion unconfirmed.*Attempted tags to add/);
-    const image = page.element('CurrentApplyChanges').children[0].children[0].children[0].children[1];
+    assert.equal(page.element('PanelActivity').hidden, false);
+    assert.match(feedCard(page, 'saved').textContent, /Some items failed.*Items updated: 1.*Some item details were not retained/);
+    assert.match(feedItems(page, 'saved').textContent, /Saved episode.*Tag update confirmed.*Tags added.*Failed movie.*completion unconfirmed.*Attempted tags to add/);
+    const image = feedItems(page, 'saved').children[0].children[0].children[0].children[1];
     assert.equal(image.loading, 'lazy');
     image.dispatch('error');
     assert.match(image.src, /season/);
@@ -2252,9 +2209,8 @@ test('current Apply results show retained saved outcomes and artwork with recove
     assert.match(image.src, /series/);
     image.dispatch('error');
     assert.equal(image.hidden, true);
-    assert.match(page.element('CurrentApplyChanges').textContent, /Saved episode/);
+    assert.match(feedItems(page, 'saved').textContent, /Saved episode/);
 });
-
 test('collapsing the draft example rejects a pending response and reopening recalculates', async () => {
     const page = await readyDashboard();
     await chooseExample(page, { itemId: 'movie', name: 'Example', itemType: 'Movie' });
@@ -2273,7 +2229,7 @@ test('collapsing the draft example rejects a pending response and reopening reca
 
 for (const obsoleteOutcome of ['success', 'failure']) {
     for (const obsoleteArrival of ['closed', 'loading', 'results']) {
-        test('reopening the workspace retries pending Apply details and rejects old session ' + obsoleteOutcome + ' during ' + obsoleteArrival, async () => {
+        test('reopening the page retries pending Apply details and rejects old session ' + obsoleteOutcome + ' during ' + obsoleteArrival, async () => {
             const page = await readyDashboard();
             await page.respond('MetaTagger/Runs', []);
             await page.click('RunApplyButton');
@@ -2284,58 +2240,47 @@ for (const obsoleteOutcome of ['success', 'failure']) {
             await page.respond('ScheduledTasks/apply', { state: 'Idle', lastExecutionResult: { startTimeUtc: '2026-10-03T12:00:00Z', endTimeUtc: '2026-10-03T12:00:02Z', status: 'Completed' } });
             const run = { runId: 'saved', invocation: 'MetaTaggerApplyTags', configurationRevision: 'revision', startedUtc: '2026-10-03T12:00:01Z', outcome: 'Completed', summary: { writesApplied: 1 } };
             await page.respond('MetaTagger/Runs', [run]);
+            await page.respond('MetaTagger/Runs', [run]);
             const old = page.request('MetaTagger/Runs/saved');
+            const reopen = async () => {
+                await page.open();
+                await page.respond('MetaTagger/Preview', { status: 'NoRuns' });
+                await page.respond('MetaTagger/Runs', [run]);
+            };
             await page.event('MetaTaggerConfigPage', 'pagehide');
-            if (obsoleteArrival !== 'closed') await page.event('MetaTaggerConfigPage', 'pageshow');
+            if (obsoleteArrival !== 'closed') await reopen();
             const current = { ...run, detailsAvailable: true, items: [{ name: 'Saved result', writeOutcome: 'Confirmed' }] };
             if (obsoleteArrival === 'results') await page.respond('MetaTagger/Runs/saved', current);
             if (obsoleteOutcome === 'success') old.resolve({ ...run, detailsAvailable: true, items: [{ name: 'Obsolete response', writeOutcome: 'Confirmed' }] });
             else old.reject(new Error('Obsolete detail failure'));
-            await page.event('CurrentApplyFeedback', 'blur');
-            assert.doesNotMatch(page.element('CurrentApplyChanges').textContent, /Obsolete/);
-            if (obsoleteArrival === 'results') assert.match(page.element('CurrentApplyChanges').textContent, /Saved result.*Tag update confirmed/);
-            else assert.match(page.element('CurrentApplyFeedback').textContent, /Loading saved item results/);
-            assert.equal(page.element('RetryApplyResults').hidden, true);
+            await page.event('RunFeed', 'blur');
+            if (obsoleteArrival === 'closed') await reopen();
+            assert.doesNotMatch(feedBody(page, 'saved').textContent, /Obsolete/);
+            if (obsoleteArrival === 'results') assert.match(feedItems(page, 'saved').textContent, /Saved result.*Tag update confirmed/);
+            else assert.match(feedStatus(page, 'saved').textContent, /Loading recorded details/);
+            assert.equal(feedRetry(page, 'saved'), undefined);
             assert.equal(page.sent('ScheduledTasks/Running/apply').length, 1);
-            if (obsoleteArrival === 'closed') await page.event('MetaTaggerConfigPage', 'pageshow');
             assert.equal(page.sent('MetaTagger/Runs/saved').length, 2);
             if (obsoleteArrival !== 'results') await page.respond('MetaTagger/Runs/saved', current);
-            assert.match(page.element('CurrentApplyChanges').textContent, /Saved result.*Tag update confirmed/);
+            assert.match(feedItems(page, 'saved').textContent, /Saved result.*Tag update confirmed/);
             assert.equal(page.sent('MetaTagger/Items/movie/ApplyRuns').length, 0);
             assert.equal(page.sent('ScheduledTasks/Running/apply').length, 1);
         });
     }
 }
 
-test('on-demand browsing opens with focus and returns to its workspace entry', async () => {
-    const page = await readyDashboard();
-    assert.doesNotMatch(markup, /role="tab(?:list|panel)?"/);
-    await page.click('OpenInspectButton');
-    assert.equal(page.element('PanelOverview').hidden, true);
-    assert.equal(page.element('PanelInspect').hidden, false);
-    assert.equal(page.focused(), page.element('BrowseHeading'));
-    await page.click('BackToReviewButton');
-    assert.equal(page.element('PanelOverview').hidden, false);
-    assert.equal(page.focused(), page.element('OpenInspectButton'));
-});
-
-test('recent runs opens the matching retained snapshot and returns to its entry', async () => {
+test('an Earlier activity card opens its retained snapshot with lazy artwork and never starts removal', async () => {
     const page = await readyDashboard();
     await page.respond('MetaTagger/Runs', [{ runId: 'past-failure', operation: 'Apply', outcome: 'Failed' }]);
-    const entry = page.element('RecentRuns').children[0];
-    await page.activate(entry);
-    assert.equal(page.element('PanelRuns').hidden, false);
-    assert.equal(page.focused(), page.element('RunDetailHeading'));
+    await page.activate(feedToggle(page, 'past-failure'));
+    assert.equal(page.focused(), feedToggle(page, 'past-failure'));
     await page.respond('MetaTagger/Runs/past-failure', { runId: 'past-failure', detailsAvailable: true,
         detailVersion: 1, recordedRules: {}, items: [{ itemId: 'movie', name: 'Past failure', outcome: 'Failed', reason: 'Metadata unavailable', artworkItemIds: ['movie'] }] });
-    assert.match(page.element('RunDetails').textContent, /Past failure.*Metadata unavailable/);
-    assert.equal(page.element('RunDetails').children[0].children[0].children[0].children[1].loading, 'lazy');
-    await page.click('HistoryBackButton');
-    assert.equal(page.element('PanelOverview').hidden, false);
-    assert.equal(page.focused(), entry);
+    assert.match(feedItems(page, 'past-failure').textContent, /Past failure.*Metadata unavailable/);
+    assert.equal(feedItems(page, 'past-failure').children[0].children[0].children[0].children[1].loading, 'lazy');
+    assert.equal(page.focused(), feedToggle(page, 'past-failure'));
     assert.equal(page.sent('MetaTagger/Cleanup/Preview').length, 0);
 });
-
 const readLifecycleViews = {
     async preview() {
         const page = dashboard();
@@ -2408,15 +2353,15 @@ const readLifecycleViews = {
     },
     async maintenance() {
         const page = await readyDashboard();
-        await page.click('OpenMaintenanceButton');
+        await page.go('Maintenance');
         await page.click('PreviewCleanupButton');
         await page.respond('MetaTagger/Cleanup/Preview', cleanupPreview);
         await confirmCleanup(page);
         await page.click('PreviewCleanupButton'); // A new read consumes the earlier confirmation.
         return {
             request: () => page.request('MetaTagger/Cleanup/Preview'),
-            close: () => page.click('MaintenanceBackButton'),
-            async reopen() { await page.click('OpenMaintenanceButton'); await page.click('PreviewCleanupButton'); },
+            close: () => page.go('Activity'),
+            async reopen() { await page.go('Maintenance'); await page.click('PreviewCleanupButton'); },
             retry: () => page.click('PreviewCleanupButton'),
             flush: () => page.event('CleanupFeedback', 'blur'),
             obsoleteResponse: { ...cleanupPreview, changes: [{ ...cleanupPreview.changes[0], itemName: 'Obsolete result', removedTags: ['old'] }] },
@@ -2455,7 +2400,7 @@ const readLifecycleViews = {
     },
     async browsing() {
         const page = await readyDashboard();
-        await page.click('OpenInspectButton');
+        await page.go('Items');
         await page.respond('MetaTagger/Items', { items: [{ itemId: 'original', name: 'Original' }], totalCount: 40 });
         await page.click('NextItemsButton');
         return {
@@ -2465,9 +2410,9 @@ const readLifecycleViews = {
                 await page.event('ItemSearch', 'input');
                 await page.tick();
             },
-            close: () => page.click('BackToReviewButton'),
+            close: () => page.go('Activity'),
             async reopen() {
-                await page.click('OpenInspectButton');
+                await page.go('Items');
                 assert.match(page.sent('MetaTagger/Items').at(-1).kind, /startIndex=25/);
             },
             retry: () => page.click('RetryItemsButton'),
@@ -2475,7 +2420,7 @@ const readLifecycleViews = {
             obsoleteResponse: { items: [{ itemId: 'old', name: 'Obsolete result' }], totalCount: 40 },
             currentResponse: { items: [{ itemId: 'current', name: 'Current result' }], totalCount: 40 },
             assertClosed() {
-                assert.equal(page.element('PanelInspect').hidden, true);
+                assert.equal(page.element('PanelItems').hidden, true);
                 assert.doesNotMatch(page.element('ItemList').textContent, /Obsolete/);
                 assert.doesNotMatch(page.element('ItemBrowserFeedback').textContent, /could not be loaded/);
             },
@@ -2498,39 +2443,35 @@ const readLifecycleViews = {
             assertWrites: () => assertNoReadWrites(page)
         };
     },
-    async history() {
+    async feed() {
         const page = await readyDashboard();
-        await page.respond('MetaTagger/Runs', [{ runId: 'past', operation: 'Apply' }, { runId: 'current', operation: 'Apply' }]);
-        const rows = page.element('RunList').children;
-        let selected = 0;
-        await page.activate(rows[selected]);
+        await page.respond('MetaTagger/Runs', [{ runId: 'past', operation: 'Apply' }]);
+        await page.activate(feedToggle(page, 'past'));
         return {
-            request: () => page.request('MetaTagger/Runs/' + (selected === 0 ? 'past' : 'current')),
-            async replace() { selected = 1; await page.activate(rows[selected]); },
-            close: () => page.click('HistoryBackButton'),
-            reopen: () => page.click('OpenRunsButton'),
-            retry: () => page.activate(rows[selected]),
-            flush: () => page.event('RunDetails', 'blur'),
+            request: () => page.request('MetaTagger/Runs/past'),
+            close: () => page.go('Items'),
+            reopen: () => page.go('Activity'),
+            retry: () => page.activate(feedRetry(page, 'past')),
+            flush: () => page.event('RunFeed', 'blur'),
             obsoleteResponse: { detailsAvailable: true, items: [{ name: 'Obsolete result', writeOutcome: 'Confirmed' }] },
             currentResponse: { detailsAvailable: true, detailVersion: 1, recordedRules: {}, items: [{ name: 'Current result', writeOutcome: 'Confirmed' }] },
             assertClosed() {
-                assert.equal(page.element('PanelRuns').hidden, true);
-                assert.doesNotMatch(page.element('RunDetails').textContent, /Obsolete/);
-                assert.doesNotMatch(page.element('RunDetailFeedback').textContent, /unavailable/);
+                assert.equal(page.element('PanelActivity').hidden, true);
+                assert.doesNotMatch(feedBody(page, 'past').textContent, /Obsolete/);
+                assert.doesNotMatch(feedStatus(page, 'past').textContent, /unavailable|expired/);
             },
             assertLoading() {
-                assert.match(page.element('RunDetailFeedback').textContent, /Loading/);
-                assert.match(page.element('HistoryRunId').textContent, selected === 0 ? /Run past/ : /Run current/);
-                assert.doesNotMatch(page.element('RunDetails').textContent, /Obsolete/);
+                assert.match(feedStatus(page, 'past').textContent, /Loading/);
+                assert.doesNotMatch(feedBody(page, 'past').textContent, /Obsolete/);
             },
             assertFailure() {
-                assert.match(page.element('RunDetailFeedback').textContent, /unavailable/);
+                assert.match(feedStatus(page, 'past').textContent, /unavailable/);
                 assert.equal(page.element('RefreshRunsButton').disabled, false);
             },
             assertResults() {
-                assert.match(page.element('RunDetails').textContent, /Current result.*Tag update confirmed/);
-                assert.doesNotMatch(page.element('RunDetails').textContent, /Obsolete/);
-                assert.match(page.element('RunDetailFeedback').textContent, /Recorded results/);
+                assert.match(feedItems(page, 'past').textContent, /Current result.*Tag update confirmed/);
+                assert.doesNotMatch(feedBody(page, 'past').textContent, /Obsolete/);
+                assert.match(feedStatus(page, 'past').textContent, /Recorded results/);
             },
             assertWrites: () => assertNoReadWrites(page)
         };
@@ -2540,7 +2481,7 @@ const readLifecycleViews = {
 for (const [name, open] of Object.entries(readLifecycleViews)) {
     // Preview stays active during navigation. Removal target controls cannot
     // replace a pending read because they remain disabled until it finishes.
-    const transitions = ['preview', 'maintenance'].includes(name) ? ['close', 'reopen'] : ['replacement', 'close', 'reopen'];
+    const transitions = ['preview', 'maintenance', 'feed'].includes(name) ? ['close', 'reopen'] : ['replacement', 'close', 'reopen'];
     for (const transition of transitions) {
         for (const outcome of ['success', 'failure']) {
             for (const arrival of transition === 'close' ? ['loading'] : ['loading', 'results']) {
@@ -2552,41 +2493,40 @@ for (const [name, open] of Object.entries(readLifecycleViews)) {
     }
 }
 
-test('closed history ignores obsolete detail success and failure and retries the selected snapshot', async () => {
+test('a left Activity tab ignores obsolete run detail success and failure and retries the open card', async () => {
     const page = await readyDashboard();
     await page.respond('MetaTagger/Runs', [{ runId: 'past', operation: 'Apply' }]);
-    await page.activate(page.element('RecentRuns').children[0]);
+    await page.activate(feedToggle(page, 'past'));
     const first = page.request('MetaTagger/Runs/past');
-    await page.click('HistoryBackButton');
-    await page.click('OpenRunsButton');
+    await page.go('Items');
+    await page.go('Activity');
     const retry = page.request('MetaTagger/Runs/past');
     first.resolve({ detailsAvailable: true, items: [{ name: 'Obsolete detail' }] });
     retry.reject(new Error('Unavailable'));
-    await page.event('RunDetails', 'blur');
-    assert.doesNotMatch(page.element('RunDetails').textContent, /Obsolete/);
-    assert.match(page.element('RunDetailFeedback').textContent, /unavailable/);
+    await page.event('RunFeed', 'blur');
+    assert.doesNotMatch(feedBody(page, 'past').textContent, /Obsolete/);
+    assert.match(feedStatus(page, 'past').textContent, /unavailable/);
     await page.click('RefreshRunsButton');
     await page.respond('MetaTagger/Runs', [{ runId: 'past', operation: 'Apply' }]);
     const refresh = page.request('MetaTagger/Runs/past');
-    await page.click('HistoryBackButton');
+    await page.go('Items');
     refresh.reject(new Error('Late failure'));
-    await page.click('OpenRunsButton');
+    await page.go('Activity');
     await page.respond('MetaTagger/Runs/past', { detailsAvailable: true, items: [{ name: 'Retained detail' }] });
-    assert.match(page.element('RunDetails').textContent, /Retained detail/);
-    assert.doesNotMatch(page.element('RunDetailFeedback').textContent, /Late failure/);
+    assert.match(feedItems(page, 'past').textContent, /Retained detail/);
+    assert.doesNotMatch(feedBody(page, 'past').textContent, /Late failure/);
 });
-
 for (const obsoleteOutcome of ['success', 'failure']) {
-    test('closing inspection discards pending check ' + obsoleteOutcome + ' and allows a fresh check after returning from maintenance', async () => {
+    test('leaving Items discards pending check ' + obsoleteOutcome + ' and allows a fresh check after returning from maintenance', async () => {
         const page = await readyDashboard();
         await page.activate(page.element('PreviewChanges').children[0].children.at(-1));
         await page.click('PreviewItemButton');
         const obsolete = page.request('MetaTagger/Items/movie/Preview');
         await page.click('ClearItemButton');
         const removal = page.request('MetaTagger/Cleanup/Preview');
-        assert.match(page.element('MaintenanceBackButton').textContent, /Browse items/);
-        await page.click('MaintenanceBackButton');
-        assert.equal(page.element('PanelInspect').hidden, false);
+        assert.equal(page.element('BackToItemsButton').hidden, false);
+        await page.click('BackToItemsButton');
+        assert.equal(page.element('PanelItems').hidden, false);
         assert.equal(page.focused(), page.element('ClearItemButton'));
         assert.equal(page.element('PreviewItemButton').disabled, false);
         if (obsoleteOutcome === 'success') obsolete.resolve({ addedTags: ['obsolete'], removedTags: [] });
@@ -2604,16 +2544,16 @@ for (const obsoleteOutcome of ['success', 'failure']) {
     });
 }
 
-test('maintenance returns to the inspector and late removal searches cannot replace a new target', async () => {
+test('leaving Maintenance for Items drops late removal searches so they cannot replace a new target', async () => {
     const page = await readyDashboard();
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     page.element('CleanupScope').value = 'item';
     await page.event('CleanupScope', 'change');
     page.element('CleanupSearchTerm').value = 'older';
     await page.click('CleanupSearchButton');
     const older = page.request('MetaTagger/Cleanup/Items');
-    await page.click('MaintenanceBackButton');
-    await page.click('OpenMaintenanceButton');
+    await page.go('Items');
+    await page.go('Maintenance');
     page.element('CleanupSearchTerm').value = 'current';
     await page.click('CleanupSearchButton');
     await page.respond('MetaTagger/Cleanup/Items', [{ itemId: 'current', name: 'Current movie' }]);
@@ -2628,8 +2568,8 @@ test('maintenance returns to the inspector and late removal searches cannot repl
     assert.equal(page.focused(), page.element('RebuildTrackingLedgerOnNextRun'));
     await page.edit('RebuildTrackingLedgerOnNextRun', true);
     await page.edit('ClaimExistingGeneratedTagsOnNextRun', true);
-    await page.click('OpenMaintenanceButton');
-    await page.click('MaintenanceBackButton');
+    await page.go('Maintenance');
+    await page.go('Items');
     assert.equal(page.element('RebuildTrackingLedgerOnNextRun').checked, true);
     assert.equal(page.element('ClaimExistingGeneratedTagsOnNextRun').checked, true);
     assert.equal(page.sent('save-settings').length, 0);
@@ -2637,12 +2577,12 @@ test('maintenance returns to the inspector and late removal searches cannot repl
     assert.equal(page.sent('MetaTagger/Items/current/Apply').length, 0);
 });
 
-test('a completed background check keeps the current on-demand view and focus', async () => {
+test('a completed background check keeps the current tab and focus', async () => {
     const page = await readyDashboard();
     await page.click('RunPreviewButton');
     await page.respond('load-settings', { ConfigurationRevision: 'revision' });
     await page.respond('ScheduledTasks', [{ Id: 'task', Key: 'MetaTaggerPreviewTags', State: 'Running' }]);
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     await page.respond('ScheduledTasks/task', { State: 'Idle', LastExecutionResult: {
         StartTimeUtc: '2026-09-13T12:00:00Z', EndTimeUtc: '2026-09-13T12:00:02Z', Status: 'Completed'
     } });
@@ -2650,12 +2590,12 @@ test('a completed background check keeps the current on-demand view and focus', 
         invocation: 'MetaTaggerPreviewTags', configurationRevision: 'revision', previewOnly: true, lastRunUtc: '2026-09-13T12:00:01Z'
     } });
     assert.equal(page.element('PanelMaintenance').hidden, false);
-    assert.equal(page.focused(), page.element('MaintenanceHeading'));
+    assert.equal(page.focused(), page.element('TabMaintenance'));
 });
 
-test('a cancelled search debounce cannot reset nested pagination when closing the inspector', async () => {
+test('a cancelled search debounce cannot reset nested pagination when leaving the Items tab', async () => {
     const page = await readyDashboard();
-    await page.click('OpenInspectButton');
+    await page.go('Items');
     await page.respond('MetaTagger/Items', { totalCount: 1, items: [{ itemId: 'series', name: 'Series', itemType: 'Series' }] });
     page.element('ItemSearch').value = 'pending';
     await page.event('ItemSearch', 'input');
@@ -2663,10 +2603,295 @@ test('a cancelled search debounce cannot reset nested pagination when closing th
     await page.respond('MetaTagger/Items', { totalCount: 30, items: [{ itemId: 'season1', name: 'Season 1', itemType: 'Season' }] });
     await page.click('NextItemsButton');
     await page.respond('MetaTagger/Items', { totalCount: 30, items: [{ itemId: 'season26', name: 'Season 26', itemType: 'Season' }] });
-    await page.click('BackToReviewButton');
-    await page.click('OpenInspectButton');
+    await page.go('Activity');
+    await page.go('Items');
     assert.match(page.element('ItemBrowserFeedback').textContent, /Showing 26/);
     assert.match(page.element('ItemList').textContent, /Season 26/);
     await page.tick();
     assert.equal(page.sent('MetaTagger/Items').length, 3);
+});
+
+// Four-tab shell. Tab state lives in memory only; Jellyfin's router owns the hash.
+const tabNames = ['Activity', 'Items', 'Settings', 'Maintenance'];
+
+function assertSelectedTab(page, name) {
+    for (const tab of tabNames) {
+        const selected = tab === name;
+        assert.equal(page.element('Tab' + tab).getAttribute('role'), 'tab');
+        assert.equal(page.element('Tab' + tab).getAttribute('aria-selected'), String(selected), tab + ' selected state');
+        assert.equal(page.element('Tab' + tab).getAttribute('tabindex'), selected ? '0' : '-1', tab + ' roving tabindex');
+        assert.equal(page.element('Panel' + tab).hidden, !selected, tab + ' panel visibility');
+        assert.equal(page.element('Panel' + tab).getAttribute('role'), 'tabpanel');
+        assert.equal(page.element('Panel' + tab).getAttribute('aria-labelledby'), 'Tab' + tab);
+        assert.equal(page.element('Tab' + tab).getAttribute('aria-controls'), 'Panel' + tab);
+    }
+}
+
+test('the dashboard offers Activity, Items, Settings and Maintenance tabs that open on Activity', async () => {
+    const page = await readyDashboard();
+    assert.equal(page.element('MetaTaggerTabs').getAttribute('role'), 'tablist');
+    assert.deepEqual(markup.match(/id="Tab(?:Activity|Items|Settings|Maintenance)"/g),
+        ['id="TabActivity"', 'id="TabItems"', 'id="TabSettings"', 'id="TabMaintenance"']);
+    assertSelectedTab(page, 'Activity');
+    await page.click('TabSettings');
+    assertSelectedTab(page, 'Settings');
+    await page.event('MetaTaggerConfigPage', 'pagehide');
+    await page.event('MetaTaggerConfigPage', 'pageshow');
+    assertSelectedTab(page, 'Activity');
+    assert.doesNotMatch(script, /location\.hash|history\.(?:pushState|replaceState)|hashchange/);
+});
+
+test('tabs follow arrow, Home and End keys with a roving tabindex', async () => {
+    const page = await readyDashboard();
+    await page.event('TabActivity', 'keydown', { key: 'ArrowRight' });
+    assertSelectedTab(page, 'Items');
+    assert.equal(page.focused(), page.element('TabItems'));
+    await page.event('TabItems', 'keydown', { key: 'End' });
+    assertSelectedTab(page, 'Maintenance');
+    assert.equal(page.focused(), page.element('TabMaintenance'));
+    await page.event('TabMaintenance', 'keydown', { key: 'ArrowRight' });
+    assertSelectedTab(page, 'Activity');
+    await page.event('TabActivity', 'keydown', { key: 'ArrowLeft' });
+    assertSelectedTab(page, 'Maintenance');
+    await page.event('TabMaintenance', 'keydown', { key: 'Home' });
+    assertSelectedTab(page, 'Activity');
+    assert.equal(page.focused(), page.element('TabActivity'));
+    await page.event('TabActivity', 'keydown', { key: 'Escape' });
+    assertSelectedTab(page, 'Activity');
+});
+
+test('settings drafts, item selection, search and pagination survive tab switches', async () => {
+    const page = await readyDashboard();
+    await page.click('TabItems');
+    await page.respond('MetaTagger/Items', { totalCount: 60, items: [{ itemId: 'movie', name: 'Movie', itemType: 'Movie' }] });
+    await page.edit('ItemSearch', 'mov');
+    await page.tick();
+    await page.respond('MetaTagger/Items', { totalCount: 60, items: [{ itemId: 'movie', name: 'Movie', itemType: 'Movie' }] });
+    await page.click('NextItemsButton');
+    await page.respond('MetaTagger/Items', { totalCount: 60, items: [{ itemId: 'second', name: 'Second', itemType: 'Movie' }] });
+    await page.activate(page.element('ItemList').children[0]);
+    assert.equal(page.element('InspectorHeading').textContent, 'Second');
+    await page.click('TabSettings');
+    await page.edit('GeneratedTagPrefix', 'draft');
+    await page.click('TabActivity');
+    await page.click('TabItems');
+    assert.equal(page.element('ItemSearch').value, 'mov');
+    assert.equal(page.element('InspectorHeading').textContent, 'Second');
+    assert.equal(page.element('PreviousItemsButton').disabled, false);
+    await page.click('TabSettings');
+    assert.equal(page.element('GeneratedTagPrefix').value, 'draft');
+    assert.equal(page.sent('save-settings').length, 0);
+});
+
+test('leaving Maintenance clears the removal preview and confirmation', async () => {
+    const page = await readyDashboard();
+    await page.click('TabMaintenance');
+    await page.click('PreviewCleanupButton');
+    await page.respond('MetaTagger/Cleanup/Preview', cleanupPreview);
+    await confirmCleanup(page);
+    assert.equal(page.element('ApplyCleanupButton').disabled, false);
+    await page.click('TabActivity');
+    await page.click('TabMaintenance');
+    assert.equal(page.element('CleanupChanges').children.length, 0);
+    assert.equal(page.element('ConfirmCleanup').checked, false);
+    assert.equal(page.element('ApplyCleanupButton').disabled, true);
+    assert.match(page.element('CleanupFeedback').textContent, /left Maintenance/);
+});
+
+test('run controls sit in Activity while every settings input stays inside the one form', async () => {
+    const form = markup.slice(markup.indexOf('id="MetaTaggerConfigForm"'), markup.indexOf('</form>'));
+    for (const id of ['RunApplyButton', 'RunPreviewButton', 'StopPreviewButton', 'RunScope']) {
+        assert.ok(!form.includes('id="' + id + '"'), id + ' belongs outside the settings form');
+    }
+    for (const id of ['IsEnabled', 'GeneratedTagPrefix', 'DefaultRunMode', 'MaxItemsPerRun', 'QuietLogging', 'SaveSettingsButton']) {
+        assert.ok(form.includes('id="' + id + '"'), id + ' stays in the settings form');
+    }
+    const activity = markup.slice(markup.indexOf('id="PanelActivity"'), markup.indexOf('id="PanelItems"'));
+    for (const id of ['RunApplyButton', 'RunPreviewButton', 'StopPreviewButton', 'RunScope', 'EditRulesButton']) {
+        assert.ok(activity.includes('id="' + id + '"'), id + ' belongs to Activity');
+    }
+    assert.ok(markup.lastIndexOf('id="CleanupControls"') > markup.lastIndexOf('id="PanelMaintenance"'));
+    assert.doesNotMatch(markup.slice(markup.indexOf('id="CleanupControls"'), markup.indexOf('<script')), /<section|<h2/);
+});
+
+const apply = { runId: 'apply', operation: 'Apply', outcome: 'Completed', scope: 'Configured item types across all libraries',
+    startedUtc: '2026-09-14T12:00:00Z', configurationRevision: 'revision', summary: { itemsScanned: 9, itemsChanged: 3, writesApplied: 3 } };
+const failed = { runId: 'failed', operation: 'Apply', outcome: 'Failed', scope: 'Configured item types across all libraries',
+    startedUtc: '2026-09-13T12:00:00Z', summary: { itemsScanned: 1, failures: 1 } };
+const stopped = { runId: 'stopped', operation: 'Preview', outcome: 'Cancelled', scope: 'Entire library',
+    startedUtc: '2026-09-12T12:00:00Z', summary: { itemsScanned: 2 } };
+const cooldown = { runId: 'cooldown', operation: 'Automatic run', outcome: 'Skipped: cooldown', invocation: 'PostScan',
+    scope: 'Configured item types across all libraries', startedUtc: '2026-09-11T12:00:00Z', summary: { itemsScanned: 0 } };
+const running = { runId: 'running', operation: 'Apply', outcome: 'Running', scope: 'Configured item types across all libraries',
+    startedUtc: '2026-09-15T12:00:00Z', summary: {} };
+
+function feedCard(page, id) {
+    return page.element('RunFeed').children.find(card => card.getAttribute('data-run-id') === id);
+}
+function feedToggle(page, id) { return feedCard(page, id).children[0].children[0]; }
+function feedBody(page, id) { return feedCard(page, id).children[1]; }
+function feedStatus(page, id) { return feedBody(page, id).children[1]; }
+function feedCounts(page, id) { return feedBody(page, id).children.find(child => child.className === 'metadataTaggerRunCounts'); }
+function feedRetry(page, id) { return feedBody(page, id).children.find(child => child.getAttribute?.('data-retry')); }
+function feedRunDetails(page, id) {
+    const more = feedBody(page, id).children.find(child => child.tagName === undefined && child.children.some(node => node.textContent === 'Run details'));
+    return more && more.children.filter(child => child.className === 'metadataTaggerRunCounts');
+}
+function feedItems(page, id) { return feedBody(page, id).children.find(child => child.className === 'metadataTaggerFeedItems'); }
+
+test('Earlier activity lists runs with outcome wording, next steps and a Running chip', async () => {
+    const page = await readyDashboard();
+    await page.respond('MetaTagger/Runs', [running, apply, failed, stopped, cooldown]);
+    assert.equal(page.element('RunFeed').children.length, 5);
+    assert.match(feedToggle(page, 'running').textContent, /Apply tag changes.*Running/);
+    assert.match(feedToggle(page, 'apply').textContent, /Completed/);
+    assert.match(feedToggle(page, 'failed').textContent, /Failed/);
+    assert.match(feedToggle(page, 'stopped').textContent, /Stopped/);
+    assert.match(feedToggle(page, 'cooldown').textContent, /Skipped: cooldown/);
+    assert.match(feedBody(page, 'failed').textContent, /Check the Jellyfin server log before retrying/);
+    assert.match(feedBody(page, 'cooldown').textContent, /No items checked or tags changed.*next library scan after the cooldown/);
+    assert.match(page.element('OverviewOutcome').textContent, /Apply tag changes · Running/);
+});
+
+test('feed filters narrow runs to changed tags or problems', async () => {
+    const page = await readyDashboard();
+    await page.respond('MetaTagger/Runs', [apply, failed, stopped, cooldown]);
+    const visible = () => page.element('RunFeed').children.map(card => card.getAttribute('data-run-id'));
+    assert.equal(page.element('FeedFilterAll').getAttribute('aria-pressed'), 'true');
+    await page.click('FeedFilterChanged');
+    assert.deepEqual(visible(), ['apply']);
+    assert.equal(page.element('FeedFilterChanged').getAttribute('aria-pressed'), 'true');
+    assert.equal(page.element('FeedFilterAll').getAttribute('aria-pressed'), 'false');
+    await page.click('FeedFilterProblems');
+    assert.deepEqual(visible(), ['failed', 'stopped']);
+    await page.click('FeedFilterAll');
+    assert.deepEqual(visible(), ['apply', 'failed', 'stopped', 'cooldown']);
+});
+
+test('run cards load details lazily, once, and retry a failed read', async () => {
+    const page = await readyDashboard();
+    await page.respond('MetaTagger/Runs', [apply, failed]);
+    assert.equal(page.sent('MetaTagger/Runs/apply').length, 0);
+    assert.equal(feedToggle(page, 'apply').getAttribute('aria-expanded'), 'false');
+    assert.equal(feedBody(page, 'apply').hidden, true);
+    await page.activate(feedToggle(page, 'apply'));
+    assert.equal(feedToggle(page, 'apply').getAttribute('aria-expanded'), 'true');
+    assert.equal(feedBody(page, 'apply').hidden, false);
+    assert.match(feedBody(page, 'apply').textContent, /Loading/);
+    await page.respond('MetaTagger/Runs/apply', { ...apply, detailsAvailable: true, detailVersion: 1,
+        items: [{ name: 'Updated movie', outcome: 'Applied', writeOutcome: 'Confirmed', addedTags: ['meta:genre:drama'] }] });
+    assert.match(feedBody(page, 'apply').textContent, /Updated movie.*Tag update confirmed/);
+    await page.activate(feedToggle(page, 'apply'));
+    assert.equal(feedBody(page, 'apply').hidden, true);
+    await page.activate(feedToggle(page, 'apply'));
+    assert.equal(page.sent('MetaTagger/Runs/apply').length, 1, 'details are cached after the first read');
+    assert.match(feedBody(page, 'apply').textContent, /Updated movie/);
+    await page.activate(feedToggle(page, 'failed'));
+    await page.fail('MetaTagger/Runs/failed');
+    assert.match(feedBody(page, 'failed').textContent, /unavailable/);
+    const retry = feedBody(page, 'failed').children.find(child => child.id === 'RetryRunDetails' || child.getAttribute?.('data-retry'))
+        || (function find(node) { return node.children.map(find).find(Boolean) || (node.getAttribute('data-retry') ? node : null); })(feedBody(page, 'failed'));
+    assert.ok(retry, 'a failed detail read offers a retry');
+    await page.activate(retry);
+    await page.respond('MetaTagger/Runs/failed', { ...failed, detailsAvailable: true, items: [{ name: 'Broken movie', outcome: 'Failed' }] });
+    assert.match(feedBody(page, 'failed').textContent, /Broken movie/);
+});
+
+test('leaving Activity cancels an in-flight run detail read and reloads it on return', async () => {
+    const page = await readyDashboard();
+    await page.respond('MetaTagger/Runs', [apply]);
+    await page.activate(feedToggle(page, 'apply'));
+    const obsolete = page.request('MetaTagger/Runs/apply');
+    await page.click('TabItems');
+    obsolete.resolve({ ...apply, detailsAvailable: true, items: [{ name: 'Obsolete result' }] });
+    await page.event('RunFeed', 'blur');
+    await page.click('TabActivity');
+    await page.respond('MetaTagger/Runs/apply', { ...apply, detailsAvailable: true, items: [{ name: 'Current result' }] });
+    assert.match(feedBody(page, 'apply').textContent, /Current result/);
+    assert.doesNotMatch(feedBody(page, 'apply').textContent, /Obsolete/);
+});
+
+test('View run details opens the latest run in the feed', async () => {
+    const page = await readyDashboard();
+    await page.respond('MetaTagger/Runs', [apply, failed]);
+    assert.equal(page.element('LatestRunDetailsButton').hidden, false);
+    await page.click('LatestRunDetailsButton');
+    assert.equal(feedToggle(page, 'apply').getAttribute('aria-expanded'), 'true');
+    await page.respond('MetaTagger/Runs/apply', { ...apply, detailsAvailable: true, items: [{ name: 'Latest result' }] });
+    assert.match(feedBody(page, 'apply').textContent, /Latest result/);
+    assert.equal(page.focused(), feedToggle(page, 'apply'));
+});
+
+test('Activity shows the scope, saved rules and the Scheduled Tasks link in the automation status', async () => {
+    const page = await readyDashboard({ EnableGenres: true, IncludeSeries: true, RunAfterLibraryScan: true });
+    assert.match(page.element('RunScope').textContent, /Movies, Series across all libraries/);
+    assert.match(page.element('RulesInEffectText').textContent, /Rules in effect: Genres.*meta:genre:/);
+    assert.match(page.element('OverviewAutomationText').textContent, /Post-scan/);
+    assert.ok(markup.slice(markup.indexOf('id="OverviewAutomationHelp"')).split('</p>')[0].includes('id="OpenScheduledTasks"'));
+    await page.click('EditRulesButton');
+    assert.equal(page.element('TabSettings').getAttribute('aria-selected'), 'true');
+    assert.equal(page.focused(), page.element('PluginStatusHeading'));
+});
+
+test('unsaved edits and outdated checks explain themselves in Activity and keep runs on saved settings', async () => {
+    const page = dashboard();
+    await page.open();
+    await page.respond('MetaTagger/Preview', { status: 'Ready', summary: { runId: 'old', previewOnly: true, configurationRevision: 'older',
+        lastRunUtc: '2026-09-14T12:00:00Z' }, changes: [{ itemId: 'movie', itemName: 'Movie', itemType: 'Movie', addedTags: ['meta:genre:drama'] }] });
+    await page.respond('MetaTagger/Runs', []);
+    assert.equal(page.element('OutdatedCheckNotice').hidden, false);
+    assert.equal(page.element('ReviewOutdatedChip').hidden, false);
+    assert.equal(page.element('PreviewChanges').children.length, 0, 'outdated differences are not shown as current');
+    assert.equal(page.element('UnsavedEditsNotice').hidden, true);
+    await page.edit('GeneratedTagPrefix', 'draft');
+    assert.equal(page.element('UnsavedEditsNotice').hidden, false);
+    assert.equal(page.element('RunApplyButton').disabled, true);
+    assert.equal(page.element('CheckAgainButton').disabled, true);
+    await page.click('ReviewEditsButton');
+    assert.equal(page.element('TabSettings').getAttribute('aria-selected'), 'true');
+});
+
+test('Check again starts a saved-settings check from the outdated notice', async () => {
+    const page = dashboard();
+    await page.open();
+    await page.respond('MetaTagger/Preview', { status: 'Ready', summary: { runId: 'old', previewOnly: true, configurationRevision: 'older',
+        lastRunUtc: '2026-09-14T12:00:00Z' }, changes: [] });
+    await page.respond('MetaTagger/Runs', []);
+    await page.click('CheckAgainButton');
+    await page.respond('load-settings', { ConfigurationRevision: 'revision' });
+    await page.respond('ScheduledTasks', [{ Key: 'MetaTaggerPreviewTags', Id: 'preview', State: 'Idle' }]);
+    assert.equal(page.sent('ScheduledTasks/Running/preview').length, 1);
+    assert.equal(page.element('StopPreviewButton').disabled, false);
+});
+
+test('Proposed tag changes show the top rows with counts and open the rest in Items', async () => {
+    const page = dashboard();
+    await page.open();
+    const changes = ['a', 'b', 'c', 'd'].map(id => ({ itemId: id, itemName: 'Item ' + id, itemType: 'Movie',
+        addedTags: ['meta:genre:' + id, 'meta:year:2020'], removedTags: id === 'a' ? ['meta:genre:old'] : [] }));
+    await page.respond('MetaTagger/Preview', { status: 'Ready', summary: {}, changes });
+    assert.equal(page.element('PreviewChanges').children.length, 3);
+    assert.match(page.element('PreviewChanges').children[0].textContent, /Item a.*\+2.*−1/);
+    assert.equal(page.element('ReviewOutdatedChip').hidden, true);
+    assert.match(page.element('ReviewAllItemsButton').textContent, /Review all 4 in Items/);
+    await page.click('ReviewAllItemsButton');
+    assert.equal(page.element('TabItems').getAttribute('aria-selected'), 'true');
+    assert.equal(page.element('ItemStatus').value, 'Changes');
+});
+
+test('an item can open its tag removal preview in Maintenance and return to Items', async () => {
+    const page = await readyDashboard();
+    await page.click('TabItems');
+    await page.respond('MetaTagger/Items', { totalCount: 1, items: [{ itemId: 'movie', name: 'Movie', itemType: 'Movie' }] });
+    await page.activate(page.element('ItemList').children[0]);
+    assert.equal(page.element('BackToItemsButton').hidden, true);
+    await page.click('ClearItemButton');
+    assert.equal(page.element('TabMaintenance').getAttribute('aria-selected'), 'true');
+    assert.equal(page.element('CleanupScope').value, 'item');
+    assert.equal(page.element('CleanupItemId').value, 'movie');
+    assert.equal(page.element('BackToItemsButton').hidden, false);
+    await page.click('BackToItemsButton');
+    assert.equal(page.element('TabItems').getAttribute('aria-selected'), 'true');
+    assert.equal(page.element('InspectorHeading').textContent, 'Movie');
+    assert.equal(page.element('BackToItemsButton').hidden, true);
 });
