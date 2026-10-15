@@ -20,7 +20,7 @@ export async function geometry(page, width, diagnostics) {
         return { viewport: innerWidth, documentWidth: document.documentElement.scrollWidth,
             pageWidth: document.getElementById('MetaTaggerConfigPage').scrollWidth,
             pageClientWidth: document.getElementById('MetaTaggerConfigPage').clientWidth,
-            cards: ids.map(box), aside: box('ExampleAside') }; }, cards);
+            cards: ids.map(box), status: box('TaggingOptions'), aside: box('ExampleAside') }; }, cards);
     const result = await measure();
     diagnostics.push({ scenario: 'settings geometry', width, ...result });
     assert(result.documentWidth <= result.viewport + 1, `Horizontal document overflow at ${width}px`);
@@ -29,7 +29,7 @@ export async function geometry(page, width, diagnostics) {
     const last = result.cards.at(-1);
     if (width > 800) {
         assert(result.aside.x >= result.cards[0].x + result.cards[0].width - 1, `Try unsaved settings must sit beside the cards at ${width}px`);
-        assert(Math.abs(result.aside.y - result.cards[0].y) < 120, `Try unsaved settings must start beside the cards at ${width}px`);
+        assert(Math.abs(result.aside.y - result.status.y) < 2, `Try unsaved settings must start beside the cards at ${width}px`);
     } else {
         assert(result.aside.y >= last.y + last.height - 1, `Try unsaved settings must stack below the cards at ${width}px`);
         assert(Math.abs(result.aside.x - result.cards[0].x) < 2, `Try unsaved settings must align with the cards at ${width}px`);
