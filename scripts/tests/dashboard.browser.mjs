@@ -68,7 +68,8 @@ async function noOverflow(page, scenario, diagnostics) {
 async function populate(page, panel) {
     if (panel === 'PanelActivity') {
         await page.locator('#RunFeed .metadataTaggerFeedHead').first().waitFor();
-        await page.locator('#RunFeed .metadataTaggerFeedHead').first().click();
+        const head = page.locator('#RunFeed .metadataTaggerFeedHead').first();
+        if ((await head.getAttribute('aria-expanded')) !== 'true') await head.click();
         await page.waitForFunction(() => document.querySelector('#RunFeed .metadataTaggerFeedBody:not([hidden]) dl') !== null);
     } else if (panel === 'PanelItems') {
         await page.locator('#ItemList .metadataTaggerItemRow').first().waitFor();
@@ -102,6 +103,8 @@ export async function installedScenarios(page, diagnostics) {
             assert.equal(await page.locator('[role="tab"][tabindex="0"]').count(), 1, 'Only the selected tab is in the tab order');
             await populate(page, panel);
             await noOverflow(page, `${panel} at ${width}px`, diagnostics);
+            // Populating moves focus into the panel; return to the tablist for the next arrow key.
+            await page.locator('#' + tab).focus();
         }
         await page.keyboard.press('ArrowRight');
         await currentFocus(page, 'TabActivity', diagnostics);
