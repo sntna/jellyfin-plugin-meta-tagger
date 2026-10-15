@@ -74,7 +74,7 @@ function dashboard() {
         if (!['input', 'img', 'meta', 'link', 'path', 'br', 'hr'].includes(match[2]) && !match[3].endsWith('/')) stack.push(element);
     }
     const configForm = markup.slice(markup.indexOf('id="MetaTaggerConfigForm"'), markup.indexOf('</form>'));
-    const cleanupMarkup = markup.slice(markup.indexOf('id="CleanupControls"'), markup.indexOf('<script'));
+    const cleanupMarkup = markup.slice(markup.indexOf('id="CleanupControls"'), markup.indexOf('id="SaveBar"'));
     const inputsIn = text => [...elements.values()].filter(element =>
         ['input', 'select', 'button'].includes(element.type) || ['text', 'number', 'checkbox'].includes(element.type))
         .filter(element => text.includes('id="' + element.id + '"'));
@@ -182,11 +182,15 @@ const preview = {
     ]
 };
 
+test('the unsaved bar can stick to the viewport inside Jellyfin page chrome', () => {
+    // Jellyfin clips [data-role="content"], which makes a sticky bar scroll with the content instead. The page must lift that clip.
+    assert.match(markup, /#MetaTaggerConfigPage \[data-role="content"\]\s*\{[^}]*overflow:\s*visible/);
+    assert.match(markup, /\.metadataTaggerSaveBar\s*\{[^}]*position:\s*sticky;[^}]*bottom:\s*0/);
+});
+
 test('settings item choices search automatically and show selection with source values', async () => {
     const page = await readyDashboard();
     await page.go('Settings');
-    page.element('ExampleAside').open = true;
-    await page.event('ExampleAside', 'toggle');
     page.element('ExampleSearch').value = 'Apollo';
     await page.event('ExampleSearch', 'input');
     await page.tick();
@@ -496,15 +500,11 @@ test('requests finishing after the page is removed do not touch its DOM', async 
 test('leaving Settings for Activity and back preserves the unsaved draft without requests', async () => {
     const page = await readyDashboard();
     await page.go('Settings');
-    page.element('ExampleAside').open = true;
-    await page.event('ExampleAside', 'toggle');
     await page.edit('GeneratedTagPrefix', 'draft');
     await page.go('Activity');
     assert.equal(page.element('PanelActivity').hidden, false);
     assert.equal(page.element('PanelSettings').hidden, true);
     await page.go('Settings');
-    page.element('ExampleAside').open = true;
-    await page.event('ExampleAside', 'toggle');
     assert.equal(page.element('GeneratedTagPrefix').value, 'draft');
     assert.equal(page.element('PanelSettings').hidden, false);
     assert.equal(page.sent('load-settings').length, 1);
@@ -747,8 +747,6 @@ test('searching for a new example invalidates the earlier example response and t
 
 async function chooseExample(page, item) {
     await page.go('Settings');
-    page.element('ExampleAside').open = true;
-    await page.event('ExampleAside', 'toggle');
     await page.tick();
     await page.respond('MetaTagger/Items', { totalCount: 1, items: [item] });
     await page.activate(page.element('ExampleResults').children[0].children[0]);
@@ -783,8 +781,6 @@ test('example selection rejects older targets and navigation responses without s
 test('search feedback handles no matches, failure, retry, and Enter without saving', async () => {
     const page = await readyDashboard();
     await page.go('Settings');
-    page.element('ExampleAside').open = true;
-    await page.event('ExampleAside', 'toggle');
     await page.event('ExampleSearch', 'keydown', { key: 'Enter' });
     await page.respond('MetaTagger/Items', { totalCount: 0, items: [] });
     assert.match(page.element('ExampleSearchFeedback').textContent, /No matching items/);
@@ -831,8 +827,6 @@ test('opening Settings during configuration loading starts item choices when loa
     const page = dashboard();
     await page.event('MetaTaggerConfigPage', 'pageshow');
     await page.go('Settings');
-    page.element('ExampleAside').open = true;
-    await page.event('ExampleAside', 'toggle');
     await page.respond('load-settings', { GeneratedTagPrefix: 'meta', ManualTagPrefix: 'manual', TagSeparator: ':', IsEnabled: true });
     await page.tick();
     assert.equal(page.sent('MetaTagger/Items').length, 1);
@@ -844,8 +838,6 @@ test('saving settings restarts pending item search and selected item calculation
     const earlierExample = page.request('MetaTagger/Example');
     await page.go('Settings');
     await page.go('Settings');
-    page.element('ExampleAside').open = true;
-    await page.event('ExampleAside', 'toggle');
     await page.tick();
     const earlierSearch = page.request('MetaTagger/Items');
     page.request('MetaTagger/Example');
@@ -897,8 +889,6 @@ test('source summaries name every saved selection while later edits remain a sep
 test('the Settings aside requests only while visible and rejects responses after navigation', async () => {
     const page = await readyDashboard();
     await page.go('Settings');
-    page.element('ExampleAside').open = true;
-    await page.event('ExampleAside', 'toggle');
     await page.tick();
     assert.equal(page.sent('MetaTagger/Items').length, 1);
     await page.respond('MetaTagger/Items', { totalCount: 1, items: [{ itemId: 'kept', name: 'Keep selected' }] });
@@ -913,8 +903,6 @@ test('the Settings aside requests only while visible and rejects responses after
     assert.equal(page.sent('MetaTagger/Example').length, 1);
     assert.doesNotMatch(page.element('ExampleTags').textContent, /obsolete/);
     await page.go('Settings');
-    page.element('ExampleAside').open = true;
-    await page.event('ExampleAside', 'toggle');
     await page.tick();
     const reopened = page.request('MetaTagger/Example');
     assert.equal(reopened.body.itemId, 'kept');
@@ -924,26 +912,46 @@ test('the Settings aside requests only while visible and rejects responses after
 });
 
 
-test('collapsed setup summaries follow the draft and validation opens its enclosing controls', async () => {
+test('card sentences follow the draft and validation opens the owning card on the Settings tab', async () => {
     const page = await readyDashboard();
     await page.edit('GeneratedTagPrefix', 'catalog');
     await page.edit('TagSeparator', '/');
     await page.edit('IncludeEpisodes', true);
     await page.edit('IncludeParentSeriesMetadataOnEpisodes', true);
-    assert.equal(page.element('TagFormatSummary').textContent, 'catalog/genre/animation');
+    assert.match(page.element('CardTagFormatSentence').textContent, /catalog\/genre\/animation/);
     assert.equal(page.element('ItemTypesSummary').textContent, 'Movies, Episodes · Series metadata included');
-    assert.equal(page.element('TagFormatOptions').open, false);
-    assert.equal(page.element('ItemTypeOptions').open, false);
+    for (const card of ['Sources', 'Automation', 'TagFormat', 'Outdated', 'Limits']) {
+        assert.equal(page.element('Card' + card + 'Body').hidden, true, card + ' starts closed');
+    }
+    await page.go('Maintenance');
     await page.edit('GeneratedTagPrefix', 'bad prefix');
     await page.event('MetaTaggerConfigForm', 'submit');
-    assert.equal(page.element('TagFormatOptions').open, true);
+    assert.equal(page.element('PanelSettings').hidden, false, 'an invalid value selects the Settings tab');
+    assert.equal(page.element('CardTagFormatBody').hidden, false);
     assert.equal(page.focused(), page.element('TagNamespaceErrors'));
     await page.edit('EnableExistingTagsAsKeywords', true);
     await page.event('MaxKeywordTagsPerItem', 'invalid');
+    assert.equal(page.element('CardSourcesBody').hidden, false);
+    assert.equal(page.element('CardTagFormatBody').hidden, false, 'revealing for validation never closes another invalid card');
     assert.equal(page.element('MoreSources').open, true);
     assert.equal(page.element('KeywordOptions').open, true);
     await page.event('MaxItemsPerRun', 'invalid');
-    assert.equal(page.element('RunLimitOptions').open, true);
+    assert.equal(page.element('CardLimitsBody').hidden, false);
+    assert.equal(page.element('CardSourcesBody').hidden, false);
+    assert.equal(page.sent('save-settings').length, 0);
+});
+
+test('several invalid values in different cards keep every owning card open and focus the first', async () => {
+    const page = await readyDashboard();
+    await page.edit('MinimumMinutesBetweenAutoRuns', '-1');
+    await page.edit('MaxItemsPerRun', '-2');
+    await page.edit('MaxRunMinutes', '1.5');
+    await page.go('Maintenance');
+    await page.event('MetaTaggerConfigForm', 'submit');
+    assert.equal(page.element('PanelSettings').hidden, false);
+    assert.equal(page.element('CardAutomationBody').hidden, false, 'the first invalid control keeps its card open');
+    assert.equal(page.element('CardLimitsBody').hidden, false);
+    assert.equal(page.focused(), page.element('MinimumMinutesBetweenAutoRuns'));
     assert.equal(page.sent('save-settings').length, 0);
 });
 
@@ -978,7 +986,7 @@ test('invalid saved values in conditional controls can be corrected even when th
     assert.equal(page.element('PostScanOptions').hidden, true);
     await page.event('MinimumMinutesBetweenAutoRuns', 'invalid');
     assert.equal(page.element('PostScanOptions').hidden, false);
-    assert.equal(page.element('AutomationOptions').tagName, 'SECTION');
+    assert.equal(page.element('CardAutomation').tagName, 'SECTION');
     assert.equal(Boolean(page.element('RunAfterLibraryScan').checked), false);
 });
 
@@ -992,7 +1000,7 @@ test('saved run action stays explicit and editing settings or opening Scheduled 
     assert.equal(page.element('PanelSettings').hidden, false);
     await page.edit('PreviewOnly', false);
     await page.edit('RunAfterLibraryScan', true);
-    assert.match(page.element('AutomationSummary').textContent, /Apply.*scan/i);
+    assert.match(page.element('CardAutomationSentence').textContent, /Apply.*scan/i);
     assert.match(page.element('SettingsFeedback').textContent, /unsaved/);
     assert.match(page.element('LibraryApplyFeedback').textContent, /Save your settings before running the task/);
     assert.equal(page.element('OpenScheduledTasks').getAttribute('href'), '#/dashboard/tasks');
@@ -1131,8 +1139,6 @@ test('a newer direct generation preview survives late older history without merg
     const page = dashboard();
     await page.open();
     await page.go('Settings');
-    page.element('ExampleAside').open = true;
-    await page.event('ExampleAside', 'toggle');
     await page.respond('MetaTagger/Preview', { status: 'Ready', summary: {
         runId: 'newer', previewOnly: true, runMode: 'Incremental', configurationRevision: 'revision', lastRunUtc: '2026-09-14T12:00:00Z'
     }, changes: [{ itemId: 'newer-item', itemName: 'New generation', addedTags: ['meta:year:2026'] }] });
@@ -1329,8 +1335,6 @@ test('Maintenance opens on demand and leaving it invalidates removal approval', 
     await confirmCleanup(page);
     assert.equal(page.element('ApplyCleanupButton').disabled, false);
     await page.go('Settings');
-    page.element('ExampleAside').open = true;
-    await page.event('ExampleAside', 'toggle');
     assert.equal(page.element('PanelSettings').hidden, false);
     assert.equal(page.element('ConfirmCleanup').checked, false);
     assert.equal(page.element('ApplyCleanupButton').disabled, true);
@@ -1425,9 +1429,11 @@ test('claim warnings follow draft choices while the tag-return warning follows s
     assert.equal(page.element('ClaimTagsWarning').hidden, true);
     assert.equal(page.element('TemporaryClaimTagsWarning').hidden, true);
     assert.equal(page.element('CleanupReturnWarning').hidden, false);
-    await page.edit('ClaimExistingGeneratedTagsForCleanup', true);
+    await page.edit('EarlierInstallationChoice', 'Every');
     assert.equal(page.element('ClaimTagsWarning').hidden, false);
-    await page.edit('ClaimExistingGeneratedTagsOnNextRun', true);
+    assert.equal(page.element('TemporaryClaimTagsWarning').hidden, true);
+    await page.edit('EarlierInstallationChoice', 'Next');
+    assert.equal(page.element('ClaimTagsWarning').hidden, true);
     assert.equal(page.element('TemporaryClaimTagsWarning').hidden, false);
     await page.edit('IsEnabled', false);
     assert.equal(page.element('CleanupReturnWarning').hidden, false);
@@ -1767,7 +1773,7 @@ test('proposed and earlier-activity thumbnails share lazy loading and missing-ar
 });
 
 test('initial settings expose three sources and keep optional sources collapsed', async () => {
-    const primary = markup.slice(markup.indexOf('<h2 id="SourcesHeading">'), markup.indexOf('<details id="MoreSources"'));
+    const primary = markup.slice(markup.indexOf('<legend>Metadata sources</legend>'), markup.indexOf('<details id="MoreSources"'));
     assert.deepEqual([...primary.matchAll(/<input id="(Enable[^\"]+)"/g)].map(match => match[1]),
         ['EnableGenres', 'EnableParentalRating', 'EnableAudioLanguages']);
     const page = await readyDashboard({ EnableGenres: true, EnableParentalRating: true, EnableAudioLanguages: true,
@@ -1863,7 +1869,7 @@ for (const invalidBudget of ['-1', '1.5']) {
         assert.equal(page.sent('save-settings').length, 0);
         assert.equal(page.sent('ScheduledTasks').length, 0);
         assert.equal(page.element('MaxWritesPerRun').value, invalidBudget);
-        assert.equal(page.element('RunLimitOptions').open, true);
+        assert.equal(page.element('CardLimitsBody').hidden, false);
         assert.equal(page.focused(), page.element('MaxWritesPerRun'));
 
         await page.edit('MaxWritesPerRun', '25');
@@ -2211,17 +2217,15 @@ test('a finished Apply opens its retained saved outcomes and artwork in Earlier 
     assert.equal(image.hidden, true);
     assert.match(feedItems(page, 'saved').textContent, /Saved episode/);
 });
-test('collapsing the draft example rejects a pending response and reopening recalculates', async () => {
+test('leaving Settings rejects a pending example response and returning recalculates', async () => {
     const page = await readyDashboard();
     await chooseExample(page, { itemId: 'movie', name: 'Example', itemType: 'Movie' });
     const old = page.request('MetaTagger/Example');
-    page.element('ExampleAside').open = false;
-    await page.event('ExampleAside', 'toggle');
+    await page.go('Activity');
     old.resolve({ generatedTags: ['obsolete'] });
     await page.event('ExampleSearch', 'blur');
     assert.doesNotMatch(page.element('ExampleTags').textContent, /obsolete/);
-    page.element('ExampleAside').open = true;
-    await page.event('ExampleAside', 'toggle');
+    await page.go('Settings');
     await page.tick();
     assert.equal(page.request('MetaTagger/Example').body.itemId, 'movie');
     assert.equal(page.sent('save-settings').length, 0);
@@ -2324,14 +2328,14 @@ const readLifecycleViews = {
         return {
             request: () => page.request('MetaTagger/Example'),
             async replace() { await page.edit('GeneratedTagPrefix', 'current'); await page.tick(); },
-            close: () => page.disclose('ExampleAside', false),
-            async reopen() { await page.disclose('ExampleAside'); await page.tick(); },
+            close: () => page.go('Activity'),
+            async reopen() { await page.go('Settings'); await page.tick(); },
             async retry() { await page.click('ExampleRefresh'); await page.tick(); },
             flush: () => page.event('ExampleTags', 'blur'),
             obsoleteResponse: { generatedTags: ['Obsolete result'] },
             currentResponse: { generatedTags: ['Current result'] },
             assertClosed() {
-                assert.equal(page.element('ExampleAside').open, false);
+                assert.equal(page.element('PanelSettings').hidden, true);
                 assert.doesNotMatch(page.element('ExampleTags').textContent, /Obsolete/);
                 assert.doesNotMatch(page.element('ExampleFeedback').textContent, /Could not/);
             },
@@ -2562,16 +2566,13 @@ test('leaving Maintenance for Items drops late removal searches so they cannot r
     assert.match(page.element('CleanupItemId').textContent, /Current movie/);
     assert.doesNotMatch(page.element('CleanupItemId').textContent, /Obsolete movie/);
     assert.equal(page.element('ApplyCleanupButton').disabled, true);
-    await page.click('MaintenanceSettingsButton');
-    assert.equal(page.element('PanelSettings').hidden, false);
-    assert.equal(page.element('AdvancedOptions').open, true);
-    assert.equal(page.focused(), page.element('RebuildTrackingLedgerOnNextRun'));
     await page.edit('RebuildTrackingLedgerOnNextRun', true);
-    await page.edit('ClaimExistingGeneratedTagsOnNextRun', true);
+    await page.edit('EarlierInstallationChoice', 'Next');
+    await page.go('Items');
     await page.go('Maintenance');
     await page.go('Items');
     assert.equal(page.element('RebuildTrackingLedgerOnNextRun').checked, true);
-    assert.equal(page.element('ClaimExistingGeneratedTagsOnNextRun').checked, true);
+    assert.equal(page.element('EarlierInstallationChoice').value, 'Next');
     assert.equal(page.sent('save-settings').length, 0);
     assert.equal(page.sent('MetaTagger/Cleanup/Apply').length, 0);
     assert.equal(page.sent('MetaTagger/Items/current/Apply').length, 0);
@@ -2703,7 +2704,7 @@ test('run controls sit in Activity while every settings input stays inside the o
     for (const id of ['RunApplyButton', 'RunPreviewButton', 'StopPreviewButton', 'RunScope']) {
         assert.ok(!form.includes('id="' + id + '"'), id + ' belongs outside the settings form');
     }
-    for (const id of ['IsEnabled', 'GeneratedTagPrefix', 'DefaultRunMode', 'MaxItemsPerRun', 'QuietLogging', 'SaveSettingsButton']) {
+    for (const id of ['IsEnabled', 'GeneratedTagPrefix', 'DefaultRunMode', 'MaxItemsPerRun', 'QuietLogging', 'EarlierInstallationChoice', 'ForceFullScanOnNextRun', 'RebuildTrackingLedgerOnNextRun']) {
         assert.ok(form.includes('id="' + id + '"'), id + ' stays in the settings form');
     }
     const activity = markup.slice(markup.indexOf('id="PanelActivity"'), markup.indexOf('id="PanelItems"'));
@@ -2894,4 +2895,384 @@ test('an item can open its tag removal preview in Maintenance and return to Item
     assert.equal(page.element('TabItems').getAttribute('aria-selected'), 'true');
     assert.equal(page.element('InspectorHeading').textContent, 'Movie');
     assert.equal(page.element('BackToItemsButton').hidden, true);
+});
+
+// ---- Settings cards, save bar and Maintenance (issue #49) ----
+
+const claimStates = [
+    // [persistent cleanup claim, temporary next-run claim, choice shown]
+    [false, false, 'Off'],
+    [false, true, 'Next'],
+    [true, false, 'Every'],
+    [true, true, 'Every']
+];
+
+for (const [cleanup, next, choice] of claimStates) {
+    test(`earlier-installation choice reads cleanup=${cleanup} next-run=${next} as ${choice}`, async () => {
+        const page = await readyDashboard({ ClaimExistingGeneratedTagsForCleanup: cleanup, ClaimExistingGeneratedTagsOnNextRun: next });
+        assert.equal(page.element('EarlierInstallationChoice').value, choice);
+        assert.equal(page.element('SaveBar').hidden, true, 'loading never raises the save bar');
+    });
+}
+
+for (const [savedCleanup, savedNext] of claimStates) {
+    for (const choice of ['Off', 'Next', 'Every']) {
+        const expected = { Off: [false, false], Next: [false, true], Every: [true, false] }[choice];
+        test(`choosing ${choice} saves cleanup=${expected[0]} next-run=${expected[1]} over stored cleanup=${savedCleanup} next-run=${savedNext}`, async () => {
+            const page = await readyDashboard({ ClaimExistingGeneratedTagsForCleanup: savedCleanup, ClaimExistingGeneratedTagsOnNextRun: savedNext });
+            await page.go('Maintenance');
+            await page.edit('EarlierInstallationChoice', choice);
+            await page.click('SaveSettingsButton');
+            await page.respond('load-settings', { ClaimExistingGeneratedTagsForCleanup: savedCleanup, ClaimExistingGeneratedTagsOnNextRun: savedNext });
+            const save = page.request('save-settings').body;
+            assert.strictEqual(save.ClaimExistingGeneratedTagsForCleanup, expected[0]);
+            assert.strictEqual(save.ClaimExistingGeneratedTagsOnNextRun, expected[1]);
+            assert.ok(!('EarlierInstallationChoice' in save), 'the choice is a view of two existing booleans, not a new setting');
+        });
+    }
+}
+
+test('saving other settings normalizes a legacy configuration that has both claim flags on', async () => {
+    const page = await readyDashboard({ ClaimExistingGeneratedTagsForCleanup: true, ClaimExistingGeneratedTagsOnNextRun: true });
+    await page.edit('MaxItemsPerRun', '5');
+    await page.click('SaveSettingsButton');
+    await page.respond('load-settings', { ClaimExistingGeneratedTagsForCleanup: true, ClaimExistingGeneratedTagsOnNextRun: true });
+    const save = page.request('save-settings').body;
+    assert.strictEqual(save.ClaimExistingGeneratedTagsForCleanup, true);
+    assert.strictEqual(save.ClaimExistingGeneratedTagsOnNextRun, false);
+});
+
+for (const [choice, cleanup, next] of [['Off', false, false], ['Next', false, true], ['Every', true, false]]) {
+    test(`the draft example payload keeps boolean claim flags for ${choice}`, async () => {
+        const page = await readyDashboard();
+        await page.edit('EarlierInstallationChoice', choice);
+        await chooseExample(page, { itemId: 'movie', name: 'Example', itemType: 'Movie' });
+        const draft = page.request('MetaTagger/Example').body.configuration;
+        assert.strictEqual(draft.ClaimExistingGeneratedTagsForCleanup, cleanup);
+        assert.strictEqual(draft.ClaimExistingGeneratedTagsOnNextRun, next);
+        assert.ok(!('EarlierInstallationChoice' in draft));
+    });
+}
+
+const everyField = {
+    IsEnabled: false, GeneratedTagPrefix: 'tags', TagSeparator: '/', ManualTagPrefix: 'mine',
+    EnableGenres: false, EnableParentalRating: true, EnableExistingTagsAsKeywords: true,
+    MaxKeywordTagsPerItem: 4, ExcludedKeywordPrefixes: 'private:', EnableStudios: true,
+    EnableProductionCountries: true, EnableProviderIds: true, EnableProductionYear: true,
+    EnableAudioLanguages: true, EnableSubtitleLanguages: true, IncludeParentSeriesMetadataOnEpisodes: true,
+    IncludeMovies: false, IncludeSeries: true, IncludeEpisodes: true, IncludeVideos: true,
+    StaleTagMode: 'Remove', ClaimExistingGeneratedTagsForCleanup: true, PreviewOnly: false,
+    QuietLogging: true, DefaultRunMode: 'FullScan', RunAfterLibraryScan: true,
+    MinimumMinutesBetweenAutoRuns: 7, MaxItemsPerRun: 11, MaxWritesPerRun: 12, MaxRunMinutes: 13,
+    WriteDelayMilliseconds: 14, ForceFullScanOnNextRun: true, RebuildTrackingLedgerOnNextRun: true,
+    ClaimExistingGeneratedTagsOnNextRun: false
+};
+
+test('all 34 settings fields load into the cards and Maintenance and save unchanged', async () => {
+    assert.equal(Object.keys(everyField).length, 34);
+    const page = await readyDashboard(everyField);
+    for (const [id, value] of Object.entries(everyField)) {
+        if (id.startsWith('ClaimExisting')) continue;
+        const element = page.element(id);
+        assert.equal(element.type === 'checkbox' ? Boolean(element.checked) : String(element.value), element.type === 'checkbox' ? value : String(value), id);
+    }
+    assert.equal(page.element('EarlierInstallationChoice').value, 'Every');
+    await page.edit('GeneratedTagPrefix', 'edited');
+    await page.click('SaveSettingsButton');
+    await page.respond('load-settings', {});
+    const save = page.request('save-settings').body;
+    for (const [id, value] of Object.entries(everyField)) {
+        assert.deepEqual(save[id], id === 'GeneratedTagPrefix' ? 'edited' : value, id);
+    }
+});
+
+test('every settings control lives in one of the five cards, the status row or Maintenance', () => {
+    const settings = markup.slice(markup.indexOf('id="PanelSettings"'), markup.indexOf('id="PanelMaintenance"'));
+    const cardIds = ['CardSources', 'CardAutomation', 'CardTagFormat', 'CardOutdated', 'CardLimits'];
+    assert.deepEqual([...settings.matchAll(/<section id="(Card\w+)"/g)].map(match => match[1]), cardIds);
+    const heading = id => settings.match(new RegExp(`id="${id}Head"[\\s\\S]*?</button>`))[0];
+    assert.match(heading('CardSources'), /Sources &amp; item types/);
+    assert.match(heading('CardAutomation'), /Automation/);
+    assert.match(heading('CardTagFormat'), /Tag format/);
+    assert.match(heading('CardOutdated'), /Outdated tags/);
+    assert.match(heading('CardLimits'), /Limits &amp; privacy/);
+    const owner = id => cardIds.find(card => {
+        const start = settings.indexOf(`<section id="${card}"`);
+        const end = settings.indexOf('<section id="Card', start + 1);
+        return settings.slice(start, end < 0 ? undefined : end).includes(`id="${id}"`);
+    });
+    const expected = {
+        CardSources: ['EnableGenres', 'EnableParentalRating', 'EnableAudioLanguages', 'EnableStudios', 'EnableProductionCountries', 'EnableProductionYear',
+            'EnableSubtitleLanguages', 'EnableExistingTagsAsKeywords', 'MaxKeywordTagsPerItem', 'ExcludedKeywordPrefixes', 'EnableProviderIds',
+            'IncludeMovies', 'IncludeSeries', 'IncludeEpisodes', 'IncludeParentSeriesMetadataOnEpisodes', 'IncludeVideos'],
+        CardAutomation: ['DefaultRunMode', 'PreviewOnly', 'RunAfterLibraryScan', 'MinimumMinutesBetweenAutoRuns'],
+        CardTagFormat: ['GeneratedTagPrefix', 'TagSeparator', 'ManualTagPrefix'],
+        CardOutdated: ['StaleTagMode'],
+        CardLimits: ['MaxItemsPerRun', 'MaxWritesPerRun', 'MaxRunMinutes', 'WriteDelayMilliseconds', 'QuietLogging']
+    };
+    for (const [card, ids] of Object.entries(expected)) for (const id of ids) assert.equal(owner(id), card, id);
+    assert.match(settings.slice(settings.indexOf('id="CardTagFormat"')), /manual:tagger:skip[\s\S]*manual:tagger:force/);
+    assert.ok(settings.includes('id="IsEnabled"'));
+    assert.ok(!markup.includes('AdvancedOptions') && !markup.includes('Advanced behavior'));
+    assert.ok(!markup.includes('MaintenanceSettingsButton') && !markup.includes('Tracking and legacy tag settings'));
+    assert.ok(!/id="ClaimExistingGeneratedTags(ForCleanup|OnNextRun)"/.test(markup.slice(0, markup.indexOf('<script'))), 'the old claim checkboxes are gone');
+    const maintenance = markup.slice(markup.indexOf('id="PanelMaintenance"'), markup.indexOf('<script'));
+    for (const id of ['ForceFullScanOnNextRun', 'RebuildTrackingLedgerOnNextRun', 'EarlierInstallationChoice', 'CleanupControls']) {
+        assert.ok(maintenance.includes('id="' + id + '"'), id + ' belongs to Maintenance');
+    }
+});
+
+test('cards show the saved value as a sentence and open one at a time', async () => {
+    const page = await readyDashboard({ EnableGenres: true, IncludeMovies: true, IncludeSeries: true, StaleTagMode: 'Preview', MaxItemsPerRun: 50, QuietLogging: true });
+    assert.match(page.element('CardSourcesSentence').textContent, /Genres.*Movies, Series/);
+    assert.match(page.element('CardAutomationSentence').textContent, /Preview only/);
+    assert.match(page.element('CardTagFormatSentence').textContent, /meta:genre:animation/);
+    assert.match(page.element('CardOutdatedSentence').textContent, /kept.*listed/i);
+    assert.match(page.element('CardLimitsSentence').textContent, /50 items.*hidden/i);
+    await page.go('Settings');
+    await page.click('CardSourcesHead');
+    assert.equal(page.element('CardSourcesBody').hidden, false);
+    assert.equal(page.element('CardSourcesHead').getAttribute('aria-expanded'), 'true');
+    await page.click('CardLimitsHead');
+    assert.equal(page.element('CardLimitsBody').hidden, false);
+    assert.equal(page.element('CardSourcesBody').hidden, true);
+    assert.equal(page.element('CardSourcesHead').getAttribute('aria-expanded'), 'false');
+    await page.click('CardLimitsHead');
+    assert.equal(page.element('CardLimitsBody').hidden, true);
+    await page.edit('MaxItemsPerRun', '0');
+    await page.edit('QuietLogging', false);
+    assert.match(page.element('CardLimitsSentence').textContent, /No run limits.*shown/i);
+    assert.equal(page.element('SaveBar').hidden, false);
+});
+
+test('Outdated tags card sends earlier-installation tags to Maintenance', async () => {
+    const page = await readyDashboard();
+    await page.go('Settings');
+    await page.click('CardOutdatedHead');
+    await page.click('OutdatedMaintenanceLink');
+    assert.equal(page.element('PanelMaintenance').hidden, false);
+    assert.equal(page.focused(), page.element('EarlierInstallationChoice'));
+});
+
+test('an invalid number found by Save from another tab reveals its card and focuses the control', async () => {
+    const page = await readyDashboard();
+    await page.edit('MaxRunMinutes', '-3');
+    await page.go('Items');
+    await page.click('SaveSettingsButton');
+    assert.equal(page.element('PanelSettings').hidden, false);
+    assert.equal(page.element('CardLimitsBody').hidden, false);
+    assert.equal(page.focused(), page.element('MaxRunMinutes'));
+    assert.equal(page.sent('save-settings').length, 0);
+});
+
+test('the save bar appears on every tab only while edits are unsaved', async () => {
+    const page = dashboard();
+    await page.open();
+    await page.respond('MetaTagger/Preview', { status: 'Ready', summary: { runId: 'recorded', previewOnly: true, configurationRevision: 'revision',
+        lastRunUtc: '2026-09-14T12:00:00Z' }, changes: [{ itemId: 'movie', itemName: 'Movie', itemType: 'Movie', addedTags: ['meta:genre:drama'] }] });
+    await page.respond('MetaTagger/Runs', []);
+    assert.equal(page.element('OutdatedCheckNotice').hidden, true);
+    assert.equal(page.element('SaveBar').hidden, true);
+    await page.edit('MaxItemsPerRun', '3');
+    for (const tab of ['Settings', 'Activity', 'Items', 'Maintenance']) {
+        await page.go(tab);
+        assert.equal(page.element('SaveBar').hidden, false, 'unsaved edits stay visible on ' + tab);
+    }
+    for (const id of ['DiscardSettingsButton', 'SaveApplyButton', 'SaveSettingsButton']) assert.equal(page.element(id).disabled, false, id);
+    assert.match(page.element('SaveBarMessage').textContent, /unsaved/i);
+    assert.equal(page.element('UnsavedEditsNotice').hidden, false);
+    await page.click('SaveSettingsButton');
+    await page.respond('load-settings', {});
+    assert.equal(page.element('SaveBar').hidden, false, 'the bar stays until the save succeeds');
+    await page.respond('save-settings', {});
+    await page.respond('MetaTagger/ConfigurationRevision', 'revision-2');
+    assert.equal(page.element('SaveBar').hidden, true);
+    assert.equal(page.element('OutdatedCheckNotice').hidden, false, 'saving marks the earlier check outdated');
+});
+
+test('a failed save keeps the bar and the draft', async () => {
+    const page = await readyDashboard();
+    await page.edit('MaxItemsPerRun', '3');
+    await page.click('SaveSettingsButton');
+    await page.respond('load-settings', {});
+    await page.fail('save-settings');
+    assert.equal(page.element('SaveBar').hidden, false);
+    assert.equal(page.element('MaxItemsPerRun').value, '3');
+    assert.match(page.element('SaveBarMessage').textContent, /could not be saved/);
+});
+
+test('Discard restores saved values, including the earlier-installation choice, and closes the bar', async () => {
+    const page = await readyDashboard({ MaxItemsPerRun: 9, ClaimExistingGeneratedTagsOnNextRun: true, GeneratedTagPrefix: 'meta' });
+    await page.edit('MaxItemsPerRun', '40');
+    await page.edit('GeneratedTagPrefix', 'changed');
+    await page.edit('EarlierInstallationChoice', 'Every');
+    await page.edit('ForceFullScanOnNextRun', true);
+    assert.equal(page.element('SaveBar').hidden, false);
+    await page.click('DiscardSettingsButton');
+    assert.equal(String(page.element('MaxItemsPerRun').value), '9');
+    assert.equal(page.element('GeneratedTagPrefix').value, 'meta');
+    assert.equal(page.element('EarlierInstallationChoice').value, 'Next');
+    assert.equal(Boolean(page.element('ForceFullScanOnNextRun').checked), false);
+    assert.equal(page.element('SaveBar').hidden, true);
+    assert.equal(page.element('TemporaryClaimTagsWarning').hidden, false);
+    assert.match(page.element('CardTagFormatSentence').textContent, /meta:genre:animation/);
+    assert.equal(page.sent('save-settings').length, 0);
+    assert.equal(page.element('RunPreviewButton').disabled, false, 'saved settings are runnable again');
+});
+
+test('Discard after a save restores the saved values, not the loaded ones', async () => {
+    const page = await readyDashboard({ MaxItemsPerRun: 9 });
+    await page.edit('MaxItemsPerRun', '20');
+    await page.click('SaveSettingsButton');
+    await page.respond('load-settings', {});
+    await page.respond('save-settings', {});
+    await page.respond('MetaTagger/ConfigurationRevision', 'r2');
+    await page.edit('MaxItemsPerRun', '30');
+    await page.click('DiscardSettingsButton');
+    assert.equal(String(page.element('MaxItemsPerRun').value), '20');
+});
+
+test('Check changes first and Apply tags now stay unavailable until draft edits are saved or discarded', async () => {
+    const page = await readyDashboard();
+    await page.edit('MaxItemsPerRun', '3');
+    assert.equal(page.element('RunPreviewButton').disabled, true);
+    assert.equal(page.element('RunApplyButton').disabled, true);
+    await page.click('RunPreviewButton');
+    await page.click('RunApplyButton');
+    assert.equal(page.sent('save-settings').length, 0);
+    assert.equal(page.sent('ScheduledTasks').length, 0);
+});
+
+test('Save & apply saves first, then selects Activity so progress is visible', async () => {
+    const page = await readyDashboard();
+    await page.go('Maintenance');
+    await page.edit('ForceFullScanOnNextRun', true);
+    await page.click('SaveApplyButton');
+    await page.respond('load-settings', {});
+    assert.equal(page.element('PanelMaintenance').hidden, false, 'a pending save stays where the edit was');
+    await page.respond('save-settings', {});
+    assert.equal(page.element('PanelActivity').hidden, false);
+    assert.equal(page.element('TabActivity').getAttribute('aria-selected'), 'true');
+    await page.respond('load-settings', { ConfigurationRevision: 'saved' });
+    await page.respond('ScheduledTasks', [{ key: 'MetaTaggerApplyTags', id: 'apply', state: 'Idle' }]);
+    assert.equal(page.sent('ScheduledTasks/Running/apply').length, 1);
+});
+
+test('a failed Save & apply stays on its tab and never launches Apply', async () => {
+    const page = await readyDashboard();
+    await page.go('Settings');
+    await page.edit('MaxItemsPerRun', '3');
+    await page.click('SaveApplyButton');
+    await page.respond('load-settings', {});
+    await page.fail('save-settings');
+    assert.equal(page.element('PanelSettings').hidden, false);
+    assert.equal(page.sent('ScheduledTasks').length, 0);
+});
+
+test('Try unsaved settings is always visible beside the cards while Settings is selected', async () => {
+    assert.doesNotMatch(markup, /<details id="ExampleAside"/);
+    const page = await readyDashboard();
+    await page.go('Settings');
+    await page.tick();
+    assert.ok(page.sent('MetaTagger/Items').length, 'opening Settings searches without disclosing the panel');
+    await page.respond('MetaTagger/Items', { totalCount: 1, items: [{ itemId: 'movie', name: 'Example', itemType: 'Movie' }] });
+    assert.equal(page.element('ExampleResults').children.length, 1);
+    await page.go('Maintenance');
+    await page.edit('MaxItemsPerRun', '1');
+    assert.equal(page.sent('MetaTagger/Example').length, 0, 'the example is not recalculated while hidden');
+});
+
+test('editing a Maintenance flag raises the bar and clears a removal preview and its confirmation', async () => {
+    const page = await readyDashboard();
+    await page.go('Maintenance');
+    await page.click('PreviewCleanupButton');
+    await page.respond('MetaTagger/Cleanup/Preview', cleanupPreview);
+    await confirmCleanup(page);
+    assert.equal(page.element('ApplyCleanupButton').disabled, false);
+    await page.edit('RebuildTrackingLedgerOnNextRun', true);
+    assert.equal(page.element('SaveBar').hidden, false);
+    assert.equal(page.element('ConfirmCleanup').checked, false);
+    assert.equal(page.element('ApplyCleanupButton').disabled, true);
+    assert.equal(page.element('PreviewCleanupButton').disabled, true, 'a fresh preview needs saved settings');
+    assert.equal(page.element('CleanupChanges').children.length, 0);
+    await page.click('DiscardSettingsButton');
+    assert.equal(page.element('PreviewCleanupButton').disabled, false);
+    assert.equal(page.element('ApplyCleanupButton').disabled, true);
+});
+
+test('changing the earlier-installation choice invalidates the removal preview', async () => {
+    const page = await readyDashboard();
+    await page.go('Maintenance');
+    await page.click('PreviewCleanupButton');
+    await page.respond('MetaTagger/Cleanup/Preview', cleanupPreview);
+    await confirmCleanup(page);
+    await page.edit('EarlierInstallationChoice', 'Every');
+    assert.equal(page.element('ApplyCleanupButton').disabled, true);
+    assert.equal(page.element('CleanupChanges').children.length, 0);
+    assert.equal(page.sent('MetaTagger/Cleanup/Apply').length, 0);
+});
+
+test('changing the removal scope clears the preview and confirmation without raising the bar', async () => {
+    const page = await readyDashboard();
+    await page.go('Maintenance');
+    await page.click('PreviewCleanupButton');
+    await page.respond('MetaTagger/Cleanup/Preview', cleanupPreview);
+    await confirmCleanup(page);
+    page.element('CleanupScope').value = 'item';
+    await page.event('CleanupScope', 'change');
+    await page.event('MetaTaggerConfigForm', 'change', { target: page.element('CleanupScope') });
+    assert.equal(page.element('ConfirmCleanup').checked, false);
+    assert.equal(page.element('ApplyCleanupButton').disabled, true);
+    assert.equal(page.element('SaveBar').hidden, true, 'removal controls are not settings');
+});
+
+test('earlier-installation copy names the tasks it applies to and keeps both warnings', async () => {
+    const page = await readyDashboard();
+    const help = () => page.element('EarlierInstallationHelp').textContent;
+    await page.go('Maintenance');
+    await page.edit('EarlierInstallationChoice', 'Next');
+    assert.match(help(), /daily Generate metadata tags task and post-scan runs/);
+    assert.match(help(), /not Apply tags now or Check changes first/);
+    assert.match(help(), /clears after a clean daily run/i);
+    assert.equal(page.element('TemporaryClaimTagsWarning').hidden, false);
+    assert.equal(page.element('ClaimTagsWarning').hidden, true);
+    await page.edit('EarlierInstallationChoice', 'Every');
+    assert.match(help(), /every library run/i);
+    assert.equal(page.element('ClaimTagsWarning').hidden, false);
+    assert.equal(page.element('TemporaryClaimTagsWarning').hidden, true);
+    await page.edit('EarlierInstallationChoice', 'Off');
+    assert.equal(page.element('ClaimTagsWarning').hidden, true);
+    assert.equal(page.element('TemporaryClaimTagsWarning').hidden, true);
+});
+
+test('the removal flow warns that tagging can return and offers a way to turn it off', async () => {
+    const page = await readyDashboard();
+    await page.go('Maintenance');
+    assert.equal(page.element('CleanupReturnWarning').hidden, false);
+    assert.equal(page.element('TurnTaggingOffButton').hidden, false);
+    await page.click('TurnTaggingOffButton');
+    assert.equal(page.element('IsEnabled').checked, false);
+    assert.equal(page.element('SaveBar').hidden, false);
+    assert.equal(page.element('PreviewCleanupButton').disabled, true);
+});
+
+test('every button inside the settings form is type=button except the hidden Enter-to-save submit', () => {
+    const form = markup.slice(markup.indexOf('id="MetaTaggerConfigForm"'), markup.indexOf('</form>'));
+    const buttons = [...form.matchAll(/<button\b[^>]*>/g)].map(match => match[0]);
+    assert.ok(buttons.length > 10);
+    const submits = buttons.filter(tag => !/\btype="button"/.test(tag));
+    assert.equal(submits.length, 1);
+    assert.match(submits[0], /type="submit"[^>]*aria-hidden="true"/);
+    for (const id of ['PreviewCleanupButton', 'ApplyCleanupButton', 'CleanupSearchButton', 'TurnTaggingOffButton']) {
+        assert.match(form.match(new RegExp('<button id="' + id + '"[^>]*>'))[0], /type="button"/, id);
+    }
+});
+
+test('Maintenance copy matches when next-run flags take effect and clear', () => {
+    const maintenance = markup.slice(markup.indexOf('id="PanelMaintenance"'), markup.indexOf('id="SaveBar"'));
+    assert.doesNotMatch(maintenance, /Nothing here runs automatically/);
+    assert.match(maintenance, /take effect on the next scheduled run/);
+    const nextRun = maintenance.slice(maintenance.indexOf('id="NextRunActions"'), maintenance.indexOf('id="EarlierInstallationCard"'));
+    assert.match(nextRun, /daily Generate metadata tags task and post-scan runs, not Apply tags now or Check changes first/);
+    assert.match(nextRun, /clears after a clean daily run/);
 });
