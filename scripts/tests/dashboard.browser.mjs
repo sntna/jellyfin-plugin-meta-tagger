@@ -8,10 +8,11 @@ export async function ready(page) {
 }
 
 export async function geometry(page, width, diagnostics) {
-    // The settings columns only have a layout while the Settings tab is selected.
+    // The settings workspace only has a layout while the Settings tab is selected.
     await page.locator('#TabSettings').click();
     await page.locator('#PanelSettings').waitFor({ state: 'visible' });
-    const result = await page.evaluate(() => {
+    const cards = ['CardSources', 'CardAutomation', 'CardTagFormat', 'CardOutdated', 'CardLimits'];
+    const measure = () => page.evaluate(ids => {
         const box = id => {
             const { x, y, width, height } = document.getElementById(id).getBoundingClientRect();
             return { x, y, width, height };
@@ -19,18 +20,54 @@ export async function geometry(page, width, diagnostics) {
         return { viewport: innerWidth, documentWidth: document.documentElement.scrollWidth,
             pageWidth: document.getElementById('MetaTaggerConfigPage').scrollWidth,
             pageClientWidth: document.getElementById('MetaTaggerConfigPage').clientWidth,
-            sources: box('SourceOptions'), automation: box('AutomationOptions'), items: box('ItemTypeOptions') };
-    });
+            cards: ids.map(box), aside: box('ExampleAside') }; }, cards);
+    const result = await measure();
     diagnostics.push({ scenario: 'settings geometry', width, ...result });
     assert(result.documentWidth <= result.viewport + 1, `Horizontal document overflow at ${width}px`);
     assert(result.pageWidth <= result.pageClientWidth + 1, `Horizontal dashboard overflow at ${width}px`);
-    if (width > 760) {
-        assert(Math.abs(result.sources.y - result.automation.y) < 2, `Settings must have two columns at ${width}px`);
-        assert(result.automation.x >= result.sources.x + result.sources.width - 1, 'Settings columns must not overlap');
+    for (const card of result.cards) assert(Math.abs(card.x - result.cards[0].x) < 2, `Cards must share one column at ${width}px`);
+    const last = result.cards.at(-1);
+    if (width > 800) {
+        assert(result.aside.x >= result.cards[0].x + result.cards[0].width - 1, `Try unsaved settings must sit beside the cards at ${width}px`);
+        assert(Math.abs(result.aside.y - result.cards[0].y) < 120, `Try unsaved settings must start beside the cards at ${width}px`);
     } else {
-        assert(Math.abs(result.sources.x - result.automation.x) < 2, `Settings must stack at ${width}px`);
-        assert(result.automation.y >= result.items.y + result.items.height - 1, 'Automation must stack below item types');
+        assert(result.aside.y >= last.y + last.height - 1, `Try unsaved settings must stack below the cards at ${width}px`);
+        assert(Math.abs(result.aside.x - result.cards[0].x) < 2, `Try unsaved settings must align with the cards at ${width}px`);
     }
+    // Every card opens in place, one at a time, without overflowing.
+    for (const card of cards) {
+        await page.locator(`#${card}Head`).click();
+        assert.equal(await page.locator(`#${card}Body`).isVisible(), true, `${card} opens`);
+        assert.equal(await page.locator('[data-card-body]:visible').count(), 1, 'Only one card is open');
+        await noOverflow(page, `${card} open at ${width}px`, diagnostics);
+    }
+    await page.locator('#CardLimitsHead').click();
+    // The save bar follows unsaved edits, stays in view on every tab, and Discard restores the saved value.
+    assert.equal(await page.locator('#SaveBar').isVisible(), false);
+    await page.locator('#CardLimitsHead').click();
+    const original = await page.locator('#MaxItemsPerRun').inputValue();
+    await page.locator('#MaxItemsPerRun').fill('7');
+    for (const tab of ['TabSettings', 'TabMaintenance', 'TabActivity']) {
+        await page.locator('#' + tab).click();
+        assert.equal(await page.locator('#SaveBar').isVisible(), true, `Unsaved bar visible on ${tab} at ${width}px`);
+        const bar = await page.evaluate(() => { const { top, bottom, height } = document.getElementById('SaveBar').getBoundingClientRect(); return { top, bottom, height, viewport: innerHeight }; });
+        diagnostics.push({ scenario: 'save bar', tab, width, ...bar });
+        assert(bar.bottom <= bar.viewport + 1 && bar.top >= 0, `Save bar must stay inside the viewport on ${tab} at ${width}px`);
+        await noOverflow(page, `save bar on ${tab} at ${width}px`, diagnostics);
+    }
+    await page.locator('#DiscardSettingsButton').click();
+    assert.equal(await page.locator('#SaveBar').isVisible(), false);
+    await page.locator('#TabSettings').click();
+    assert.equal(await page.locator('#MaxItemsPerRun').inputValue(), original);
+    // Invalid numbers reveal their card and take focus even from another tab.
+    await page.locator('#MaxRunMinutes').fill('-1');
+    await page.locator('#TabMaintenance').click();
+    await page.locator('#SaveSettingsButton').click();
+    assert.equal(await page.locator('#PanelSettings').isVisible(), true);
+    assert.equal(await page.locator('#CardLimitsBody').isVisible(), true);
+    await page.waitForFunction(() => document.activeElement?.id === 'MaxRunMinutes');
+    await page.locator('#DiscardSettingsButton').click();
+    await page.locator('#CardLimitsHead').click();
 }
 
 async function currentFocus(page, id, diagnostics) {
