@@ -926,12 +926,26 @@ test('card sentences follow the draft and validation opens the owning card on th
     await page.edit('EnableExistingTagsAsKeywords', true);
     await page.event('MaxKeywordTagsPerItem', 'invalid');
     assert.equal(page.element('CardSourcesBody').hidden, false);
-    assert.equal(page.element('CardTagFormatBody').hidden, true, 'only one card is open at a time');
+    assert.equal(page.element('CardTagFormatBody').hidden, false, 'revealing for validation never closes another invalid card');
     assert.equal(page.element('MoreSources').open, true);
     assert.equal(page.element('KeywordOptions').open, true);
     await page.event('MaxItemsPerRun', 'invalid');
     assert.equal(page.element('CardLimitsBody').hidden, false);
-    assert.equal(page.element('CardSourcesBody').hidden, true);
+    assert.equal(page.element('CardSourcesBody').hidden, false);
+    assert.equal(page.sent('save-settings').length, 0);
+});
+
+test('several invalid values in different cards keep every owning card open and focus the first', async () => {
+    const page = await readyDashboard();
+    await page.edit('MinimumMinutesBetweenAutoRuns', '-1');
+    await page.edit('MaxItemsPerRun', '-2');
+    await page.edit('MaxRunMinutes', '1.5');
+    await page.go('Maintenance');
+    await page.event('MetaTaggerConfigForm', 'submit');
+    assert.equal(page.element('PanelSettings').hidden, false);
+    assert.equal(page.element('CardAutomationBody').hidden, false, 'the first invalid control keeps its card open');
+    assert.equal(page.element('CardLimitsBody').hidden, false);
+    assert.equal(page.focused(), page.element('MinimumMinutesBetweenAutoRuns'));
     assert.equal(page.sent('save-settings').length, 0);
 });
 
@@ -2903,7 +2917,7 @@ for (const [savedCleanup, savedNext] of claimStates) {
             await page.go('Maintenance');
             await page.edit('EarlierInstallationChoice', choice);
             await page.click('SaveSettingsButton');
-            await page.respond('load-settings', {});
+            await page.respond('load-settings', { ClaimExistingGeneratedTagsForCleanup: savedCleanup, ClaimExistingGeneratedTagsOnNextRun: savedNext });
             const save = page.request('save-settings').body;
             assert.strictEqual(save.ClaimExistingGeneratedTagsForCleanup, expected[0]);
             assert.strictEqual(save.ClaimExistingGeneratedTagsOnNextRun, expected[1]);
@@ -2916,21 +2930,23 @@ test('saving other settings normalizes a legacy configuration that has both clai
     const page = await readyDashboard({ ClaimExistingGeneratedTagsForCleanup: true, ClaimExistingGeneratedTagsOnNextRun: true });
     await page.edit('MaxItemsPerRun', '5');
     await page.click('SaveSettingsButton');
-    await page.respond('load-settings', {});
+    await page.respond('load-settings', { ClaimExistingGeneratedTagsForCleanup: true, ClaimExistingGeneratedTagsOnNextRun: true });
     const save = page.request('save-settings').body;
     assert.strictEqual(save.ClaimExistingGeneratedTagsForCleanup, true);
     assert.strictEqual(save.ClaimExistingGeneratedTagsOnNextRun, false);
 });
 
-test('the draft example payload keeps boolean claim flags', async () => {
-    const page = await readyDashboard();
-    await page.edit('EarlierInstallationChoice', 'Next');
-    await chooseExample(page, { itemId: 'movie', name: 'Example', itemType: 'Movie' });
-    const draft = page.request('MetaTagger/Example').body.configuration;
-    assert.strictEqual(draft.ClaimExistingGeneratedTagsForCleanup, false);
-    assert.strictEqual(draft.ClaimExistingGeneratedTagsOnNextRun, true);
-    assert.ok(!('EarlierInstallationChoice' in draft));
-});
+for (const [choice, cleanup, next] of [['Off', false, false], ['Next', false, true], ['Every', true, false]]) {
+    test(`the draft example payload keeps boolean claim flags for ${choice}`, async () => {
+        const page = await readyDashboard();
+        await page.edit('EarlierInstallationChoice', choice);
+        await chooseExample(page, { itemId: 'movie', name: 'Example', itemType: 'Movie' });
+        const draft = page.request('MetaTagger/Example').body.configuration;
+        assert.strictEqual(draft.ClaimExistingGeneratedTagsForCleanup, cleanup);
+        assert.strictEqual(draft.ClaimExistingGeneratedTagsOnNextRun, next);
+        assert.ok(!('EarlierInstallationChoice' in draft));
+    });
+}
 
 const everyField = {
     IsEnabled: false, GeneratedTagPrefix: 'tags', TagSeparator: '/', ManualTagPrefix: 'mine',
@@ -3232,4 +3248,25 @@ test('the removal flow warns that tagging can return and offers a way to turn it
     assert.equal(page.element('IsEnabled').checked, false);
     assert.equal(page.element('SaveBar').hidden, false);
     assert.equal(page.element('PreviewCleanupButton').disabled, true);
+});
+
+test('every button inside the settings form is type=button except the hidden Enter-to-save submit', () => {
+    const form = markup.slice(markup.indexOf('id="MetaTaggerConfigForm"'), markup.indexOf('</form>'));
+    const buttons = [...form.matchAll(/<button\b[^>]*>/g)].map(match => match[0]);
+    assert.ok(buttons.length > 10);
+    const submits = buttons.filter(tag => !/\btype="button"/.test(tag));
+    assert.equal(submits.length, 1);
+    assert.match(submits[0], /type="submit"[^>]*aria-hidden="true"/);
+    for (const id of ['PreviewCleanupButton', 'ApplyCleanupButton', 'CleanupSearchButton', 'TurnTaggingOffButton']) {
+        assert.match(form.match(new RegExp('<button id="' + id + '"[^>]*>'))[0], /type="button"/, id);
+    }
+});
+
+test('Maintenance copy matches when next-run flags take effect and clear', () => {
+    const maintenance = markup.slice(markup.indexOf('id="PanelMaintenance"'), markup.indexOf('id="SaveBar"'));
+    assert.doesNotMatch(maintenance, /Nothing here runs automatically/);
+    assert.match(maintenance, /take effect on the next scheduled run/);
+    const nextRun = maintenance.slice(maintenance.indexOf('id="NextRunActions"'), maintenance.indexOf('id="EarlierInstallationCard"'));
+    assert.match(nextRun, /daily Generate metadata tags task and post-scan runs, not Apply tags now or Check changes first/);
+    assert.match(nextRun, /clears after a clean daily run/);
 });

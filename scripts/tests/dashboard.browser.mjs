@@ -42,9 +42,11 @@ export async function geometry(page, width, diagnostics) {
         await noOverflow(page, `${card} open at ${width}px`, diagnostics);
     }
     await page.locator('#CardLimitsHead').click();
+    assert.equal(await page.locator('#CardLimitsBody').isVisible(), false, 'the open card closes on a second click');
     // The save bar follows unsaved edits, stays in view on every tab, and Discard restores the saved value.
     assert.equal(await page.locator('#SaveBar').isVisible(), false);
     await page.locator('#CardLimitsHead').click();
+    assert.equal(await page.locator('#CardLimitsBody').isVisible(), true, 'Limits & privacy reopens for the edit');
     const original = await page.locator('#MaxItemsPerRun').inputValue();
     await page.locator('#MaxItemsPerRun').fill('7');
     for (const tab of ['TabSettings', 'TabMaintenance', 'TabActivity']) {

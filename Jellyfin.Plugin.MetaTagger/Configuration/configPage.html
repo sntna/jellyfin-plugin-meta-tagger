@@ -893,11 +893,6 @@
                 margin-bottom: var(--mt-space-md);
             }
 
-            #MetaTaggerConfigPage #SettingsFeedback {
-                font-size: var(--mt-font-size);
-                color: var(--feedback-color, var(--mt-muted));
-            }
-
             #MetaTaggerConfigPage #SaveSettingsButton {
                 width: auto;
                 flex-shrink: 0;
@@ -2021,12 +2016,12 @@
 <section id="PanelMaintenance" role="tabpanel" aria-labelledby="TabMaintenance" hidden>
                 <button id="BackToItemsButton" type="button" class="metadataTaggerLink" hidden>‹ Back to Items</button>
                 <h2 id="MaintenanceHeading" tabindex="-1">Maintenance</h2>
-                <p class="metadataTaggerSectionDescription">Rarely needed. Nothing here runs automatically. Manual tags, locks, and skip controls are always respected.</p>
+                <p class="metadataTaggerSectionDescription">Rarely needed. Choices here are saved with Save settings and take effect on the next scheduled run, not immediately. Manual tags, locks, and skip controls are always respected.</p>
 
                 <section id="NextRunActions" class="metadataTaggerCard" aria-labelledby="NextRunActionsHeading">
                     <h3 id="NextRunActionsHeading">Next-run actions</h3>
                     <p class="metadataTaggerSectionDescription">
-                        Applies only to Generate metadata tags and post-scan runs. Each choice stays on until a Generate metadata tags run finishes without errors or hitting a run limit. They are saved with Save settings.
+                        Applies to the daily Generate metadata tags task and post-scan runs, not Apply tags now or Check changes first. Each choice clears after a clean daily run, one that finishes without errors or hitting a run limit.
                     </p>
 
                     <div class="checkboxContainer checkboxContainer-withDescription">
@@ -2330,7 +2325,7 @@
             }
 
             function isSettingsControl(id) {
-                return MetaTaggerConfig.fields.indexOf(id) !== -1 || id === 'EarlierInstallationChoice' || id === 'MetaTaggerConfigForm';
+                return MetaTaggerConfig.fields.indexOf(id) !== -1 || id === 'EarlierInstallationChoice';
             }
 
             var sourceChoices = [
@@ -2354,12 +2349,14 @@
 
             var validationEditors = {};
             var settingsCards = ['CardSources', 'CardAutomation', 'CardTagFormat', 'CardOutdated', 'CardLimits'];
-            // Replaced by the dashboard session so validation can bring a hidden tab into view.
-            var dashboardSelectTab = function () {};
+            // Set by the dashboard session so validation can bring a hidden tab into view.
+            var dashboardSelectTab;
 
-            function setCardOpen(cardId, open) {
+            // Editing is accordion-style. Validation reveals instead, so every invalid card stays open.
+            function setCardOpen(cardId, open, keepOthers) {
                 settingsCards.forEach(function (id) {
-                    var isOpen = open && id === cardId;
+                    var current = !document.querySelector('#' + id + 'Body').hidden;
+                    var isOpen = id === cardId ? open : !!keepOthers && current;
                     document.querySelector('#' + id + 'Body').hidden = !isOpen;
                     document.querySelector('#' + id + 'Head').setAttribute('aria-expanded', String(isOpen));
                     document.querySelector('#' + id + 'Action').textContent = isOpen ? 'Close' : 'Edit';
@@ -2370,10 +2367,10 @@
                 for (var parent = element.parentElement; parent; parent = parent.parentElement) {
                     if (parent.tagName === 'DETAILS') { parent.open = true; }
                     if (parent.getAttribute && parent.getAttribute('data-card-body')) {
-                        setCardOpen(parent.id.replace(/Body$/, ''), true);
+                        setCardOpen(parent.id.replace(/Body$/, ''), true, true);
                     } else if (parent.getAttribute && parent.getAttribute('role') === 'tabpanel') {
                         // An invalid value must never stay on a tab the person cannot see.
-                        if (parent.hidden) { dashboardSelectTab(parent.id.replace(/^Panel/, '')); }
+                        if (parent.hidden && dashboardSelectTab) { dashboardSelectTab(parent.id.replace(/^Panel/, '')); }
                     } else if (parent.hidden) {
                         // Conditional editors still contain saved values that can fail native validation.
                         parent.hidden = false;
