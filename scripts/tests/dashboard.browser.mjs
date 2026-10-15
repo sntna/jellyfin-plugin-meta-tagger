@@ -8,6 +8,9 @@ export async function ready(page) {
 }
 
 export async function geometry(page, width, diagnostics) {
+    // The settings columns only have a layout while the Settings tab is selected.
+    await page.locator('#TabSettings').click();
+    await page.locator('#PanelSettings').waitFor({ state: 'visible' });
     const result = await page.evaluate(() => {
         const box = id => {
             const { x, y, width, height } = document.getElementById(id).getBoundingClientRect();
@@ -62,44 +65,51 @@ async function noOverflow(page, scenario, diagnostics) {
     assert(measurement.documentWidth <= measurement.viewport + 1, `${scenario} overflows horizontally`);
 }
 
+async function populate(page, panel) {
+    if (panel === 'PanelActivity') {
+        await page.locator('#RunFeed .metadataTaggerFeedHead').first().waitFor();
+        await page.locator('#RunFeed .metadataTaggerFeedHead').first().click();
+        await page.waitForFunction(() => document.querySelector('#RunFeed .metadataTaggerFeedBody:not([hidden]) dl') !== null);
+    } else if (panel === 'PanelItems') {
+        await page.locator('#ItemList .metadataTaggerItemRow').first().waitFor();
+        await page.locator('#ItemList .metadataTaggerItemRow').filter({ hasText: 'Generated browser fixture' }).first().click();
+        await page.locator('#PreviewItemButton').click();
+        await page.waitForFunction(() => document.getElementById('InspectorDetails').childElementCount > 0);
+        assert((await page.locator('#ItemList').textContent()).includes('Generated browser fixture'), 'Items must contain generated long labels');
+    } else if (panel === 'PanelMaintenance') {
+        await page.locator('#PreviewCleanupButton').click();
+        await page.waitForFunction(() => document.getElementById('CleanupChanges').childElementCount > 0);
+        // Never authorize removal. The generated preview is enough to check populated layout.
+    }
+}
+
 export async function installedScenarios(page, diagnostics) {
+    const tabs = [['TabActivity', 'PanelActivity'], ['TabItems', 'PanelItems'], ['TabSettings', 'PanelSettings'], ['TabMaintenance', 'PanelMaintenance']];
     for (const width of [1440, 761, 760, 759, 390]) {
         await page.setViewportSize({ width, height: 1000 });
         await geometry(page, width, diagnostics);
-        for (const view of [
-            ['OpenInspectButton', 'PanelInspect', 'BrowseHeading', 'BackToReviewButton'],
-            ['OpenRunsButton', 'PanelRuns', 'HistoryHeading', 'HistoryBackButton'],
-            ['OpenMaintenanceButton', 'PanelMaintenance', 'MaintenanceHeading', 'MaintenanceBackButton']
-        ]) {
-            const [entry, panel, heading, back] = view;
-            await keyboardControl(page, entry, diagnostics);
-            await page.keyboard.press('Enter');
-            await page.locator('#' + panel).waitFor({ state: 'visible' });
-            await currentFocus(page, heading, diagnostics);
-            if (panel === 'PanelInspect') {
-                await page.locator('#ItemList .metadataTaggerItemRow').first().waitFor();
-                await page.locator('#ItemList .metadataTaggerItemRow').filter({ hasText: 'Generated browser fixture' }).first().click();
-                await page.locator('#PreviewItemButton').click();
-                await page.waitForFunction(() => document.getElementById('InspectorDetails').childElementCount > 0);
-                assert((await page.locator('#ItemList').textContent()).includes('Generated browser fixture'), 'Browse must contain generated long labels');
-            } else if (panel === 'PanelRuns') {
-                await page.locator('#RunList .metadataTaggerRunRow').first().waitFor();
-                await page.locator('#RunList .metadataTaggerRunRow').first().click();
-                await page.waitForFunction(() => document.getElementById('RunDetails').childElementCount > 0);
-            } else {
-                await page.locator('#PreviewCleanupButton').click();
-                await page.waitForFunction(() => document.getElementById('CleanupChanges').childElementCount > 0);
-                // Never authorize removal. The generated preview is enough to check populated layout.
+        await page.locator('#TabActivity').click();
+        // Reach the selected tab through Tab so :focus-visible is browser-generated, then walk the tablist with arrow keys.
+        await page.evaluate(() => document.activeElement.blur());
+        await keyboardControl(page, 'TabActivity', diagnostics);
+        for (const [index, [tab, panel]] of tabs.entries()) {
+            if (index > 0) {
+                await page.keyboard.press('ArrowRight');
+                await currentFocus(page, tab, diagnostics);
             }
+            await page.locator('#' + panel).waitFor({ state: 'visible' });
+            assert.equal(await page.locator('#' + tab).getAttribute('aria-selected'), 'true', `${tab} selected at ${width}px`);
+            assert.equal(await page.locator('[role="tab"][tabindex="0"]').count(), 1, 'Only the selected tab is in the tab order');
+            await populate(page, panel);
             await noOverflow(page, `${panel} at ${width}px`, diagnostics);
-            await page.locator('#' + back).focus();
-            await page.keyboard.press('Enter');
-            await currentFocus(page, entry, diagnostics);
-            await page.keyboard.press('Enter');
-            await currentFocus(page, heading, diagnostics);
-            await page.keyboard.press('Escape');
-            await currentFocus(page, entry, diagnostics);
         }
+        await page.keyboard.press('ArrowRight');
+        await currentFocus(page, 'TabActivity', diagnostics);
+        await page.keyboard.press('End');
+        await currentFocus(page, 'TabMaintenance', diagnostics);
+        await page.keyboard.press('Home');
+        await currentFocus(page, 'TabActivity', diagnostics);
+        assert.equal(new URL(page.url()).hash.includes('Tab'), false, 'Tabs must not write to the location hash');
     }
 }
 
@@ -163,13 +173,15 @@ export async function developmentContract(browser, diagnostics, onPage = () => {
     try {
         await page.goto(`http://127.0.0.1:${host.address().port}/`);
         await ready(page);
-        assert.equal(await page.locator('[role="tab"]').count(), 0);
+        assert.equal(await page.locator('[role="tab"]').count(), 4);
+        // The development client restores the remembered tab once settings are editable.
+        await page.waitForFunction(() => document.getElementById('TabSettings').getAttribute('aria-selected') === 'true');
         assert.equal(await page.evaluate(() => sessionStorage.getItem('meta-tagger-dev-tab')), null);
-        assert.equal(await page.locator('#PanelOverview').isVisible(), true);
-        await page.locator('#OpenInspectButton').click();
+        assert.equal(await page.locator('#PanelSettings').isVisible(), true);
+        await page.locator('#TabItems').click();
         await page.locator('#ItemList .metadataTaggerItemRow').first().click();
         assert.equal(await page.locator('#InspectorHeading').textContent(), name);
-        await page.locator('#OpenMaintenanceButton').click();
+        await page.locator('#TabMaintenance').click();
         await page.locator('#PreviewCleanupButton').click();
         await page.locator('#ConfirmCleanup').check();
         assert.equal(await page.locator('#ApplyCleanupButton').isEnabled(), true);
@@ -177,7 +189,7 @@ export async function developmentContract(browser, diagnostics, onPage = () => {
         revision++;
         await reloaded;
         await ready(page);
-        assert.equal(await page.locator('#PanelOverview').isVisible(), true, 'Development reload returns to workspace');
+        await page.waitForFunction(() => document.getElementById('TabMaintenance').getAttribute('aria-selected') === 'true');
         assert.equal(await page.locator('#ConfirmCleanup').isChecked(), false);
         assert.equal(await page.locator('#ConfirmCleanup').isDisabled(), true);
         assert.equal(await page.locator('#ApplyCleanupButton').isDisabled(), true);

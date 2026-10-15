@@ -252,7 +252,7 @@
                 display: none;
             }
 
-            #MetaTaggerConfigPage :is(#BackToReviewButton,#HistoryBackButton,#MaintenanceBackButton) {
+            #MetaTaggerConfigPage :is(#BackToItemsButton) {
                 margin-bottom: var(--mt-space-md);
             }
 
@@ -278,12 +278,6 @@
             }
 
             #MetaTaggerConfigPage .metadataTaggerOutcome {
-                display: flex;
-                align-items: flex-start;
-                gap: var(--mt-space-md);
-                padding: var(--mt-space-lg);
-                border: 1px solid var(--mt-border);
-                border-radius: var(--mt-radius);
                 background: var(--mt-ink);
                 border-color: var(--mt-accent);
             }
@@ -398,7 +392,7 @@
                 min-width: 0;
             }
 
-            #MetaTaggerConfigPage :is(.metadataTaggerListPanel,.metadataTaggerInspector,#RunList) {
+            #MetaTaggerConfigPage :is(.metadataTaggerListPanel,.metadataTaggerInspector) {
                 border: 1px solid var(--mt-border);
                 border-radius: var(--mt-radius);
                 background: var(--mt-ink);
@@ -633,69 +627,10 @@
                 color: var(--feedback-color, var(--mt-muted));
             }
 
-            #MetaTaggerConfigPage .metadataTaggerRunRow {
-                width: 100%;
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                gap: var(--mt-space-md);
-                border: 0;
-                border-bottom: 1px solid var(--mt-border);
-                padding: var(--mt-space-md);
-                text-align: left;
-                background: transparent;
-                color: var(--mt-paper);
-            }
-
-            #MetaTaggerConfigPage .metadataTaggerRunRow:last-child {
-                border-bottom: 0;
-            }
-
-            #MetaTaggerConfigPage #RunDetailPanel {
-                margin-top: 0;
-            }
-
-            #MetaTaggerConfigPage #RunDetailHeading {
-                overflow-wrap: anywhere;
-                scroll-margin-top: 80px;
-            }
-
-            #MetaTaggerConfigPage #RunDetailHeading:focus {
-                outline: 2px solid var(--mt-accent);
-                outline-offset: var(--mt-space-xs);
-            }
-
-            #MetaTaggerConfigPage .metadataTaggerRunRow > span {
-                min-width: 0;
-            }
-
-            #MetaTaggerConfigPage .metadataTaggerRunRow strong {
-                display: block;
-                font-size: var(--mt-font-size);
-                font-weight: 500;
-            }
-
-            #MetaTaggerConfigPage .metadataTaggerRunRow small {
-                display: block;
-                margin-top: 5px;
-                color: var(--feedback-color, var(--mt-muted));
-                font-size: var(--mt-font-size);
-            }
-
-            #MetaTaggerConfigPage .metadataTaggerRunRow time {
-                color: var(--feedback-color, var(--mt-muted));
-                font-size: var(--mt-font-size);
-                text-align: right;
-            }
-
-            #MetaTaggerConfigPage :is(#RunsFeedback,#RunDetailFeedback) {
+            #MetaTaggerConfigPage #RunsFeedback {
                 font-size: var(--mt-font-size);
                 color: var(--feedback-color, var(--mt-muted));
                 margin-bottom: 14px;
-            }
-
-            #MetaTaggerConfigPage #RunDetailFeedback {
-                margin-top: var(--mt-space-sm);
             }
 
             #MetaTaggerConfigPage .metadataTaggerPreviewItem {
@@ -843,8 +778,6 @@
                 margin: var(--mt-space-sm) 0;
             }
 
-            #MetaTaggerConfigPage .metadataTaggerViewActions { margin-bottom: var(--mt-space-md); }
-            #MetaTaggerConfigPage .metadataTaggerViewActions button { flex: 0 0 auto; white-space: nowrap; }
             #MetaTaggerConfigPage #ExampleAside > p {
                 color: var(--feedback-color, var(--mt-muted));
                 font-size: var(--mt-font-size);
@@ -1078,42 +1011,6 @@
                 max-width: 72ch;
             }
 
-            #MetaTaggerConfigPage .metadataTaggerHistoryWorkspace {
-                display: grid;
-                grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
-                gap: 20px;
-            }
-
-            #MetaTaggerConfigPage .metadataTaggerHistoryWorkspace > * {
-                min-width: 0;
-            }
-
-            #MetaTaggerConfigPage :is(#RunList,#RunDetails) {
-                max-height: min(60vh, 640px);
-                overflow-y: auto;
-            }
-
-            #MetaTaggerConfigPage #RunDetails {
-                padding: var(--mt-space-xs);
-            }
-
-            #MetaTaggerConfigPage #HistoryRunDetails {
-                margin: var(--mt-space) 0;
-                padding: 0;
-                border: 0;
-                background: transparent;
-            }
-
-            #MetaTaggerConfigPage #HistoryRunDetails > summary {
-                padding: 0;
-                font-weight: 400;
-                padding-block: var(--mt-space-sm);
-            }
-
-            #MetaTaggerConfigPage #HistoryRunDetails > p {
-                margin: var(--mt-space-xs) 0 0;
-            }
-
             #MetaTaggerConfigPage #ExampleTags > div {
                 margin-bottom: var(--mt-space-sm);
             }
@@ -1142,8 +1039,11 @@
                 margin-top: var(--mt-space-sm);
             }
 
-            #MetaTaggerConfigPage #PanelOverview > section {
+            #MetaTaggerConfigPage #PanelActivity > section {
                 margin-top: var(--mt-space-lg);
+            }
+
+            #MetaTaggerConfigPage .metadataTaggerCard {
                 padding: var(--mt-space-lg);
                 border: 1px solid var(--mt-border);
                 border-radius: var(--mt-radius);
@@ -1224,7 +1124,7 @@
                 outline-offset: var(--mt-space-xs);
             }
 
-            #MetaTaggerConfigPage :is(.metadataTaggerItemRow,.metadataTaggerRunRow):focus-visible {
+            #MetaTaggerConfigPage .metadataTaggerItemRow:focus-visible {
                 outline-offset: -4px;
             }
 
@@ -1346,11 +1246,11 @@
                 gap: var(--mt-space);
             }
 
-            #MetaTaggerConfigPage :is(.metadataTaggerItemRow,.metadataTaggerRunRow):hover {
+            #MetaTaggerConfigPage .metadataTaggerItemRow:hover {
                 background: var(--mt-hover);
             }
 
-            #MetaTaggerConfigPage :is(.metadataTaggerItemRow,.metadataTaggerRunRow)[aria-pressed="true"] {
+            #MetaTaggerConfigPage .metadataTaggerItemRow[aria-pressed="true"] {
                 background: var(--mt-selected-bg);
                 box-shadow: none;
             }
@@ -1376,17 +1276,8 @@
                 #MetaTaggerConfigPage .metadataTaggerHeaderActions button {
                     flex: 1;
                 }
-                #MetaTaggerConfigPage .metadataTaggerOutcome {
+                #MetaTaggerConfigPage .metadataTaggerCard {
                     padding: var(--mt-space-md);
-                    gap: var(--mt-space-sm);
-                }
-                #MetaTaggerConfigPage .metadataTaggerRunRow {
-                    flex-direction: column;
-                    align-items: flex-start;
-                    gap: 6px;
-                }
-                #MetaTaggerConfigPage .metadataTaggerRunRow time {
-                    text-align: left;
                 }
                 #MetaTaggerConfigPage .metadataTaggerSaveRow {
                     align-items: stretch;
@@ -1413,12 +1304,6 @@
             }
 
             @container (max-width: 650px) {
-                #MetaTaggerConfigPage .metadataTaggerHistoryWorkspace {
-                    grid-template-columns: minmax(0, 1fr);
-                }
-                #MetaTaggerConfigPage :is(#RunList,#RunDetails) {
-                    max-height: 40vh;
-                }
                 #MetaTaggerConfigPage #PreviewChanges .metadataTaggerPreviewItem {
                     grid-template-columns: minmax(0, 1fr);
                 }
@@ -1446,7 +1331,7 @@
                 #MetaTaggerConfigPage :is(.metadataTaggerSubheader,.metadataTaggerHeader) {
                     flex-wrap: wrap;
                 }
-                #MetaTaggerConfigPage :is(section.metadataTaggerSection,#ExampleAside,#PanelOverview > section) {
+                #MetaTaggerConfigPage :is(section.metadataTaggerSection,#ExampleAside,.metadataTaggerCard) {
                     padding: var(--mt-space-md);
                 }
             }
@@ -1464,7 +1349,6 @@
             #MetaTaggerConfigPage .metadataTaggerRunCounts dd { overflow-wrap: anywhere; margin: var(--mt-space-xs) 0 0; font-weight: 600; }
 
             #MetaTaggerConfigPage .metadataTaggerSettingsWorkspace { display: block; }
-            #MetaTaggerConfigPage #PanelOverview > #PanelSettings { padding: 0; border: 0; }
             #MetaTaggerConfigPage .metadataTaggerSettingsLayout { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             #MetaTaggerConfigPage .metadataTaggerSettingsLayout > * { grid-column: auto; min-width: 0; }
             #MetaTaggerConfigPage .metadataTaggerVisuallyHidden { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
@@ -1475,13 +1359,185 @@
             #MetaTaggerConfigPage :is(#SourceOptions,#ItemTypeOptions,#AutomationOptions) { padding: var(--mt-space-md); border: 0; background: var(--mt-ink); }
             #MetaTaggerConfigPage #ItemTypeOptions .metadataTaggerFieldset { display: flex; flex-wrap: wrap; gap: var(--mt-space-md); }
             #MetaTaggerConfigPage #ItemTypeOptions :is(legend,.metadataTaggerSectionDescription) { display: none; }
-            #MetaTaggerConfigPage .metadataTaggerRunActions, #MetaTaggerConfigPage .metadataTaggerSaveRow { grid-column: 1 / -1; }
+            #MetaTaggerConfigPage .metadataTaggerSaveRow { grid-column: 1 / -1; }
             #MetaTaggerConfigPage .metadataTaggerSaveRow { flex-wrap: wrap; justify-content: flex-start; }
             #MetaTaggerConfigPage #ExampleAside { margin-block: var(--mt-space-md); }
-            #MetaTaggerConfigPage #PanelReview { margin-top: var(--mt-space-lg); }
             @media (max-width: 760px) {
                 #MetaTaggerConfigPage .metadataTaggerSettingsLayout { grid-template-columns: minmax(0, 1fr); }
                 #MetaTaggerConfigPage :is(#SourceOptions,#ItemTypeOptions,#AutomationOptions) { grid-column: 1; grid-row: auto; }
+            }
+        
+
+            /* Four-tab shell */
+            #MetaTaggerConfigPage .metadataTaggerTabs {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: flex-end;
+                gap: var(--mt-space-xs);
+                margin: 0 0 var(--mt-space-lg);
+                border-bottom: 1px solid var(--mt-border);
+            }
+
+            #MetaTaggerConfigPage .metadataTaggerTab {
+                min-height: var(--mt-control-height);
+                padding: 0 var(--mt-space-md);
+                border: 0;
+                border-bottom: 3px solid transparent;
+                border-radius: var(--mt-radius-sm) var(--mt-radius-sm) 0 0;
+                background: transparent;
+                color: var(--mt-muted);
+                font-size: var(--mt-font-size);
+                font-weight: 600;
+                cursor: pointer;
+            }
+
+            #MetaTaggerConfigPage .metadataTaggerTab:hover {
+                background: var(--mt-hover);
+                color: var(--mt-paper);
+            }
+
+            #MetaTaggerConfigPage .metadataTaggerTab[aria-selected="true"] {
+                color: var(--mt-paper);
+                border-bottom-color: var(--mt-accent);
+            }
+
+            #MetaTaggerConfigPage .metadataTaggerTab:focus-visible {
+                outline: 2px solid var(--mt-accent);
+                outline-offset: -2px;
+            }
+
+            #MetaTaggerConfigPage .metadataTaggerTabMaintenance {
+                margin-inline-start: auto;
+                color: var(--tagger-negative);
+            }
+
+            #MetaTaggerConfigPage .metadataTaggerTabMaintenance[aria-selected="true"] {
+                border-bottom-color: var(--tagger-negative);
+            }
+
+            /* Activity */
+            #MetaTaggerConfigPage .metadataTaggerScopeTop {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: flex-start;
+                justify-content: space-between;
+                gap: var(--mt-space-md);
+            }
+
+            #MetaTaggerConfigPage .metadataTaggerScopeTop > * {
+                min-width: 0;
+            }
+
+            #MetaTaggerConfigPage #ScopeHeading {
+                overflow-wrap: anywhere;
+                margin-bottom: var(--mt-space-xs);
+            }
+
+            #MetaTaggerConfigPage #RunHelp,
+            #MetaTaggerConfigPage #OverviewTaggingHelp,
+            #MetaTaggerConfigPage #OverviewAutomationHelp {
+                max-width: 72ch;
+                margin-top: var(--mt-space-sm);
+            }
+
+            #MetaTaggerConfigPage #ScopeBlock .metadataTaggerNotice {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: var(--mt-space-sm);
+                margin-top: var(--mt-space-sm);
+            }
+
+            #MetaTaggerConfigPage #ScopeBlock .metadataTaggerNotice p {
+                margin: 0;
+            }
+
+            #MetaTaggerConfigPage .metadataTaggerChip {
+                display: inline-block;
+                padding: 2px var(--mt-space-sm);
+                border: 1px solid var(--feedback-color, var(--mt-border));
+                border-radius: 999px;
+                color: var(--feedback-color, var(--mt-muted));
+                font-size: var(--mt-font-size);
+                white-space: nowrap;
+            }
+
+            #MetaTaggerConfigPage .metadataTaggerDeltas {
+                display: flex;
+                flex-wrap: wrap;
+                gap: var(--mt-space-sm);
+                font-weight: 600;
+            }
+
+            #MetaTaggerConfigPage .metadataTaggerFilters {
+                display: flex;
+                flex-wrap: wrap;
+                gap: var(--mt-space-xs);
+                margin-inline-start: auto;
+            }
+
+            #MetaTaggerConfigPage .metadataTaggerFilters button {
+                min-height: 36px;
+                padding: 0 var(--mt-space-sm);
+                border: 1px solid var(--mt-border);
+                border-radius: var(--mt-radius-sm);
+                background: transparent;
+                color: var(--mt-paper);
+            }
+
+            #MetaTaggerConfigPage .metadataTaggerFilters button[aria-pressed="true"] {
+                background: var(--mt-selected-bg);
+                border-color: var(--mt-accent);
+            }
+
+            #MetaTaggerConfigPage .metadataTaggerFeedCard {
+                margin-top: var(--mt-space);
+                border: 1px solid var(--mt-border);
+                border-radius: var(--mt-radius);
+                background: var(--mt-ink);
+            }
+
+            #MetaTaggerConfigPage .metadataTaggerFeedCard h3 {
+                margin: 0;
+            }
+
+            #MetaTaggerConfigPage .metadataTaggerFeedHead {
+                width: 100%;
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: var(--mt-space-sm);
+                padding: var(--mt-space-sm) var(--mt-space-md);
+                border: 0;
+                background: transparent;
+                color: var(--mt-paper);
+                text-align: left;
+            }
+
+            #MetaTaggerConfigPage .metadataTaggerFeedHead:hover {
+                background: var(--mt-hover);
+            }
+
+            #MetaTaggerConfigPage .metadataTaggerFeedHead:focus-visible {
+                outline: 2px solid var(--mt-accent);
+                outline-offset: -2px;
+            }
+
+            #MetaTaggerConfigPage .metadataTaggerFeedHead small {
+                margin-inline-start: auto;
+                color: var(--mt-muted);
+                font-size: var(--mt-font-size);
+                overflow-wrap: anywhere;
+            }
+
+            #MetaTaggerConfigPage .metadataTaggerFeedBody {
+                padding: 0 var(--mt-space-md) var(--mt-space-md);
+                overflow-wrap: anywhere;
+            }
+
+            #MetaTaggerConfigPage .metadataTaggerFeedItems {
+                max-height: min(60vh, 640px);
+                overflow-y: auto;
             }
         </style>
         <div data-role="content">
@@ -1491,16 +1547,95 @@
         <div><h1 aria-label="Meta Tagger"><!-- brand-logo:start --><img class="metadataTaggerLogo metadataTaggerLogo-light" alt="" width="1127" height="200" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMTI3IiBoZWlnaHQ9IjIwMCIgZmlsbD0ibm9uZSI+PGcgY2xpcC1wYXRoPSJ1cmwoI2EpIj48ZyBjbGlwLXBhdGg9InVybCgjYikiPjxnIGZpbGw9IiM2OWNlZDYiIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1wYXRoPSJ1cmwoI2MpIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0xNDggMjAwcS04IDAtOC04VjQ2cTAtNCAzLTdsNDUtMzdxNi00IDEyIDBsNDUgMzdxMyAzIDMgN3YxNDZxMCA4LTggOHptNTMuODI2LTEwOC4xNzRhNy44MjUgNy44MjUgMCAwIDAtMTMuMzYtNS41MzRBNy44MjUgNy44MjUgMCAwIDAgMTk0IDk5LjY1MmE3LjgyNyA3LjgyNyAwIDAgMCA3LjgyNi03LjgyNm0wIDQwLjM0OGE3LjgyNSA3LjgyNSAwIDAgMC0xMy4zNi01LjUzNEE3LjgyNSA3LjgyNSAwIDAgMCAxOTQgMTQwYTcuODMgNy44MyAwIDAgMCA3LjgyNi03LjgyNk04IDIwMHEtOCAwLTgtOFY0NnEwLTQgMy03TDQ4IDJxNi00IDEyIDBsNDUgMzdxMyAzIDMgN3YxNDZxMCA4LTggOHpNNjEuODI2IDkxLjgyNmE3LjgyNiA3LjgyNiAwIDEgMC0xNS42NTIgMCA3LjgyNiA3LjgyNiAwIDAgMCAxNS42NTIgMG0wIDQwLjM0OGE3LjgyNiA3LjgyNiAwIDEgMC0xNS42NTIgMCA3LjgyNiA3LjgyNiAwIDAgMCAxNS42NTIgMCIvPjwvZz48L2c+PHBhdGggZmlsbD0iI2YyZWZlNyIgZmlsbC1ydWxlPSJldmVub2RkIiBkPSJNNzg5Ljc2NyA3My44NjhxMTQuODg4IDAgMjIuOTI1IDYuODUxIDguMTY4IDYuNzIgOC4yOTkgMTguOTcxdjQ2LjM3N2gtMjMuMDU2di04LjAyMWEyMS41IDIxLjUgMCAwIDEtNS45MjggNS4yNTVxLTYuMzI0IDMuODItMTUuNTQ4IDMuODIxLTcuNjQgMC0xMy4xNzQtMi45LTUuNDAyLTIuODk4LTguMzAxLTcuOTAzLTIuODk4LTUuMDA3LTIuODk4LTExLjQ2MyAwLTEwLjE0NSA2Ljk4My0xNS44MTIgNy4xMTUtNS42NjUgMjAuMjktNS43OTdoMTguNTc2di0uNzlxMC01LjEzOS0zLjQyNi04LjAzNy0zLjQyNS0yLjg5OC0xMC4xNDQtMi44OTgtNC40OCAwLTEwLjAxMyAxLjQ1LTUuNTM0IDEuNDQ5LTExLjMzMSA0LjM0N2wtNi40NTctMTUuNTQ4cTUuNjY3LTIuNTAzIDEwLjkzNy00LjIxNmE2OSA2OSAwIDAgMSAxMC45MzQtMi43NjYgNjkgNjkgMCAwIDEgMTEuMzMyLS45MjFtLTUuNzk3IDQxLjg5NnEtNS4wMDcgMC03LjUxMSAxLjg0NS0yLjM3IDEuNzEzLTIuMzcxIDUuNTMzdDIuNTA1IDYuMDYxcTIuNTAyIDIuMTA4IDcuMTEzIDIuMTA5IDMuNTU3IDAgNi40NTYtMS4xODUgMy4wMy0xLjE4NyA1LjAwNy0zLjI5NSAyLjEwNy0yLjI0IDIuNzY2LTUuMDA3di02LjA2MXpNODYwLjMxIDczLjg3MnE4LjgyNy0uMTMyIDE1LjAxOSA0LjA4NWEyMy40IDIzLjQgMCAwIDEgNS43OTcgNS4zMXYtOC42MDVoMjMuMzIxdjY0LjgyMnEwIDEwLjAxNC00Ljg3NiAxNy4zOTMtNC44NzUgNy4zNzctMTMuNTY5IDExLjMyOS04LjY5NyA0LjA4NS0yMC4yOSA0LjA4NS05LjM1NSAwLTE3LjY1NS0yLjYzNS04LjE2OS0yLjYzNS0xNC4yMjktNi43MThsOC4xNjgtMTUuODEyYTQyIDQyIDAgMCAwIDEwLjU0MSA1LjE0cTUuNjY1IDEuODQ0IDExLjQ2MyAxLjg0NSA1LjQwMS0uMDAyIDkuMjIyLTEuNzE0IDMuODIxLTEuNzE0IDUuNzk3LTQuODc2IDIuMTA3LTMuMTYyIDIuMTA3LTcuNTA4di03LjQ0NWEyNC4zIDI0LjMgMCAwIDEtNS41MzMgNS4yMDRxLTYuMDYgNC4wODUtMTQuNzU3IDQuMDg1LTguODI3IDAtMTUuODEtNC4yMTYtNi44NS00LjM0OC0xMC44MDMtMTEuOTkxLTMuODItNy43NzMtMy44MjEtMTguMTgxIDAtMTAuMTQ1IDMuNjktMTcuNjU0IDMuODItNy41MSAxMC41MzktMTEuNzI3IDYuODUyLTQuMjE2IDE1LjY3OS00LjIxNm02LjQ1NiAxNy4zOXEtNC4zNDcgMC03LjY0MiAyLjExLTMuMTYgMi4xMDYtNS4wMDYgNS45MjctMS44NDUgMy44MjItMS44NDUgOC44MyAwIDUuMDA2IDEuODQ1IDguODI3dDUuMDA2IDUuOTI4cTMuMjk0IDIuMTA4IDcuNjQyIDIuMTA5IDQuMjE2IDAgNy4zNzgtMi4xMDkgMy4yOTQtMi4xMDggNS4xMzktNS45MjggMS44NDQtMy44MjEgMS44NDMtOC44MjcuMDAxLTUuMDA4LTEuODQzLTguODMtMS44NDUtMy44Mi01LjEzOS01LjkyOC0zLjE2Mi0yLjEwOC03LjM3OC0yLjEwOU05NDMuNzY1IDczLjg3MnE4LjgyOC0uMTMyIDE1LjAyIDQuMDg1YTIzLjQgMjMuNCAwIDAgMSA1Ljc5NyA1LjMxdi04LjYwNWgyMy4zMnY2NC44MjJxMCAxMC4wMTQtNC44NzUgMTcuMzkzLTQuODc1IDcuMzc3LTEzLjU3IDExLjMyOS04LjY5NSA0LjA4NS0yMC4yOSA0LjA4NS05LjM1NCAwLTE3LjY1NS0yLjYzNS04LjE2OC0yLjYzNS0xNC4yMjktNi43MThsOC4xNjgtMTUuODEyYTQyIDQyIDAgMCAwIDEwLjU0MiA1LjE0cTUuNjY1IDEuODQ0IDExLjQ2MiAxLjg0NSA1LjQwMi0uMDAyIDkuMjIzLTEuNzE0IDMuODItMS43MTQgNS43OTctNC44NzYgMi4xMDctMy4xNjIgMi4xMDctNy41MDh2LTcuNDQ1YTI0LjMgMjQuMyAwIDAgMS01LjUzMyA1LjIwNHEtNi4wNiA0LjA4NS0xNC43NTcgNC4wODUtOC44MjcgMC0xNS44MS00LjIxNi02Ljg1MS00LjM0OC0xMC44MDMtMTEuOTkxLTMuODItNy43NzMtMy44MjEtMTguMTgxIDAtMTAuMTQ1IDMuNjktMTcuNjU0IDMuODItNy41MSAxMC41MzktMTEuNzI3IDYuODUtNC4yMTYgMTUuNjc4LTQuMjE2bTYuNDU3IDE3LjM5cS00LjM0OCAwLTcuNjQyIDIuMTEtMy4xNjIgMi4xMDYtNS4wMDcgNS45MjctMS44NDQgMy44MjItMS44NDUgOC44My4wMDEgNS4wMDYgMS44NDUgOC44Mjd0NS4wMDcgNS45MjhxMy4yOTQgMi4xMDggNy42NDIgMi4xMDkgNC4yMTUgMCA3LjM3Ny0yLjEwOSAzLjI5NC0yLjEwOCA1LjE0LTUuOTI4IDEuODQ0LTMuODIxIDEuODQzLTguODI3LjAwMS01LjAwOC0xLjg0My04LjgzLTEuODQ2LTMuODItNS4xNC01LjkyOC0zLjE2Mi0yLjEwOC03LjM3Ny0yLjEwOU0xMDM0LjQ3IDczLjg2OGM4LjM0IDAgMTUuMjQgMS43NTcgMjAuNjggNS4yNyA1LjU0IDMuNDI2IDkuNTggOC4zNDYgMTIuMTMgMTQuNzU4IDIuNjMgNi40MTEgMy42OCAxMy45MjEgMy4xNiAyMi41MjhoLTQ5LjU5cS40OCAxLjgyMyAxLjIzIDMuNDI1YzEuNDEgMi45ODcgMy4zOCA1LjMxNiA1LjkzIDYuOTg1cTMuOTYgMi4zNzEgOS4wOSAyLjM3MWM2LjMzIDAgMTEuOS0yLjQxNiAxNi43My03LjI0NmwxMi4yNiAxMi4xMjJjLTMuNiAzLjk1Mi04LjA0IDcuMDI3LTEzLjMxIDkuMjIycS03Ljc3IDMuMjkzLTE3Ljc5IDMuMjkzYy03LjcyIDAtMTQuNDQtMS40OTItMjAuMTUtNC40NzhxLTguNDMtNC40ODEtMTMuMDUtMTIuNjUxLTQuNDc2LTguMTY4LTQuNDc3LTE4Ljk3MS4wMDEtMTEuMDY3IDQuNjA3LTE5LjIzNiA0LjYyLTguMyAxMy4wNS0xMi43ODEgOC40My00LjYxMSAxOS41LTQuNjExbS4xMyAxNi4yMDdjLTMuMDggMC01LjcxLjgzNC03LjkxIDIuNTAyLTIuMSAxLjU4MS0zLjc3IDMuODIyLTUgNi43MmEyMiAyMiAwIDAgMC0xLjMxIDQuNzQzaDI3LjRjLjA4LTIuODk4LS40NC01LjM1OC0xLjU5LTcuMzc4LTEuMDUtMi4xMDgtMi41OS0zLjczNC00LjYxLTQuODc1cy00LjM1LTEuNzEyLTYuOTgtMS43MTIiIGNsaXAtcnVsZT0iZXZlbm9kZCIvPjxwYXRoIGZpbGw9IiNmMmVmZTciIGQ9Ik0xMTI2LjM2IDk1LjA3OWMtNC42Ni0uNTI3LTguNzQtLjEzMi0xMi4yNiAxLjE4Ni0zLjQyIDEuMzE3LTYuMSAzLjMzOC04LjAzIDYuMDYxcS0yLjE3NSAzLjEtMi42NCA3LjI1M3YzNi40ODhoLTIzLjQ1Vjc0LjkyaDIzLjQ1djExLjcxYzIuMDktMy40NCA0LjY5LTYuMjAzIDcuNzgtOC4yODRxNi40NS00LjQ3OCAxNS4xNS00LjQ3OHpNNjczLjE1NSA1My43MDloNzkuMTg0djE5LjVINzI0LjY3djcyLjg1OWgtMjQuMTExdi03Mi44NmgtMjcuNDA0ek0zMTIgNTMuNzA5aDI2LjIxOWwyNi43NDYgNTQuNDE0IDI2LjYxNC01NC40MTRoMjYuMjE5djkyLjM1OWgtMjEuMzQ0bC0uMTMyLTU5LjE1OC0yMy41ODQgNDkuOTM1aC0xNS41NDdMMzMzLjQ3NiA4Ni45MXY1OS4xNThIMzEyeiIvPjxwYXRoIGZpbGw9IiNmMmVmZTciIGZpbGwtcnVsZT0iZXZlbm9kZCIgZD0iTTQ2NC4zNjMgNzMuMzRxMTIuNTE3IDAgMjAuNjg2IDUuMjcgOC4zIDUuMTQgMTIuMTIyIDE0Ljc1OCAzLjk1MSA5LjYxNyAzLjE2MSAyMi41MjhoLTQ5LjU5MWEyMCAyMCAwIDAgMCAxLjIzOCAzLjQyNXEyLjEwOCA0LjQ4MSA1LjkyOCA2Ljk4NSAzLjk1MyAyLjM3MSA5LjA5MiAyLjM3MSA5LjQ4NCAwIDE2LjczMS03LjI0NmwxMi4yNTMgMTIuMTIycS01LjQwMSA1LjkyOS0xMy4zMDUgOS4yMjItNy43NzUgMy4yOTQtMTcuNzg4IDMuMjkzLTExLjU5MyAwLTIwLjE1Ny00LjQ3OC04LjQzMi00LjQ4MS0xMy4wNDQtMTIuNjUxLTQuNDgtOC4xNjgtNC40OC0xOC45NzEgMC0xMS4wNjcgNC42MTEtMTkuMjM2IDQuNjEyLTguMyAxMy4wNDQtMTIuNzgxIDguNDMyLTQuNjExIDE5LjQ5OS00LjYxMW0uMTMxIDE2LjIwN3EtNC42MSAwLTcuOTAzIDIuNTAyLTMuMTYyIDIuMzcxLTUuMDA3IDYuNzItLjg4NSAyLjE3OC0xLjMxMiA0Ljc0M2gyNy4zOTlxLjEzMi00LjM0OC0xLjU4MS03LjM3OC0xLjU4Mi0zLjE2Mi00LjYxMy00Ljg3Ni0zLjAzLTEuNzExLTYuOTgzLTEuNzExIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiLz48cGF0aCBmaWxsPSIjZjJlZmU3IiBkPSJNNTQzLjA3NyA3Ny4xNmgxOC40NDV2MTUuMjg0aC0xOC40NDV2MjcuMjczcTAgNC4wODQgMS43MTIgNS45MyAxLjcxMyAxLjg0MyA0Ljc0MiAxLjcxMSAxLjg0NSAwIDQuMDg1LS42NTlhNDUgNDUgMCAwIDAgNC43NDMtMS43MTJsNC40OCAxNi4yMDVxLTMuODIgMi4zNzItOC45NTggMy42OWE0NC40IDQ0LjQgMCAwIDEtMTAuMjc4IDEuMTg2cS02Ljg1IDAtMTIuMjUzLTIuNTA1LTUuNDAxLTIuNjM1LTguNTYzLTcuNjQyLTMuMDMtNS4xMzctMy4wMy0xMi41MTVWOTIuNDQ0aC05Ljg4MlY3Ny4xNmg5Ljg4MlY1Ny41M2gyMy4zMnoiLz48cGF0aCBmaWxsPSIjZjJlZmU3IiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik02MDkuOTMxIDcyLjgxM3ExNC44ODggMCAyMi45MjUgNi44NTIgOC4xNjcgNi43MiA4LjI5OSAxOC45NzF2NDYuMzc3aC0yMy4wNTZ2LTguMDIxYTIxLjYgMjEuNiAwIDAgMS01LjkyOCA1LjI1NXEtNi4zMjUgMy44Mi0xNS41NDggMy44MjEtNy42NDEtLjAwMS0xMy4xNzUtMi45LTUuNDAyLTIuODk3LTguMzAxLTcuOTA0dC0yLjg5Ny0xMS40NjJxMC0xMC4xNDYgNi45ODItMTUuODEyIDcuMTE1LTUuNjY1IDIwLjI5LTUuNzk3aDE4LjU3N3YtLjc5MXEtLjAwMS01LjEzNy0zLjQyNi04LjAzNy0zLjQyNi0yLjg5Ny0xMC4xNDQtMi44OTctNC40OCAwLTEwLjAxMyAxLjQ1LTUuNTM0IDEuNDQ5LTExLjMzMiA0LjM0N2wtNi40NTYtMTUuNTQ4cTUuNjY2LTIuNTAzIDEwLjkzNy00LjIxNmE2OSA2OSAwIDAgMSAxMC45MzQtMi43NjYgNjkgNjkgMCAwIDEgMTEuMzMyLS45MjJtLTUuNzk3IDQxLjg5N3EtNS4wMDcgMC03LjUxMSAxLjg0NS0yLjM3MSAxLjcxMy0yLjM3MSA1LjUzM3QyLjUwNCA2LjA2MXEyLjUwMyAyLjEwOCA3LjExNCAyLjEwOSAzLjU1NyAwIDYuNDU2LTEuMTg2IDMuMDMtMS4xODYgNS4wMDYtMy4yOTQgMi4xMDctMi4yNCAyLjc2Ny01LjAwN3YtNi4wNjF6IiBjbGlwLXJ1bGU9ImV2ZW5vZGQiLz48L2c+PGRlZnM+PGNsaXBQYXRoIGlkPSJhIj48cGF0aCBmaWxsPSIjZmZmIiBkPSJNMCAwaDExMjd2MjAwSDB6Ii8+PC9jbGlwUGF0aD48Y2xpcFBhdGggaWQ9ImIiPjxwYXRoIGZpbGw9IiNmZmYiIGQ9Ik0wIDBoMjQ4djIwMEgweiIvPjwvY2xpcFBhdGg+PGNsaXBQYXRoIGlkPSJjIj48cGF0aCBmaWxsPSIjZmZmIiBkPSJNMCAwaDI0OHYyMDBIMHoiLz48L2NsaXBQYXRoPjwvZGVmcz48L3N2Zz4="><img class="metadataTaggerLogo metadataTaggerLogo-dark" alt="" width="1127" height="200" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMTI3IiBoZWlnaHQ9IjIwMCIgZmlsbD0ibm9uZSI+PGcgY2xpcC1wYXRoPSJ1cmwoI2EpIj48ZyBjbGlwLXBhdGg9InVybCgjYikiPjxnIGZpbGw9IiM2OWNlZDYiIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1wYXRoPSJ1cmwoI2MpIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0xNDggMjAwcS04IDAtOC04VjQ2cTAtNCAzLTdsNDUtMzdxNi00IDEyIDBsNDUgMzdxMyAzIDMgN3YxNDZxMCA4LTggOHptNTMuODI2LTEwOC4xNzRhNy44MjUgNy44MjUgMCAwIDAtMTMuMzYtNS41MzRBNy44MjUgNy44MjUgMCAwIDAgMTk0IDk5LjY1MmE3LjgyNyA3LjgyNyAwIDAgMCA3LjgyNi03LjgyNm0wIDQwLjM0OGE3LjgyNSA3LjgyNSAwIDAgMC0xMy4zNi01LjUzNEE3LjgyNSA3LjgyNSAwIDAgMCAxOTQgMTQwYTcuODMgNy44MyAwIDAgMCA3LjgyNi03LjgyNk04IDIwMHEtOCAwLTgtOFY0NnEwLTQgMy03TDQ4IDJxNi00IDEyIDBsNDUgMzdxMyAzIDMgN3YxNDZxMCA4LTggOHpNNjEuODI2IDkxLjgyNmE3LjgyNiA3LjgyNiAwIDEgMC0xNS42NTIgMCA3LjgyNiA3LjgyNiAwIDAgMCAxNS42NTIgMG0wIDQwLjM0OGE3LjgyNiA3LjgyNiAwIDEgMC0xNS42NTIgMCA3LjgyNiA3LjgyNiAwIDAgMCAxNS42NTIgMCIvPjwvZz48L2c+PHBhdGggZmlsbD0iIzE1MWExZSIgZmlsbC1ydWxlPSJldmVub2RkIiBkPSJNNzg5Ljc2NyA3My44NjhxMTQuODg4IDAgMjIuOTI1IDYuODUxIDguMTY4IDYuNzIgOC4yOTkgMTguOTcxdjQ2LjM3N2gtMjMuMDU2di04LjAyMWEyMS41IDIxLjUgMCAwIDEtNS45MjggNS4yNTVxLTYuMzI0IDMuODItMTUuNTQ4IDMuODIxLTcuNjQgMC0xMy4xNzQtMi45LTUuNDAyLTIuODk4LTguMzAxLTcuOTAzLTIuODk5LTUuMDA3LTIuODk4LTExLjQ2MyAwLTEwLjE0NSA2Ljk4My0xNS44MTIgNy4xMTUtNS42NjUgMjAuMjktNS43OTdoMTguNTc2di0uNzlxMC01LjEzOS0zLjQyNi04LjAzN3QtMTAuMTQ0LTIuODk4cS00LjQ4IDAtMTAuMDEzIDEuNDUtNS41MzQgMS40NDktMTEuMzMxIDQuMzQ3bC02LjQ1Ny0xNS41NDhxNS42NjYtMi41MDMgMTAuOTM3LTQuMjE2YTY5IDY5IDAgMCAxIDEwLjkzNC0yLjc2NiA2OSA2OSAwIDAgMSAxMS4zMzItLjkyMW0tNS43OTcgNDEuODk2cS01LjAwNyAwLTcuNTExIDEuODQ1LTIuMzcgMS43MTMtMi4zNzEgNS41MzMuMDAxIDMuODIxIDIuNTA0IDYuMDYxIDIuNTAzIDIuMTA4IDcuMTE0IDIuMTA5IDMuNTU3IDAgNi40NTYtMS4xODUgMy4wMy0xLjE4NyA1LjAwNy0zLjI5NSAyLjEwNy0yLjI0IDIuNzY2LTUuMDA3di02LjA2MXpNODYwLjMxIDczLjg3MnE4LjgyNy0uMTMyIDE1LjAxOSA0LjA4NWEyMy40IDIzLjQgMCAwIDEgNS43OTcgNS4zMXYtOC42MDVoMjMuMzIxdjY0LjgyMnEwIDEwLjAxNC00Ljg3NiAxNy4zOTMtNC44NzUgNy4zNzctMTMuNTY5IDExLjMyOS04LjY5NyA0LjA4NS0yMC4yOSA0LjA4NS05LjM1NSAwLTE3LjY1NS0yLjYzNS04LjE2OS0yLjYzNS0xNC4yMjktNi43MThsOC4xNjgtMTUuODEyYTQyIDQyIDAgMCAwIDEwLjU0MSA1LjE0cTUuNjY1IDEuODQ0IDExLjQ2MyAxLjg0NSA1LjQwMS0uMDAyIDkuMjIyLTEuNzE0IDMuODIxLTEuNzE0IDUuNzk3LTQuODc2IDIuMTA3LTMuMTYyIDIuMTA3LTcuNTA4di03LjQ0NWEyNC4zIDI0LjMgMCAwIDEtNS41MzMgNS4yMDRxLTYuMDYgNC4wODUtMTQuNzU3IDQuMDg1LTguODI3IDAtMTUuODEtNC4yMTYtNi44NS00LjM0OC0xMC44MDMtMTEuOTkxLTMuODItNy43NzMtMy44MjEtMTguMTgxIDAtMTAuMTQ1IDMuNjktMTcuNjU0IDMuODItNy41MSAxMC41MzktMTEuNzI3IDYuODUyLTQuMjE2IDE1LjY3OS00LjIxNm02LjQ1NiAxNy4zOXEtNC4zNDcgMC03LjY0MiAyLjExLTMuMTYgMi4xMDYtNS4wMDYgNS45MjctMS44NDUgMy44MjItMS44NDUgOC44MyAwIDUuMDA2IDEuODQ1IDguODI3dDUuMDA2IDUuOTI4cTMuMjk0IDIuMTA4IDcuNjQyIDIuMTA5IDQuMjE2IDAgNy4zNzgtMi4xMDkgMy4yOTQtMi4xMDggNS4xMzktNS45MjggMS44NDQtMy44MjEgMS44NDMtOC44MjcuMDAxLTUuMDA4LTEuODQzLTguODMtMS44NDUtMy44Mi01LjEzOS01LjkyOC0zLjE2Mi0yLjEwOC03LjM3OC0yLjEwOU05NDMuNzY1IDczLjg3MnE4LjgyOC0uMTMyIDE1LjAyIDQuMDg1YTIzLjQgMjMuNCAwIDAgMSA1Ljc5NyA1LjMxdi04LjYwNWgyMy4zMnY2NC44MjJxMCAxMC4wMTQtNC44NzUgMTcuMzkzLTQuODc1IDcuMzc3LTEzLjU3IDExLjMyOS04LjY5NSA0LjA4NS0yMC4yOSA0LjA4NS05LjM1NCAwLTE3LjY1NS0yLjYzNS04LjE2OC0yLjYzNS0xNC4yMjktNi43MThsOC4xNjgtMTUuODEyYTQyIDQyIDAgMCAwIDEwLjU0MiA1LjE0cTUuNjY1IDEuODQ0IDExLjQ2MiAxLjg0NSA1LjQwMi0uMDAyIDkuMjIzLTEuNzE0IDMuODItMS43MTQgNS43OTctNC44NzYgMi4xMDctMy4xNjIgMi4xMDctNy41MDh2LTcuNDQ1YTI0LjMgMjQuMyAwIDAgMS01LjUzMyA1LjIwNHEtNi4wNiA0LjA4NS0xNC43NTcgNC4wODUtOC44MjcgMC0xNS44MS00LjIxNi02Ljg1MS00LjM0OC0xMC44MDMtMTEuOTkxLTMuODItNy43NzMtMy44MjEtMTguMTgxIDAtMTAuMTQ1IDMuNjktMTcuNjU0IDMuODItNy41MSAxMC41MzktMTEuNzI3IDYuODUtNC4yMTYgMTUuNjc4LTQuMjE2bTYuNDU3IDE3LjM5cS00LjM0OCAwLTcuNjQyIDIuMTEtMy4xNjIgMi4xMDYtNS4wMDcgNS45MjctMS44NDQgMy44MjItMS44NDUgOC44My4wMDEgNS4wMDYgMS44NDUgOC44Mjd0NS4wMDcgNS45MjhxMy4yOTQgMi4xMDggNy42NDIgMi4xMDkgNC4yMTUgMCA3LjM3Ny0yLjEwOSAzLjI5NC0yLjEwOCA1LjE0LTUuOTI4IDEuODQ0LTMuODIxIDEuODQzLTguODI3LjAwMS01LjAwOC0xLjg0My04LjgzLTEuODQ2LTMuODItNS4xNC01LjkyOC0zLjE2Mi0yLjEwOC03LjM3Ny0yLjEwOU0xMDM0LjQ3IDczLjg2OGM4LjM0IDAgMTUuMjQgMS43NTcgMjAuNjggNS4yNyA1LjU0IDMuNDI2IDkuNTggOC4zNDYgMTIuMTMgMTQuNzU4IDIuNjMgNi40MTEgMy42OCAxMy45MjEgMy4xNiAyMi41MjhoLTQ5LjU5cS40OCAxLjgyMyAxLjIzIDMuNDI1YzEuNDEgMi45ODcgMy4zOCA1LjMxNiA1LjkzIDYuOTg1cTMuOTYgMi4zNzEgOS4wOSAyLjM3MWM2LjMzIDAgMTEuOS0yLjQxNiAxNi43My03LjI0NmwxMi4yNiAxMi4xMjJjLTMuNiAzLjk1Mi04LjA0IDcuMDI3LTEzLjMxIDkuMjIycS03Ljc3IDMuMjkzLTE3Ljc5IDMuMjkzYy03LjcyIDAtMTQuNDQtMS40OTItMjAuMTUtNC40NzhxLTguNDMtNC40ODEtMTMuMDUtMTIuNjUxLTQuNDc2LTguMTY4LTQuNDc3LTE4Ljk3MS4wMDEtMTEuMDY3IDQuNjA3LTE5LjIzNiA0LjYyLTguMyAxMy4wNS0xMi43ODEgOC40My00LjYxMSAxOS41LTQuNjExbS4xMyAxNi4yMDdjLTMuMDggMC01LjcxLjgzNC03LjkxIDIuNTAyLTIuMSAxLjU4MS0zLjc3IDMuODIyLTUgNi43MmEyMiAyMiAwIDAgMC0xLjMxIDQuNzQzaDI3LjRjLjA4LTIuODk4LS40NC01LjM1OC0xLjU5LTcuMzc4LTEuMDUtMi4xMDgtMi41OS0zLjczNC00LjYxLTQuODc1cy00LjM1LTEuNzEyLTYuOTgtMS43MTIiIGNsaXAtcnVsZT0iZXZlbm9kZCIvPjxwYXRoIGZpbGw9IiMxNTFhMWUiIGQ9Ik0xMTI2LjM2IDk1LjA3OWMtNC42Ni0uNTI3LTguNzQtLjEzMi0xMi4yNiAxLjE4Ni0zLjQyIDEuMzE3LTYuMSAzLjMzOC04LjAzIDYuMDYxcS0yLjE3NSAzLjEtMi42NCA3LjI1M3YzNi40ODhoLTIzLjQ1Vjc0LjkyaDIzLjQ1djExLjcxYzIuMDktMy40NCA0LjY5LTYuMjAzIDcuNzgtOC4yODRxNi40NS00LjQ3OCAxNS4xNS00LjQ3OHpNNjczLjE1NSA1My43MDloNzkuMTg0djE5LjVINzI0LjY3djcyLjg1OWgtMjQuMTExdi03Mi44NmgtMjcuNDA0ek0zMTIgNTMuNzA5aDI2LjIxOWwyNi43NDYgNTQuNDE0IDI2LjYxNC01NC40MTRoMjYuMjE5djkyLjM1OWgtMjEuMzQ0bC0uMTMyLTU5LjE1OC0yMy41ODQgNDkuOTM1aC0xNS41NDdMMzMzLjQ3NiA4Ni45MXY1OS4xNThIMzEyeiIvPjxwYXRoIGZpbGw9IiMxNTFhMWUiIGZpbGwtcnVsZT0iZXZlbm9kZCIgZD0iTTQ2NC4zNjMgNzMuMzRxMTIuNTE3IDAgMjAuNjg2IDUuMjcgOC4zIDUuMTQgMTIuMTIyIDE0Ljc1OCAzLjk1MSA5LjYxNyAzLjE2MSAyMi41MjhoLTQ5LjU5MWEyMCAyMCAwIDAgMCAxLjIzOCAzLjQyNXEyLjEwOCA0LjQ4MSA1LjkyOCA2Ljk4NSAzLjk1MyAyLjM3MSA5LjA5MiAyLjM3MSA5LjQ4NCAwIDE2LjczMS03LjI0NmwxMi4yNTMgMTIuMTIycS01LjQwMSA1LjkyOS0xMy4zMDYgOS4yMjItNy43NzQgMy4yOTQtMTcuNzg4IDMuMjkzLTExLjU5MiAwLTIwLjE1Ni00LjQ3OC04LjQzMy00LjQ4MS0xMy4wNDQtMTIuNjUxLTQuNDgtOC4xNjgtNC40OC0xOC45NzEgMC0xMS4wNjcgNC42MTEtMTkuMjM2IDQuNjExLTguMyAxMy4wNDQtMTIuNzgxIDguNDMyLTQuNjExIDE5LjQ5OS00LjYxMW0uMTMxIDE2LjIwN3EtNC42MSAwLTcuOTAzIDIuNTAyLTMuMTYzIDIuMzcxLTUuMDA3IDYuNzItLjg4NSAyLjE3OC0xLjMxMiA0Ljc0M2gyNy4zOTlxLjEzMi00LjM0OC0xLjU4MS03LjM3OC0xLjU4Mi0zLjE2Mi00LjYxMy00Ljg3Ni0zLjAzLTEuNzExLTYuOTgzLTEuNzExIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiLz48cGF0aCBmaWxsPSIjMTUxYTFlIiBkPSJNNTQzLjA3NyA3Ny4xNmgxOC40NDV2MTUuMjg0aC0xOC40NDV2MjcuMjczcTAgNC4wODQgMS43MTIgNS45MyAxLjcxMyAxLjg0MyA0Ljc0MiAxLjcxMSAxLjg0NSAwIDQuMDg1LS42NTlhNDUgNDUgMCAwIDAgNC43NDMtMS43MTJsNC40OCAxNi4yMDVxLTMuODIgMi4zNzItOC45NTggMy42OWE0NC40IDQ0LjQgMCAwIDEtMTAuMjc4IDEuMTg2cS02Ljg1IDAtMTIuMjUzLTIuNTA1LTUuNDAxLTIuNjM1LTguNTYzLTcuNjQyLTMuMDMtNS4xMzctMy4wMy0xMi41MTVWOTIuNDQ0aC05Ljg4MlY3Ny4xNmg5Ljg4MlY1Ny41M2gyMy4zMnoiLz48cGF0aCBmaWxsPSIjMTUxYTFlIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik02MDkuOTMgNzIuODEzcTE0Ljg4OSAwIDIyLjkyNiA2Ljg1MiA4LjE2NyA2LjcyIDguMjk5IDE4Ljk3MXY0Ni4zNzdoLTIzLjA1N3YtOC4wMjFhMjEuNiAyMS42IDAgMCAxLTUuOTI3IDUuMjU1cS02LjMyNiAzLjgyLTE1LjU0OCAzLjgyMS03LjY0MS0uMDAxLTEzLjE3NS0yLjktNS40MDItMi44OTctOC4zMDEtNy45MDR0LTIuODk3LTExLjQ2MnEwLTEwLjE0NiA2Ljk4Mi0xNS44MTIgNy4xMTUtNS42NjUgMjAuMjktNS43OTdoMTguNTc2di0uNzkxcTAtNS4xMzctMy40MjUtOC4wMzctMy40MjYtMi44OTctMTAuMTQ0LTIuODk3LTQuNDggMC0xMC4wMTMgMS40NS01LjUzNCAxLjQ0OS0xMS4zMzIgNC4zNDdsLTYuNDU2LTE1LjU0OHE1LjY2Ni0yLjUwMyAxMC45MzYtNC4yMTZhNjkgNjkgMCAwIDEgMTAuOTM1LTIuNzY2IDY5IDY5IDAgMCAxIDExLjMzMS0uOTIybS01Ljc5NiA0MS44OTdxLTUuMDA3IDAtNy41MTEgMS44NDUtMi4zNzEgMS43MTMtMi4zNzEgNS41MzN0Mi41MDQgNi4wNjFxMi41MDMgMi4xMDggNy4xMTMgMi4xMDkgMy41NTggMCA2LjQ1Ny0xLjE4NiAzLjAzLTEuMTg2IDUuMDA2LTMuMjk0IDIuMTA3LTIuMjQgMi43NjYtNS4wMDd2LTYuMDYxeiIgY2xpcC1ydWxlPSJldmVub2RkIi8+PC9nPjxkZWZzPjxjbGlwUGF0aCBpZD0iYSI+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTAgMGgxMTI3djIwMEgweiIvPjwvY2xpcFBhdGg+PGNsaXBQYXRoIGlkPSJiIj48cGF0aCBmaWxsPSIjZmZmIiBkPSJNMCAwaDI0OHYyMDBIMHoiLz48L2NsaXBQYXRoPjxjbGlwUGF0aCBpZD0iYyI+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTAgMGgyNDh2MjAwSDB6Ii8+PC9jbGlwUGF0aD48L2RlZnM+PC9zdmc+"><!-- brand-logo:end --></h1><p>Create tags from existing metadata.</p></div>
     </div>
 </header>
-<div class="metadataTaggerHeaderActions metadataTaggerViewActions" aria-label="Workspace tools">
-    <button id="WorkspaceButton" type="button" class="metadataTaggerLink" hidden>Back to workspace</button>
-    <button id="OpenInspectButton" type="button" class="metadataTaggerLink" aria-controls="PanelInspect" aria-expanded="false">Browse items</button>
-    <button id="OpenRunsButton" type="button" class="metadataTaggerLink" aria-controls="PanelRuns" aria-expanded="false">History</button>
-    <button id="OpenMaintenanceButton" type="button" class="metadataTaggerLink" aria-controls="PanelMaintenance" aria-expanded="false">Maintenance</button>
+<div id="MetaTaggerTabs" class="metadataTaggerTabs" role="tablist" aria-label="Meta Tagger sections">
+    <button id="TabActivity" type="button" role="tab" class="metadataTaggerTab" aria-controls="PanelActivity" aria-selected="true" tabindex="0">Activity</button>
+    <button id="TabItems" type="button" role="tab" class="metadataTaggerTab" aria-controls="PanelItems" aria-selected="false" tabindex="-1">Items</button>
+    <button id="TabSettings" type="button" role="tab" class="metadataTaggerTab" aria-controls="PanelSettings" aria-selected="false" tabindex="-1">Settings</button>
+    <button id="TabMaintenance" type="button" role="tab" class="metadataTaggerTab metadataTaggerTabMaintenance" aria-controls="PanelMaintenance" aria-selected="false" tabindex="-1">Maintenance</button>
 </div>
 
 <div id="PageLoadError" class="metadataTaggerNotice" role="alert" data-feedback-tone="error" hidden><p>Settings could not be loaded. Reload the page to try again. If this continues, check the Jellyfin server log.</p><button id="ReloadSettingsButton" type="button" class="emby-button">Reload page</button></div>
-<section id="PanelOverview" aria-label="Tagging workspace">
-<section id="PanelSettings" aria-label="Tag settings">
+<section id="PanelActivity" role="tabpanel" aria-labelledby="TabActivity">
+<section id="ScopeBlock" class="metadataTaggerCard" aria-labelledby="ScopeHeading">
+    <div class="metadataTaggerScopeTop">
+        <div>
+            <p class="metadataTaggerEyebrow">Scope</p>
+            <h2 id="ScopeHeading" tabindex="-1"><span id="RunScope">Loading scope…</span></h2>
+            <p id="RulesInEffect" class="metadataTaggerMuted"><span id="RulesInEffectText">Rules in effect: loading…</span> <button id="EditRulesButton" type="button" class="metadataTaggerLink">Edit rules ›</button></p>
+        </div>
+        <div class="metadataTaggerHeaderActions">
+            <button id="RunApplyButton" type="button" is="emby-button" class="raised button-submit emby-button">Apply tags now</button>
+            <button id="RunPreviewButton" type="button" is="emby-button" class="raised emby-button">Check changes first</button>
+            <button id="StopPreviewButton" type="button" is="emby-button" class="raised emby-button" disabled>Stop run</button>
+        </div>
+    </div>
+    <p id="RunHelp" class="metadataTaggerMuted">Apply tags now checks current metadata and saved settings again and writes permitted changes, even when automatic runs only preview. Item protections and run limits still apply. Checking never writes tags, and a library filter in Items never narrows this scope.</p>
+    <div class="metadataTaggerTaskStatus">
+        <p id="TaskFeedback" role="status">Loading settings…</p>
+        <p id="LibraryApplyFeedback" role="status"></p>
+    </div>
+    <div id="OutdatedCheckNotice" class="metadataTaggerNotice" data-feedback-tone="warning" hidden><p>The last check is outdated: settings changed after it.</p><button id="CheckAgainButton" type="button" class="emby-button">Check again</button></div>
+    <div id="UnsavedEditsNotice" class="metadataTaggerNotice" data-feedback-tone="warning" hidden><p>You have unsaved settings. They are not included in runs, which use saved settings.</p><button id="ReviewEditsButton" type="button" class="metadataTaggerLink">Review settings</button></div>
+    <p id="OverviewTaggingHelp" class="metadataTaggerMuted"></p>
+    <p id="OverviewAutomationHelp" class="metadataTaggerMuted"><span id="OverviewAutomationText"></span> <a id="OpenScheduledTasks" class="metadataTaggerLink" href="#/dashboard/tasks">Scheduled Tasks</a></p>
+</section>
+<section id="PanelLatest" class="metadataTaggerCard metadataTaggerOutcome" aria-labelledby="OverviewOutcome">
+    <p class="metadataTaggerEyebrow">Latest run</p>
+    <h2 id="OverviewOutcome">Loading latest run…</h2>
+    <p id="OverviewWhen" class="metadataTaggerMuted"></p>
+    <p id="OverviewCounts" role="status"></p>
+    <div class="metadataTaggerHeaderActions"><button id="LatestRunDetailsButton" type="button" class="raised emby-button" hidden>View run details</button></div>
+</section>
+<section id="PanelReview" class="metadataTaggerCard" aria-labelledby="ReviewHeading">
+    <div class="metadataTaggerSubheader"><h2 id="ReviewHeading" tabindex="-1">Proposed tag changes</h2><span id="ReviewOutdatedChip" class="metadataTaggerChip" data-feedback-tone="warning" hidden>Outdated</span></div>
+    <section id="ReviewResults" aria-label="Latest tag preview">
+        <p id="PreviewContext" class="metadataTaggerMuted" role="status"></p>
+        <p id="PreviewRunId" class="metadataTaggerMuted" hidden></p>
+        <p id="PreviewFeedback" role="status" aria-live="polite">Loading latest preview…</p>
+        <div id="PreviewChanges"></div>
+        <div class="metadataTaggerHeaderActions">
+            <button id="ReviewAllItemsButton" type="button" class="raised emby-button" hidden>Review all in Items ›</button>
+            <button id="RefreshPreviewButton" is="emby-button" type="button" class="metadataTaggerLink emby-button">Reload preview results</button>
+        </div>
+    </section>
+</section>
+<section id="PanelEarlier" aria-labelledby="EarlierActivityHeading">
+    <div class="metadataTaggerSubheader">
+        <h2 id="EarlierActivityHeading" tabindex="-1">Earlier activity</h2>
+        <div class="metadataTaggerFilters" role="group" aria-label="Filter earlier activity">
+            <button id="FeedFilterAll" type="button" aria-pressed="true">All</button>
+            <button id="FeedFilterChanged" type="button" aria-pressed="false">Changed tags</button>
+            <button id="FeedFilterProblems" type="button" aria-pressed="false">Problems</button>
+        </div>
+        <button id="RefreshRunsButton" type="button" class="metadataTaggerLink">Refresh activity</button>
+    </div>
+    <p id="RunsFeedback" role="status">Loading earlier activity…</p>
+    <div id="RunFeed"></div>
+</section>
+</section>
+<section id="PanelItems" role="tabpanel" aria-labelledby="TabItems" hidden>
+    <h2 id="BrowseHeading" tabindex="-1">Items</h2>
+    <div class="metadataTaggerToolbar">
+        <div><label class="inputLabel inputLabelUnfocused" for="ItemSearch">Search items</label><input id="ItemSearch" type="search" maxlength="200" is="emby-input" placeholder="Search by title" /></div>
+        <div><label class="selectLabel" for="ItemLibrary">Library</label><select id="ItemLibrary" is="emby-select"><option value="">All libraries</option></select></div>
+        <div><label class="selectLabel" for="ItemStatus">Filter</label><select id="ItemStatus" is="emby-select" aria-describedby="ItemStatusHelp"><option value="">All statuses</option><option value="Not checked">Not checked</option><option value="Changes">Tag differences</option><option value="Up to date">No tag differences</option><option value="Protected">Skipped: protected</option><option value="Failed">Failed</option></select></div>
+    </div>
+    <p id="ItemStatusHelp" class="metadataTaggerMuted">Filters only affect browsing. The status filter applies to the loaded page.</p>
+    <p id="ItemStatusSource" role="status">No preview results are available for these items.</p>
+    <nav id="ItemBreadcrumbs" aria-label="Library navigation"></nav>
+    <div class="metadataTaggerWorkspace">
+        <div class="metadataTaggerListPanel"><div class="metadataTaggerListHeading"><span>Library items</span><span>Preview results</span></div><p id="ItemBrowserFeedback" role="status">Search by title or choose a library.</p><button id="RetryItemsButton" type="button" class="raised emby-button" is="emby-button" hidden>Retry</button><div id="ItemList"></div><div class="metadataTaggerPagination"><button id="PreviousItemsButton" type="button" class="raised emby-button" disabled>Previous</button><button id="NextItemsButton" type="button" class="raised emby-button" disabled>Next</button></div></div>
+        <aside class="metadataTaggerInspector" aria-label="Selected item tag changes"><div class="metadataTaggerInspectorHead"><div id="InspectorArtwork"></div><div><h2 id="InspectorHeading" tabindex="-1">Select an item</h2><p id="InspectorMeta"></p></div></div><p id="InspectorFeedback" role="status">Select an item to preview its tag changes using saved settings.</p><div id="InspectorDetails"></div><div class="metadataTaggerInspectorActions">
+            <button id="ApplyItemButton" type="button" class="raised button-submit emby-button" disabled>Apply tags now to this item</button>
+            <button id="PreviewItemButton" type="button" class="raised emby-button" disabled>Check changes first</button>
+            <button id="StopItemButton" type="button" class="raised emby-button" disabled>Stop item run</button>
+            <p id="ItemApplyHelp" class="metadataTaggerMuted" hidden>Apply tags now recalculates this item using current metadata and saved settings.</p>
+            <p id="ItemRunFeedback" role="status" aria-live="polite"></p>
+            <button id="ClearItemButton" type="button" class="metadataTaggerLink" disabled>Preview tag removal</button>
+        </div></aside>
+    </div>
+</section>
+<section id="PanelSettings" role="tabpanel" aria-labelledby="TabSettings" hidden>
                 <div class="metadataTaggerSettingsWorkspace">
                 <form id="MetaTaggerConfigForm">
 <div class="metadataTaggerSettingsLayout">
@@ -1630,20 +1765,8 @@
                             Manage saved triggers in <a href="#/dashboard/tasks">Scheduled Tasks</a>.
                             The daily task follows automatic mode. Incremental runs enumerate the selected scope and skip unchanged items.
                         </div>
-<p id="OverviewTaggingHelp" class="metadataTaggerMuted"></p><p id="OverviewAutomationHelp" class="metadataTaggerMuted"></p>
                     </section>
 
-<div class="metadataTaggerRunActions"><div class="metadataTaggerTaskStatus">
-    <p id="RunScope">Scope: configured item types across all libraries. Apply tags now writes changes using current metadata and saved settings. Check changes first is read-only.</p>
-    <p id="TaskFeedback" role="status">Loading settings…</p>
-</div>
-    <div class="metadataTaggerHeaderActions">
-        <button id="RunApplyButton" type="button" is="emby-button" class="raised button-submit emby-button">Apply tags now</button>
-        <button id="RunPreviewButton" type="button" is="emby-button" class="raised emby-button">Check changes first</button>
-        <button id="StopPreviewButton" type="button" is="emby-button" class="raised emby-button" disabled>Stop run</button>
-    </div>
-
-</div>
                         <details id="MoreSources" class="metadataTaggerMoreSources">
                             <summary>Optional sources · <span id="AdditionalSourcesCount">0 selected</span></summary>
                             <div class="metadataTaggerSourceChoices">
@@ -1896,67 +2019,9 @@
                     </details>
 </div>
 </section>
-    <div class="metadataTaggerOutcome">
-        <div><p class="metadataTaggerEyebrow">Latest run</p><h2 id="OverviewOutcome">Loading latest run…</h2><p id="OverviewWhen" class="metadataTaggerMuted"></p><p id="OverviewCounts" role="status"></p><div class="metadataTaggerHeaderActions"><button id="OverviewItemsButton" type="button" class="raised emby-button">View preview results</button><button id="OverviewRunsButton" type="button" class="metadataTaggerLink">History</button></div></div>
-    </div>
-<section aria-labelledby="RecentRunsHeading"><h2 id="RecentRunsHeading">Recent runs</h2><p id="RecentRunsFeedback" role="status">Loading recent runs…</p><div id="RecentRuns"></div></section>
-<section id="CurrentApplyResults" aria-labelledby="CurrentApplyHeading" hidden>
-    <h2 id="CurrentApplyHeading">Saved tag results</h2>
-    <p id="CurrentApplyFeedback" role="status" aria-live="polite"></p>
-    <div id="CurrentApplyChanges"></div>
-    <button id="RetryApplyResults" type="button" class="raised emby-button" hidden>Retry loading Apply results</button>
-</section>
-<section id="PanelReview" aria-labelledby="ReviewHeading">
-    <div class="metadataTaggerSubheader"><h2 id="ReviewHeading" tabindex="-1">Proposed tag changes</h2><div class="metadataTaggerHeaderActions"><button id="InspectItemsButton" type="button" class="metadataTaggerLink">Browse items</button><button id="ReviewRunsButton" type="button" class="metadataTaggerLink">History</button></div></div>
-    <section id="ReviewResults" aria-label="Latest tag preview">
-        <p id="PreviewContext" class="metadataTaggerMuted" role="status"></p>
-        <p id="PreviewRunId" class="metadataTaggerMuted" hidden></p>
-        <p id="PreviewFeedback" role="status" aria-live="polite">Loading latest preview…</p>
-        <div id="PreviewChanges"></div>
-        <button id="RefreshPreviewButton" is="emby-button" type="button" class="raised emby-button">Reload preview results</button>
-    </section>
-    <section id="LibraryApplyGuidance" aria-labelledby="LibraryApplyHeading">
-        <h3 id="LibraryApplyHeading">Apply changes across all libraries</h3>
-        <p>Apply tags now uses configured item types across all libraries. Item protections and run limits still apply.</p>
-        <p class="metadataTaggerNotice" data-feedback-tone="warning">This task checks current metadata and saved settings again, so changes may differ from this preview. It applies changes even when automatic runs are set to preview.</p>
-        <p id="LibraryApplyFeedback" role="status"></p>
-        <p><a id="OpenScheduledTasks" class="metadataTaggerLink" href="#/dashboard/tasks">Scheduled Tasks</a></p>
-    </section>
-</section>
-</section>
-<section id="PanelInspect" aria-labelledby="BrowseHeading" hidden>
-    <section id="InspectionPanel" aria-label="Browse items" hidden>
-    <h2 id="BrowseHeading" tabindex="-1">Browse items</h2>
-    <button id="BackToReviewButton" type="button" class="metadataTaggerLink">Back to workspace</button>
-    <div class="metadataTaggerToolbar">
-        <div><label class="inputLabel inputLabelUnfocused" for="ItemSearch">Search items</label><input id="ItemSearch" type="search" maxlength="200" is="emby-input" placeholder="Search by title" /></div>
-        <div><label class="selectLabel" for="ItemLibrary">Library</label><select id="ItemLibrary" is="emby-select"><option value="">All libraries</option></select></div>
-        <div><label class="selectLabel" for="ItemStatus">Filter</label><select id="ItemStatus" is="emby-select" aria-describedby="ItemStatusHelp"><option value="">All statuses</option><option value="Not checked">Not checked</option><option value="Changes">Tag differences</option><option value="Up to date">No tag differences</option><option value="Protected">Skipped: protected</option><option value="Failed">Failed</option></select></div>
-    </div>
-    <p id="ItemStatusHelp" class="metadataTaggerMuted">Filters only affect browsing. The status filter applies to the loaded page.</p>
-    <p id="ItemStatusSource" role="status">No preview results are available for these items.</p>
-    <nav id="ItemBreadcrumbs" aria-label="Library navigation"></nav>
-    <div class="metadataTaggerWorkspace">
-        <div class="metadataTaggerListPanel"><div class="metadataTaggerListHeading"><span>Library items</span><span>Preview results</span></div><p id="ItemBrowserFeedback" role="status">Search by title or choose a library.</p><button id="RetryItemsButton" type="button" class="raised emby-button" is="emby-button" hidden>Retry</button><div id="ItemList"></div><div class="metadataTaggerPagination"><button id="PreviousItemsButton" type="button" class="raised emby-button" disabled>Previous</button><button id="NextItemsButton" type="button" class="raised emby-button" disabled>Next</button></div></div>
-        <aside class="metadataTaggerInspector" aria-label="Selected item tag changes"><div class="metadataTaggerInspectorHead"><div id="InspectorArtwork"></div><div><h2 id="InspectorHeading" tabindex="-1">Select an item</h2><p id="InspectorMeta"></p></div></div><p id="InspectorFeedback" role="status">Select an item to preview its tag changes using saved settings.</p><div id="InspectorDetails"></div><div class="metadataTaggerInspectorActions">
-            <button id="PreviewItemButton" type="button" class="raised emby-button" disabled>Check changes first</button>
-            <p id="ItemApplyHelp" class="metadataTaggerMuted" hidden>Apply tags now recalculates this item using current metadata and saved settings.</p>
 
-            <button id="ApplyItemButton" type="button" class="raised button-submit emby-button" disabled>Apply tags now to this item</button>
-            <button id="StopItemButton" type="button" class="raised emby-button" disabled>Stop item run</button>
-            <p id="ItemRunFeedback" role="status" aria-live="polite"></p>
-            <button id="ClearItemButton" type="button" class="emby-button" disabled>Preview tag removal</button>
-        </div></aside>
-    </div>
-    </section>
-</section>
-<section id="PanelRuns" aria-labelledby="HistoryHeading" hidden>
-    <button id="HistoryBackButton" type="button" class="metadataTaggerLink">Back to workspace</button>
-    <div class="metadataTaggerSubheader"><h2 id="HistoryHeading" tabindex="-1">History</h2><button id="RefreshRunsButton" type="button" class="raised emby-button">Refresh history</button></div>
-    <div class="metadataTaggerHistoryWorkspace"><section aria-label="Recorded runs"><p id="RunsFeedback" role="status">No runs recorded.</p><div id="RunList" tabindex="0" aria-label="Recorded runs"></div></section><section id="RunDetailPanel" aria-labelledby="RunDetailHeading"><h3 id="RunDetailHeading" tabindex="-1">Select a run</h3><details id="HistoryRunDetails" hidden><summary>Run details</summary><p id="HistoryRunId" class="metadataTaggerMuted"></p><dl id="HistoryRunMetadata" class="metadataTaggerRunCounts"></dl><h4>Recorded rules</h4><dl id="HistoryRunRules" class="metadataTaggerRunCounts"></dl></details><p id="RunDetailFeedback" role="status">Select a run to see its results.</p><dl id="RunDetailCounts" class="metadataTaggerRunCounts" hidden></dl><div id="RunDetails" tabindex="0" aria-label="Recorded item results"></div></section></div>
-</section>
-<section id="PanelMaintenance" aria-labelledby="MaintenanceHeading" hidden>
-                <button id="MaintenanceBackButton" type="button" class="metadataTaggerLink">Back to workspace</button>
+<section id="PanelMaintenance" role="tabpanel" aria-labelledby="TabMaintenance" hidden>
+                <button id="BackToItemsButton" type="button" class="metadataTaggerLink" hidden>‹ Back to Items</button>
                 <h2 id="MaintenanceHeading" tabindex="-1">Maintenance</h2>
                 <p>Remove recorded plugin tags, or open advanced settings to rebuild tracking and claim tags from an earlier installation.</p>
                 <button id="MaintenanceSettingsButton" type="button" class="metadataTaggerLink">Tracking and legacy tag settings</button>
@@ -2299,6 +2364,7 @@
                 var summary = previewProperty(result, 'summary', 'Summary');
                 var changes = previewProperty(result, 'changes', 'Changes') || [];
                 changesContainer.replaceChildren();
+                document.querySelector('#ReviewAllItemsButton').hidden = true;
                 feedback.setAttribute('role', 'status');
                 feedback.setAttribute('data-feedback-tone', 'neutral');
 
@@ -2320,7 +2386,7 @@
                 }
 
                 if (status === 'NoChanges') {
-                    feedback.textContent = 'No tag differences found in the items checked. No tags changed. Check History for skipped items, failures, or run limits.';
+                    feedback.textContent = 'No tag differences found in the items checked. No tags changed. Check Earlier activity for skipped items, failures, or run limits.';
                     return;
                 }
 
@@ -2343,6 +2409,7 @@
                     additions += addedTags.length;
                     removals += removedTags.length;
                     if (addedTags.length || removedTags.length || previewRemovedTags.length) { changedItems++; }
+                    if (changesContainer.children.length >= 3) { return; }
 
                     var item = document.createElement('article');
                     item.className = 'metadataTaggerPreviewItem';
@@ -2356,13 +2423,22 @@
                     header.appendChild(artworkForItem(change));
                     header.appendChild(itemHeading);
                     item.appendChild(header);
-                    var counts = document.createElement('p');
-                    counts.className = 'metadataTaggerMuted';
-                    counts.textContent = addedTags.length + ' to add · ' + removedTags.length + ' to remove · ' + previewRemovedTags.length + ' outdated to keep';
-                    item.appendChild(counts);
-                    appendPreviewTagGroup(item, 'Tags to add', addedTags, 'positive');
-                    appendPreviewTagGroup(item, 'Tags to remove', removedTags, 'negative');
-                    appendPreviewTagGroup(item, 'Outdated tags to keep', previewRemovedTags);
+                    var deltas = document.createElement('p');
+                    deltas.className = 'metadataTaggerDeltas';
+                    [[addedTags.length, '+', 'positive'], [removedTags.length, '\u2212', 'negative']].forEach(function (entry) {
+                        if (!entry[0]) { return; }
+                        var delta = document.createElement('span');
+                        delta.setAttribute('data-feedback-tone', entry[2]);
+                        delta.textContent = entry[1] + entry[0];
+                        deltas.appendChild(delta);
+                    });
+                    if (previewRemovedTags.length) {
+                        var kept = document.createElement('span');
+                        kept.className = 'metadataTaggerMuted';
+                        kept.textContent = previewRemovedTags.length + ' outdated kept';
+                        deltas.appendChild(kept);
+                    }
+                    item.appendChild(deltas);
                     if (inspectItem && previewProperty(change, 'itemId', 'ItemId')) {
                         var inspect = document.createElement('button');
                         inspect.type = 'button';
@@ -2373,6 +2449,11 @@
                     }
                     changesContainer.appendChild(item);
                 });
+                if (changes.length) {
+                    var reviewAll = document.querySelector('#ReviewAllItemsButton');
+                    reviewAll.textContent = 'Review all ' + changes.length + ' in Items \u203a';
+                    reviewAll.hidden = false;
+                }
 
                 feedback.textContent = 'Latest preview: ' + changedItems + ' item' +
                     (changedItems === 1 ? '' : 's') + ' with tag differences. Tags to add: ' + additions +
@@ -2382,25 +2463,15 @@
             }
 
             function bindDashboardPreviewSession() {
-                var views = ['Overview', 'Inspect', 'Runs', 'Maintenance'];
-                var viewHeadings = { Overview: 'PluginStatusHeading', Inspect: 'BrowseHeading', Runs: 'HistoryHeading', Maintenance: 'MaintenanceHeading' };
-                var selectedView = 'Overview';
-                var returnViews = [];
+                var tabNames = ['Activity', 'Items', 'Settings', 'Maintenance'];
+                var tabHeadings = { Activity: 'ScopeHeading', Items: 'BrowseHeading', Settings: 'PluginStatusHeading', Maintenance: 'MaintenanceHeading' };
+                var selectedView = 'Activity';
                 var itemsNeedReload = false;
-                var historyNeedsReload = false;
-                function selectView(name, focus, returning) {
-                    var destination = name === 'Settings' ? 'PluginStatusHeading' : name === 'Review' ? 'ReviewHeading' : null;
-                    if (destination) { name = 'Overview'; }
+                var maintenanceFromItems = false;
+                function selectTab(name, focus) {
                     if (name !== selectedView) {
-                        if (!returning && name !== 'Overview') {
-                            returnViews.push({ view: selectedView, trigger: document.activeElement,
-                                scroll: document.querySelector('#MetaTaggerConfigPage').scrollTop });
-                        } else if (!returning) { returnViews = []; }
-                        if (selectedView === 'Runs' && pendingRequests.runDetails) {
-                            historyNeedsReload = true;
-                            delete pendingRequests.runDetails;
-                        }
-                        if (selectedView === 'Inspect') {
+                        if (selectedView === 'Activity') { cancelFeedReads(); }
+                        if (selectedView === 'Items') {
                             itemsNeedReload = itemsNeedReload || !!pendingRequests.items || !!searchTimer;
                             if (searchTimer) { itemOffset = 0; }
                             clearTimeout(searchTimer);
@@ -2418,31 +2489,24 @@
                                 : 'You left Maintenance. Preview tag removal again before confirming.');
                             delete pendingRequests.cleanup;
                             document.querySelector('#CleanupSearchFeedback').textContent = '';
+                            maintenanceFromItems = false;
                         }
                     }
                     selectedView = name;
-                    views.forEach(function (view) {
-                        document.querySelector('#Panel' + view).hidden = view !== name;
-                        if (view !== 'Overview') {
-                            document.querySelector('#Open' + view + 'Button').setAttribute('aria-expanded', String(view === name));
-                        }
+                    tabNames.forEach(function (tab) {
+                        var selected = tab === name;
+                        document.querySelector('#Tab' + tab).setAttribute('aria-selected', String(selected));
+                        document.querySelector('#Tab' + tab).setAttribute('tabindex', selected ? '0' : '-1');
+                        document.querySelector('#Panel' + tab).hidden = !selected;
                     });
-                    document.querySelector('#WorkspaceButton').hidden = name === 'Overview';
-                    document.querySelector('#PanelSettings').hidden = name !== 'Overview';
-                    document.querySelector('#PanelReview').hidden = name !== 'Overview';
-                    document.querySelector('#InspectionPanel').hidden = name !== 'Inspect';
-                    var previous = returnViews.length ? returnViews[returnViews.length - 1].view : 'Overview';
-                    ['BackToReviewButton', 'HistoryBackButton', 'MaintenanceBackButton'].forEach(function (id) {
-                        document.querySelector('#' + id).textContent = 'Back to ' + { Overview: 'workspace', Inspect: 'Browse items', Runs: 'History', Maintenance: 'Maintenance' }[previous];
-                    });
-                    if (name === 'Inspect' && (itemsNeedReload || !browserItems.length) && !pendingRequests.items) { loadItems(); }
-                    if (name === 'Runs' && historyNeedsReload && selectedRunId) { loadRunDetails(selectedRunId); }
-                    if (focus) { document.querySelector('#' + (destination || viewHeadings[name])).focus(); }
-                    if (destination) { document.querySelector('#' + destination).scrollIntoView(); }
-                    if (name === 'Overview' && settingsLoaded) {
+                    document.querySelector('#BackToItemsButton').hidden = !(name === 'Maintenance' && maintenanceFromItems);
+                    if (name === 'Items' && (itemsNeedReload || !browserItems.length) && !pendingRequests.items) { loadItems(); }
+                    if (name === 'Activity') { resumeFeedReads(); }
+                    if (focus) { document.querySelector('#' + tabHeadings[name]).focus(); }
+                    if (name === 'Settings' && settingsLoaded) {
                         scheduleExampleSearch();
                         scheduleExample();
-                    } else if (name !== 'Overview' && pendingRequests) {
+                    } else if (name !== 'Settings' && pendingRequests) {
                         clearTimeout(exampleTimer);
                         clearTimeout(exampleSearchTimer);
                         delete pendingRequests.example;
@@ -2450,32 +2514,27 @@
                     }
                     updateControls();
                 }
-                function returnFromView() {
-                    var previous = returnViews.pop() || { view: 'Overview' };
-                    selectView(previous.view, false, true);
-                    var trigger = previous.trigger;
-                    var visible = !!trigger && trigger.isConnected !== false;
-                    for (var ancestor = trigger; ancestor; ancestor = ancestor.parentElement) {
-                        if (ancestor.hidden) { visible = false; }
-                    }
-                    (visible ? trigger : document.querySelector('#' + viewHeadings[previous.view])).focus();
-                    document.querySelector('#MetaTaggerConfigPage').scrollTop = previous.scroll || 0;
-                }
-                ['Inspect', 'Runs', 'Maintenance'].forEach(function (name) {
-                    document.querySelector('#Open' + name + 'Button').addEventListener('click', function () { selectView(name, true); });
-                });
-                document.querySelector('#WorkspaceButton').addEventListener('click', function () { selectView('Overview', true); });
-                ['BackToReviewButton', 'HistoryBackButton', 'MaintenanceBackButton'].forEach(function (id) {
-                    document.querySelector('#' + id).addEventListener('click', returnFromView);
-                });
-                document.querySelector('#MetaTaggerConfigPage').addEventListener('keydown', function (event) {
-                    if (event.key === 'Escape' && selectedView !== 'Overview' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target.tagName)) {
+                tabNames.forEach(function (name, index) {
+                    var tab = document.querySelector('#Tab' + name);
+                    tab.addEventListener('click', function () { selectTab(name); });
+                    tab.addEventListener('keydown', function (event) {
+                        var target = event.key === 'ArrowRight' ? (index + 1) % tabNames.length
+                            : event.key === 'ArrowLeft' ? (index + tabNames.length - 1) % tabNames.length
+                            : event.key === 'Home' ? 0 : event.key === 'End' ? tabNames.length - 1 : -1;
+                        if (target < 0) { return; }
                         event.preventDefault();
-                        returnFromView();
-                    }
+                        selectTab(tabNames[target]);
+                        document.querySelector('#Tab' + tabNames[target]).focus();
+                    });
+                });
+                document.querySelector('#EditRulesButton').addEventListener('click', function () { selectTab('Settings', true); });
+                document.querySelector('#ReviewEditsButton').addEventListener('click', function () { selectTab('Settings', true); });
+                document.querySelector('#BackToItemsButton').addEventListener('click', function () {
+                    selectTab('Items');
+                    document.querySelector('#' + (document.querySelector('#ClearItemButton').disabled ? 'InspectorHeading' : 'ClearItemButton')).focus();
                 });
                 document.querySelector('#MaintenanceSettingsButton').addEventListener('click', function () {
-                    selectView('Settings');
+                    selectTab('Settings');
                     document.querySelector('#AdvancedOptions').open = true;
                     document.querySelector('#RebuildTrackingLedgerOnNextRun').focus();
                 });
@@ -2533,13 +2592,16 @@
                     savedConfiguration = config;
                     var types = [['Movies', 'includeMovies'], ['Series', 'includeSeries'], ['Episodes', 'includeEpisodes'], ['Videos', 'includeVideos']]
                         .filter(function (entry) { return field(config, entry[1]); }).map(function (entry) { return entry[0]; }).join(', ') || 'No item types selected';
-                    document.querySelector('#RunScope').textContent = 'Saved scope: ' + types + ' across all libraries. Apply uses current metadata and saved settings and authorizes existing items in this scope. Checking is read-only.';
+                    document.querySelector('#RunScope').textContent = types === 'No item types selected' ? types : types + ' across all libraries';
+                    var normalized = normalizeNamespaceConfig({ GeneratedTagPrefix: field(config, 'generatedTagPrefix'), TagSeparator: field(config, 'tagSeparator'), ManualTagPrefix: field(config, 'manualTagPrefix') });
+                    document.querySelector('#RulesInEffectText').textContent = 'Rules in effect: ' + selectedSources(config).replace('None selected', 'no sources selected') +
+                        ' \u00b7 tags like ' + [normalized.generatedPrefix, 'genre', 'animation'].join(normalized.separator);
                     document.querySelector('#OverviewTaggingHelp').textContent = field(config, 'isEnabled')
                         ? 'Preview tag changes never changes tags. Generate metadata tags and Check all items use the scheduled run action.'
                         : 'Tagging is off. Generation and previews are stopped. Maintenance is still available.';
-                    document.querySelector('#OverviewAutomationHelp').textContent = field(config, 'runAfterLibraryScan')
-                        ? 'Post-scan runs also use this action while tagging is on. Manage task schedules in Jellyfin Scheduled Tasks.'
-                        : 'Post-scan runs are off. Manage task schedules in Jellyfin Scheduled Tasks.';
+                    document.querySelector('#OverviewAutomationText').textContent = field(config, 'runAfterLibraryScan')
+                        ? 'Post-scan runs also use this action while tagging is on. Manage task schedules in'
+                        : 'Post-scan runs are off. Manage task schedules in';
                 }
                 function createArtwork(item) {
                     var artwork = document.createElement('span');
@@ -2749,12 +2811,15 @@
                     openInspection({ itemId: field(item, 'itemId'), name: field(item, 'itemName') || field(item, 'name') || field(item, 'itemId'), itemType: field(item, 'itemType'), artworkItemIds: field(item, 'artworkItemIds') });
                 }
                 function openInspection(item) {
-                    selectView('Inspect', true);
+                    selectTab('Items', true);
                     if (item) { selectItem(item); }
                     else { document.querySelector('#ItemSearch').focus(); }
                 }
-                document.querySelector('#InspectItemsButton').addEventListener('click', function () { openInspection(); });
-                document.querySelector('#ReviewRunsButton').addEventListener('click', function () { selectView('Runs', true); });
+                document.querySelector('#ReviewAllItemsButton').addEventListener('click', function () {
+                    document.querySelector('#ItemStatus').value = 'Changes';
+                    renderItems();
+                    selectTab('Items', true);
+                });
                 var taskTimer;
                 var requestedTask = null;
                 var generationEpoch = 0;
@@ -2767,9 +2832,6 @@
                     var requestRevision = revision;
                     var requestEpoch = ++generationEpoch;
                     delete pendingRequests.taskResult;
-                    delete pendingRequests.currentApply;
-                    currentApplyId = null;
-                    document.querySelector('#CurrentApplyResults').hidden = true;
                     delete pendingRequests.preview;
                     document.querySelector('#TaskFeedback').textContent = (apply ? 'Starting Apply' : 'Starting check') + ' for the configured item types across all libraries…';
                     runRequest('taskStart', function () {
@@ -2812,7 +2874,7 @@
                                 requestedTask = null;
                                 delete pendingRequests.taskStop;
                                 setFeedbackTone('TaskFeedback', 'warning');
-                                document.querySelector('#TaskFeedback').textContent = 'Start could not be confirmed. Jellyfin reports no new run. Check History before retrying.';
+                                document.querySelector('#TaskFeedback').textContent = 'Start could not be confirmed. Jellyfin reports no new run. Check Earlier activity before retrying.';
                                 return;
                             }
                             if (state !== 'Idle') { request.launchUncertain = false; }
@@ -2835,21 +2897,21 @@
                                     document.querySelector('#TaskFeedback').textContent = displayOutcome(field(run, 'outcome')) + '. ' + describeRun(run) +
                                         (hasUnsavedChanges ? ' Your later edits remain unsaved.' : '');
                                     setFeedbackTone('TaskFeedback', summaryTone(field(run, 'summary') || {}));
-                                    if (field(run, 'runId')) { currentApplyId = field(run, 'runId'); loadCurrentApply(); }
+                                    if (field(run, 'runId')) { runList = runs; pendingFeedOpen = field(run, 'runId'); openFeedRun(pendingFeedOpen); }
                                 } else {
-                                    document.querySelector('#TaskFeedback').textContent = 'Apply finished, but its saved writes could not be confirmed. Some tags may have changed. Check History and the affected items before retrying.';
+                                    document.querySelector('#TaskFeedback').textContent = 'Apply finished, but its saved writes could not be confirmed. Some tags may have changed. Check Earlier activity and the affected items before retrying.';
                                     setFeedbackTone('TaskFeedback', 'warning');
                                 }
                                 loadRuns();
                             }, function () {
                                 if (request.epoch !== generationEpoch) { return; }
-                                document.querySelector('#TaskFeedback').textContent = 'Apply results could not be confirmed. Some tags may have changed. Check History before retrying.';
+                                document.querySelector('#TaskFeedback').textContent = 'Apply results could not be confirmed. Some tags may have changed. Check Earlier activity before retrying.';
                             });
                             return;
                         }
                         if (request.revision !== revision || !settingsReady()) {
                             setFeedbackTone('TaskFeedback', 'warning');
-                            document.querySelector('#TaskFeedback').textContent = 'Run finished using saved settings. Your later edits remain unsaved. See History for results.';
+                            document.querySelector('#TaskFeedback').textContent = 'Run finished using saved settings. Your later edits remain unsaved. See Earlier activity for results.';
                             return;
                         }
                         runRequest('preview', function () { return ApiClient.getJSON(ApiClient.getUrl('MetaTagger/Preview')); }, function (result) {
@@ -2859,17 +2921,18 @@
                                 && started >= Date.parse(field(completed, 'startTimeUtc')) && started <= Date.parse(end);
                             document.querySelector('#TaskFeedback').textContent = (field(completed, 'status') === 'Cancelled' ? (request.apply ? 'Apply stopped. Some tags may have changed' : 'Check stopped. Results may be incomplete. No tags changed') : displayOutcome(field(completed, 'status'))) + (matches
                                 ? '. Items updated: ' + (field(summary, 'writesApplied') || 0) + '. ' + (field(summary, 'failures') || 0) + ' item failures. ' + (field(summary, 'budgetLimitReached') ? 'Run limit reached; items remain.' : '')
-                                : '. Matching preview details are unavailable. See History or start a new preview.');
+                                : '. Matching preview details are unavailable. See Earlier activity or start a new preview.');
                             setFeedbackTone('TaskFeedback', matches ? summaryTone(summary) : 'warning');
                             if (matches && !request.apply) { latestPreviewResult = result; latestPreviewFailed = false; renderReview(); }
                             loadRuns();
-                        }, function () { document.querySelector('#TaskFeedback').textContent = 'Run finished. Results could not be loaded; check History.'; });
+                        }, function () { document.querySelector('#TaskFeedback').textContent = 'Run finished. Results could not be loaded; check Earlier activity.'; });
                     }, function () {
                         document.querySelector('#TaskFeedback').textContent = 'Task status unavailable. Retrying…';
                         taskTimer = setTimeout(pollGenerationTask, 3000);
                     });
                 }
                 document.querySelector('#RunPreviewButton').addEventListener('click', function () { startGenerationTask(false); });
+                document.querySelector('#CheckAgainButton').addEventListener('click', function () { startGenerationTask(false); });
                 document.querySelector('#RunApplyButton').addEventListener('click', function () { startGenerationTask(true); });
                 document.querySelector('#StopPreviewButton').addEventListener('click', function () {
                     if (!requestedTask || pendingRequests.taskStop) { return; }
@@ -3052,7 +3115,7 @@
                         displayItemRun(run);
                         if (!run && unconfirmed) { document.querySelector('#ItemRunFeedback').textContent = 'No current item run was found. You can retry Apply.'; }
                         if (itemRunBusy()) { itemRunTimer = setTimeout(pollItemRun, 500); }
-                    }, function () { document.querySelector('#ItemRunFeedback').textContent = 'The current item run is unavailable. Reload the page or check History before retrying.'; });
+                    }, function () { document.querySelector('#ItemRunFeedback').textContent = 'The current item run is unavailable. Reload the page or check Earlier activity before retrying.'; });
                 }
                 document.querySelector('#StopItemButton').addEventListener('click', function () {
                     if (!itemRunBusy() || pendingRequests.itemStop) { return; }
@@ -3071,7 +3134,8 @@
                     select.replaceChildren(new Option(field(selectedItem, 'name'), field(selectedItem, 'itemId')));
                     select.value = field(selectedItem, 'itemId');
                     invalidateCleanup('Preview tag removal for ' + field(selectedItem, 'name') + '. Review the list before confirming removal.');
-                    selectView('Maintenance');
+                    maintenanceFromItems = true;
+                    selectTab('Maintenance');
                     updateControls();
                     document.querySelector('#ClearPluginTagsHeading').focus();
                     previewCleanup();
@@ -3084,64 +3148,234 @@
                 var historyStatus = 'loading';
                 var recordedItems = {};
                 function itemKey(id) { return String(id || '').replace(/-/g, '').toLowerCase(); }
-                var selectedRunId = null;
-                function createRunRow(run, recent) {
-                    var row = document.createElement('button');
-                    row.type = 'button';
-                    row.className = 'metadataTaggerRunRow';
-                    row.setAttribute('data-run-id', field(run, 'runId'));
-                    row.setAttribute('aria-controls', 'RunDetailPanel');
-                    row.setAttribute('aria-pressed', String(field(run, 'runId') === selectedRunId));
-                    var text = document.createElement('span');
-                    var heading = document.createElement('strong');
-                    heading.textContent = displayOperation(field(run, 'operation')) + ' · ' + displayOutcome(field(run, 'outcome'));
-                    heading.setAttribute('data-feedback-tone', outcomeTone(field(run, 'outcome')));
-                    text.appendChild(heading);
-                    var scope = document.createElement('small');
-                    scope.textContent = displayScope(run) + ' · View details';
-                    text.appendChild(scope);
-                    row.appendChild(text);
-                    var date = document.createElement('time');
-                    date.textContent = displayDate(field(run, 'startedUtc'));
-                    row.appendChild(date);
-                    row.addEventListener('click', function () {
-                        loadRunDetails(field(run, 'runId'));
-                        selectView('Runs');
-                        if (recent) { document.querySelector('#RunDetailHeading').focus(); }
-                    });
-                    return row;
+                var runList = [];
+                var feedFilter = 'all';
+                var feedState = {};
+                var feedToggles = {};
+                var pendingFeedOpen = null;
+                function feedMatches(run) {
+                    var summary = field(run, 'summary') || {};
+                    if (feedFilter === 'changed') { return (field(summary, 'writesApplied') || 0) > 0; }
+                    if (feedFilter === 'problems') { return summaryTone(Object.assign({}, summary, { outcome: field(run, 'outcome') })) !== 'neutral'; }
+                    return true;
                 }
-                document.querySelector('#OverviewItemsButton').addEventListener('click', function () { selectView('Review', true); });
-                document.querySelector('#OverviewRunsButton').addEventListener('click', function () { selectView('Runs', true); });
+                function updateFeedFeedback() {
+                    if (historyStatus !== 'ready') { return; }
+                    setFeedbackTone('RunsFeedback', 'neutral');
+                    document.querySelector('#RunsFeedback').textContent = !runList.length ? 'No runs yet. Select Check changes first.'
+                        : runList.some(feedMatches) ? 'Latest ' + runList.length + ' runs. Up to 20 runs are retained.'
+                        : 'No earlier activity matches this filter.';
+                }
+                function createFeedCard(run) {
+                    var id = field(run, 'runId');
+                    var state = feedState[id] || (feedState[id] = { open: false, status: 'idle', run: null, detailsOpen: false, outcome: field(run, 'outcome') });
+                    var card = document.createElement('article');
+                    card.className = 'metadataTaggerFeedCard';
+                    card.setAttribute('data-run-id', id);
+                    var heading = document.createElement('h3');
+                    var toggle = document.createElement('button');
+                    toggle.type = 'button';
+                    toggle.className = 'metadataTaggerFeedHead';
+                    toggle.setAttribute('aria-expanded', String(state.open));
+                    toggle.setAttribute('aria-controls', 'RunFeedBody-' + id);
+                    var name = document.createElement('strong');
+                    name.textContent = displayOperation(field(run, 'operation'));
+                    toggle.appendChild(name);
+                    var chip = document.createElement('span');
+                    chip.className = 'metadataTaggerChip';
+                    chip.setAttribute('data-feedback-tone', outcomeTone(field(run, 'outcome')));
+                    chip.textContent = displayOutcome(field(run, 'outcome'));
+                    toggle.appendChild(chip);
+                    var when = document.createElement('small');
+                    when.textContent = displayDate(field(run, 'startedUtc')) + ' · ' + displayScope(run);
+                    toggle.appendChild(when);
+                    toggle.addEventListener('click', function () {
+                        state.open = !state.open;
+                        if (state.open && state.status === 'idle') { loadFeedRun(id, true); } else { renderFeed(id); }
+                    });
+                    heading.appendChild(toggle);
+                    card.appendChild(heading);
+                    feedToggles[id] = toggle;
+                    var body = document.createElement('div');
+                    body.id = 'RunFeedBody-' + id;
+                    body.className = 'metadataTaggerFeedBody';
+                    body.hidden = !state.open;
+                    var summaryLine = document.createElement('p');
+                    summaryLine.textContent = describeRun(run);
+                    body.appendChild(summaryLine);
+                    if (state.open) { appendFeedDetails(body, run, state); }
+                    card.appendChild(body);
+                    return card;
+                }
+                function appendFeedDetails(body, run, state) {
+                    var id = field(run, 'runId');
+                    var status = document.createElement('p');
+                    function tone(value) {
+                        status.setAttribute('data-feedback-tone', value);
+                        status.setAttribute('role', value === 'error' ? 'alert' : 'status');
+                    }
+                    tone('neutral');
+                    body.appendChild(status);
+                    if (state.status === 'idle' || state.status === 'loading') { status.textContent = 'Loading recorded details…'; return; }
+                    if (state.status === 'error') {
+                        tone('error');
+                        status.textContent = state.message || 'This run is unavailable or has expired from history. Refresh activity.';
+                        var retry = document.createElement('button');
+                        retry.type = 'button';
+                        retry.className = 'metadataTaggerLink';
+                        retry.setAttribute('data-retry', 'true');
+                        retry.textContent = 'Retry loading details';
+                        retry.addEventListener('click', function () { loadFeedRun(id, true); });
+                        body.appendChild(retry);
+                        return;
+                    }
+                    var detail = state.run;
+                    var runTone = summaryTone(Object.assign({}, field(detail, 'summary'), { outcome: field(detail, 'outcome') }));
+                    var olderDetail = field(detail, 'detailVersion') !== 1;
+                    var rulesUnavailable = !field(detail, 'recordedRules');
+                    if (runTone !== 'error' && (!field(detail, 'detailsAvailable') || field(detail, 'detailsTruncated') || olderDetail || rulesUnavailable)) { runTone = 'warning'; }
+                    tone(runTone);
+                    status.textContent = field(detail, 'detailsAvailable')
+                        ? 'Recorded results. Preview an item again before applying changes. ' + (field(detail, 'detailsTruncated') ? 'Some item details were not retained. Counts cover the whole run. ' : '') + (olderDetail ? 'This older run lacks recorded rules, kept tags, or write confirmation details. ' : rulesUnavailable ? 'Recorded rules are unavailable. ' : '') + (field(detail, 'detailsUnavailableReason') || '') + ' ' + runGuidance(detail)
+                        : 'Item details for this run are unavailable. ' + (field(detail, 'detailsUnavailableReason') || '') + ' ' + runGuidance(detail);
+                    var counts = document.createElement('dl');
+                    counts.className = 'metadataTaggerRunCounts';
+                    renderRunCounts(detail, counts);
+                    body.appendChild(counts);
+                    var items = document.createElement('div');
+                    items.className = 'metadataTaggerFeedItems';
+                    renderRecordedItems(detail, items);
+                    body.appendChild(items);
+                    var more = document.createElement('details');
+                    more.open = !!state.detailsOpen;
+                    more.addEventListener('toggle', function () { state.detailsOpen = more.open; });
+                    var moreSummary = document.createElement('summary');
+                    moreSummary.textContent = 'Run details';
+                    more.appendChild(moreSummary);
+                    var runId = document.createElement('p');
+                    runId.className = 'metadataTaggerMuted';
+                    runId.textContent = 'Run ' + id;
+                    more.appendChild(runId);
+                    var metadata = document.createElement('dl');
+                    metadata.className = 'metadataTaggerRunCounts';
+                    var rulesHeading = document.createElement('h4');
+                    rulesHeading.textContent = 'Recorded rules';
+                    var rules = document.createElement('dl');
+                    rules.className = 'metadataTaggerRunCounts';
+                    renderRecordedRun(detail, metadata, rules);
+                    more.appendChild(metadata);
+                    more.appendChild(rulesHeading);
+                    more.appendChild(rules);
+                    body.appendChild(more);
+                }
+                function renderFeed(focusId) {
+                    var feed = document.querySelector('#RunFeed');
+                    if (!focusId) {
+                        // A rebuild must not drop keyboard focus from the card header being used.
+                        Object.keys(feedToggles).forEach(function (id) { if (feedToggles[id] === document.activeElement) { focusId = id; } });
+                    }
+                    feed.replaceChildren();
+                    feedToggles = {};
+                    runList.filter(feedMatches).forEach(function (run) { feed.appendChild(createFeedCard(run)); });
+                    [['all', 'FeedFilterAll'], ['changed', 'FeedFilterChanged'], ['problems', 'FeedFilterProblems']].forEach(function (entry) {
+                        document.querySelector('#' + entry[1]).setAttribute('aria-pressed', String(feedFilter === entry[0]));
+                    });
+                    if (focusId && feedToggles[focusId]) {
+                        feedToggles[focusId].focus();
+                        feedToggles[focusId].scrollIntoView({ block: 'nearest' });
+                    }
+                }
+                function loadFeedRun(id, focus) {
+                    var state = feedState[id];
+                    var channel = 'runDetail:' + id;
+                    if (!state || pendingRequests[channel]) { return; }
+                    state.status = 'loading';
+                    state.run = null;
+                    runRequest(channel, function () { return ApiClient.getJSON(ApiClient.getUrl('MetaTagger/Runs/' + id)); }, function (run) {
+                        if (field(run, 'runId') && field(run, 'runId') !== id) {
+                            state.status = 'error';
+                            state.message = 'Matching details could not be loaded. Refresh activity to retry.';
+                        } else {
+                            state.status = 'ready';
+                            state.run = run;
+                            if (pendingFeedOpen === id) { pendingFeedOpen = null; }
+                        }
+                        renderFeed();
+                    }, function () {
+                        state.status = 'error';
+                        state.message = null;
+                        renderFeed();
+                    });
+                    renderFeed(focus ? id : null);
+                }
+                // Leaving Activity drops in-flight detail reads so a late response cannot land in a stale view.
+                function cancelFeedReads() {
+                    Object.keys(feedState).forEach(function (id) {
+                        if (pendingRequests['runDetail:' + id]) {
+                            delete pendingRequests['runDetail:' + id];
+                            feedState[id].status = 'idle';
+                        }
+                    });
+                }
+                function resumeFeedReads() {
+                    if (!active || selectedView !== 'Activity') { return; }
+                    Object.keys(feedState).forEach(function (id) {
+                        if (feedState[id].open && feedState[id].status === 'idle') { loadFeedRun(id); }
+                    });
+                }
+                function openFeedRun(id, focus) {
+                    var run = runList.filter(function (entry) { return field(entry, 'runId') === id; })[0];
+                    if (!run) { return; }
+                    if (!feedMatches(run)) { feedFilter = 'all'; updateFeedFeedback(); }
+                    var state = feedState[id] || (feedState[id] = { open: false, status: 'idle', run: null, detailsOpen: false, outcome: field(run, 'outcome') });
+                    state.open = true;
+                    if (state.status === 'idle' && selectedView === 'Activity') { loadFeedRun(id, focus); } else { renderFeed(focus ? id : null); }
+                }
+                document.querySelector('#LatestRunDetailsButton').addEventListener('click', function () {
+                    if (runList.length) { openFeedRun(field(runList[0], 'runId'), true); }
+                });
+                [['all', 'FeedFilterAll'], ['changed', 'FeedFilterChanged'], ['problems', 'FeedFilterProblems']].forEach(function (entry) {
+                    document.querySelector('#' + entry[1]).addEventListener('click', function () {
+                        feedFilter = entry[0];
+                        renderFeed();
+                        updateFeedFeedback();
+                    });
+                });
                 function loadRuns() {
                     if (!active || !settingsLoaded) { return; }
                     historyStatus = 'loading';
-                    if (selectedRunId) { historyNeedsReload = true; delete pendingRequests.runDetails; }
-                    document.querySelector('#RunsFeedback').setAttribute('role', 'status');
-                    document.querySelector('#RunsFeedback').setAttribute('data-feedback-tone', 'neutral');
-                    document.querySelector('#RunsFeedback').textContent = 'Loading run history…';
+                    setFeedbackTone('RunsFeedback', 'neutral');
+                    document.querySelector('#RunsFeedback').textContent = 'Loading earlier activity…';
                     runRequest('runs', function () { return ApiClient.getJSON(ApiClient.getUrl('MetaTagger/Runs')); }, function (runs) {
                         historyStatus = 'ready';
-                        var list = document.querySelector('#RunList');
-                        list.replaceChildren();
-                        document.querySelector('#RunsFeedback').textContent = runs.length ? 'Latest ' + runs.length + ' runs. Up to 20 runs are retained.' : 'No runs yet. Select Preview tag changes.';
+                        runList = runs;
+                        var known = {};
+                        runs.forEach(function (run) {
+                            var id = field(run, 'runId');
+                            var outcome = field(run, 'outcome');
+                            var state = feedState[id];
+                            known[id] = true;
+                            if (!state) { return; }
+                            // Finished runs do not change, so only closed, failed or newly finished cards read again.
+                            if (state.outcome !== outcome || !state.open || state.status === 'error') {
+                                delete pendingRequests['runDetail:' + id];
+                                state.status = 'idle';
+                                state.run = null;
+                            }
+                            state.outcome = outcome;
+                        });
+                        Object.keys(feedState).forEach(function (id) { if (!known[id]) { delete feedState[id]; } });
                         document.querySelector('#OverviewWhen').textContent = '';
+                        document.querySelector('#LatestRunDetailsButton').hidden = !runs.length;
                         if (!runs.length) {
                             document.querySelector('#OverviewOutcome').textContent = 'No runs recorded';
-                            document.querySelector('#OverviewCounts').textContent = 'Choose metadata sources in Settings, then run a preview.';
+                            document.querySelector('#OverviewCounts').textContent = 'Choose metadata sources in Settings, then check changes.';
                         } else {
                             var latest = runs[0];
                             document.querySelector('#OverviewWhen').textContent = displayDate(field(latest, 'startedUtc'));
                             document.querySelector('#OverviewOutcome').textContent = displayOperation(field(latest, 'operation')) + ' · ' + displayOutcome(field(latest, 'outcome'));
                             document.querySelector('#OverviewCounts').textContent = describeRun(latest);
                         }
-                        var recent = document.querySelector('#RecentRuns');
-                        recent.replaceChildren();
-                        document.querySelector('#RecentRunsFeedback').textContent = runs.length ? 'Latest ' + Math.min(3, runs.length) + ' runs. Open a run for its recorded results.' : 'No runs recorded yet.';
-                        runs.slice(0, 3).forEach(function (run) { recent.appendChild(createRunRow(run, true)); });
-                        runs.forEach(function (run) {
-                            list.appendChild(createRunRow(run));
-                        });
                         recordedPreview = runs.filter(function (run) {
                             return field(run, 'operation') === 'Preview' && field(run, 'scope') === 'Configured item types across all libraries'
                                 && field(field(run, 'summary'), 'runMode') !== 'RebuildTrackingLedger';
@@ -3160,31 +3394,30 @@
                             }, function () { recordedPreviewDetails = { detailsAvailable: false }; renderRecordedStatus(); });
                         }
                         renderRecordedStatus();
-                        if (selectedView === 'Runs' && selectedRunId) { loadRunDetails(selectedRunId); }
+                        renderFeed();
+                        updateFeedFeedback();
+                        if (pendingFeedOpen) { openFeedRun(pendingFeedOpen); }
+                        resumeFeedReads();
                     }, function () {
                         historyStatus = 'unavailable';
                         recordedPreviewDetails = null;
+                        runList = [];
+                        feedState = {};
+                        renderFeed();
                         document.querySelector('#OverviewWhen').textContent = '';
-                        document.querySelector('#RecentRuns').replaceChildren();
-                        document.querySelector('#RecentRunsFeedback').textContent = 'Recent runs are unavailable. Open History and select Refresh history to retry.';
-                        document.querySelector('#RunList').replaceChildren();
-                        document.querySelector('#RunDetails').replaceChildren();
-                        document.querySelector('#RunDetailCounts').hidden = true;
-                        setFeedbackTone('RunDetailFeedback', 'neutral');
-                        document.querySelector('#HistoryRunDetails').hidden = true;
-                        document.querySelector('#RunDetailFeedback').textContent = '';
+                        document.querySelector('#LatestRunDetailsButton').hidden = true;
                         recordedPreview = null;
                         recordedItems = {};
                         delete pendingRequests.recordedStatus;
                         renderRecordedStatus();
                         document.querySelector('#RunsFeedback').setAttribute('role', 'alert');
                         document.querySelector('#RunsFeedback').setAttribute('data-feedback-tone', 'error');
-                        document.querySelector('#RunsFeedback').textContent = 'History is unavailable. Use Refresh history to retry.';
-                        document.querySelector('#OverviewOutcome').textContent = 'History unavailable';
-                        document.querySelector('#OverviewCounts').textContent = 'Open History and select Refresh history to try again.';
+                        document.querySelector('#RunsFeedback').textContent = 'Earlier activity is unavailable. Use Refresh activity to retry.';
+                        document.querySelector('#OverviewOutcome').textContent = 'Earlier activity unavailable';
+                        document.querySelector('#OverviewCounts').textContent = 'Select Refresh activity to try again.';
                     });
                 }
-                function describeRun(run) {
+                                function describeRun(run) {
                     var summary = field(run, 'summary') || {};
                     return displayScope(run) + '. Items checked: ' + (field(summary, 'itemsScanned') || 0) +
                         ' · Items with tag differences: ' + (field(summary, 'itemsChanged') || 0) + ' · Items updated: ' + (field(summary, 'writesApplied') || 0) +
@@ -3211,10 +3444,7 @@
                                 : ' Run limit reached. Refresh the item preview before retrying.') : '') +
                         (nextStep ? ' ' + nextStep : '');
                 }
-                function renderRunCounts(run) {
-                    var counts = document.querySelector('#RunDetailCounts');
-                    counts.replaceChildren();
-                    counts.hidden = false;
+                function renderRunCounts(run, counts) {
                     var summary = field(run, 'summary') || {};
                     [['Scope', displayScope(run)], ['Items checked', field(summary, 'itemsScanned') || 0],
                         ['With tag differences', field(summary, 'itemsChanged') || 0], ['Updated', field(summary, 'writesApplied') || 0],
@@ -3231,7 +3461,12 @@
                 function incompletePreview(outcome) {
                     if (outcome === 'Running') { return ' Preview is still running. Results are incomplete.'; }
                     return ['Cancelled', 'Interrupted', 'Failed', 'Partial failure'].includes(outcome)
-                        ? (outcome === 'Cancelled' ? ' Preview stopped. Results may be incomplete. No tags changed.' : ' Results are incomplete; some items may not have been checked. Open History for details.') : '';
+                        ? (outcome === 'Cancelled' ? ' Preview stopped. Results may be incomplete. No tags changed.' : ' Results are incomplete; some items may not have been checked. Open Earlier activity for details.') : '';
+                }
+                var checkOutdated = false;
+                function setCheckOutdated(outdated) {
+                    checkOutdated = outdated;
+                    document.querySelector('#ReviewOutdatedChip').hidden = !outdated;
                 }
                 function renderReview() {
                     if (hasUnsavedChanges || !settingsLoaded) { return; }
@@ -3243,6 +3478,8 @@
                     var sameRun = directGeneration && recordedPreview && field(summary, 'runId') && field(summary, 'runId') === field(recordedPreview, 'runId');
                     var directIsNewer = directGeneration && Date.parse(field(summary, 'lastRunUtc')) > Date.parse(field(recordedPreview, 'startedUtc'));
                     var context = document.querySelector('#PreviewContext');
+                    setCheckOutdated(false);
+                    document.querySelector('#ReviewAllItemsButton').hidden = true;
                     setFeedbackTone('PreviewContext', summaryTone(directGeneration ? summary : field(recordedPreview, 'summary') || {}));
                     setFeedbackTone('PreviewFeedback', 'neutral');
                     var feedback = document.querySelector('#PreviewFeedback');
@@ -3251,6 +3488,7 @@
                     document.querySelector('#PreviewRunId').textContent = '';
                     if (directGeneration && (!recordedPreview || sameRun || directIsNewer)) {
                         if (field(summary, 'configurationRevision') && savedConfigurationRevision !== field(summary, 'configurationRevision')) {
+                            setCheckOutdated(true);
                             document.querySelector('#PreviewChanges').replaceChildren();
                             setFeedbackTone('PreviewFeedback', 'warning');
                             feedback.textContent = 'Settings changed after this preview. Select Preview tag changes to check again.';
@@ -3278,6 +3516,7 @@
                         document.querySelector('#PreviewRunId').textContent = 'Run ' + field(recordedPreview, 'runId');
                         context.textContent = 'Recorded tag preview ' + displayDate(field(recordedPreview, 'startedUtc')) + '. ';
                         if (savedConfigurationRevision !== field(recordedPreview, 'configurationRevision')) {
+                            setCheckOutdated(true);
                             setFeedbackTone('PreviewFeedback', 'warning');
                             feedback.textContent = 'Settings changed after this preview. Select Preview tag changes to check again.';
                             return;
@@ -3306,7 +3545,7 @@
                         return;
                     }
                     feedback.textContent = historyStatus === 'loading' ? 'Loading tag preview history…'
-                        : latestPreviewFailed || historyStatus === 'unavailable' ? 'Latest tag preview could not be loaded. Select Reload preview results or open History to try again.'
+                        : latestPreviewFailed || historyStatus === 'unavailable' ? 'Latest tag preview could not be loaded. Select Reload preview results or open Earlier activity to try again.'
                         : 'No tag preview is available. Select Preview tag changes to check for tag differences.';
                 }
                 function renderRecordedStatus() {
@@ -3324,10 +3563,7 @@
                     var description = document.createElement('dd'); description.textContent = value;
                     pair.appendChild(term); pair.appendChild(description); container.appendChild(pair);
                 }
-                function renderRecordedRun(run) {
-                    var metadata = document.querySelector('#HistoryRunMetadata');
-                    var rules = document.querySelector('#HistoryRunRules');
-                    metadata.replaceChildren(); rules.replaceChildren();
+                function renderRecordedRun(run, metadata, rules) {
                     var summary = field(run, 'summary') || {};
                     var recordedRules = field(run, 'recordedRules');
                     var types = field(run, 'itemTypes') || [];
@@ -3360,31 +3596,6 @@
                         Object.keys(recordedRules).forEach(function (label) { appendRunField(rules, label, recordedRules[label] || 'None'); });
                     } else { appendRunField(rules, 'Unavailable', 'Rules were not retained for this run. Current settings cannot explain historical results.'); }
                 }
-                var currentApplyId = null;
-                function loadCurrentApply() {
-                    var id = currentApplyId;
-                    if (!id || pendingRequests.currentApply) { return; }
-                    var feedback = document.querySelector('#CurrentApplyFeedback');
-                    var details = document.querySelector('#CurrentApplyChanges');
-                    document.querySelector('#CurrentApplyResults').hidden = false;
-                    document.querySelector('#RetryApplyResults').hidden = true;
-                    details.replaceChildren();
-                    feedback.textContent = 'Loading saved item results…';
-                    runRequest('currentApply', function () { return ApiClient.getJSON(ApiClient.getUrl('MetaTagger/Runs/' + encodeURIComponent(id))); }, function (run) {
-                        if (field(run, 'runId') !== id) { failed(); return; }
-                        feedback.textContent = displayOutcome(field(run, 'outcome')) + '. ' + describeRun(run) +
-                            (field(run, 'detailsAvailable') ? field(run, 'detailsTruncated') ? ' Some item details were not retained. Counts cover the whole run.' : '' : ' Item details are unavailable. ') +
-                            (field(run, 'detailsUnavailableReason') || '');
-                        setFeedbackTone('CurrentApplyFeedback', !field(run, 'detailsAvailable') || field(run, 'detailsTruncated') ? 'warning' : summaryTone(field(run, 'summary') || {}));
-                        renderRecordedItems(run, details);
-                    }, failed, 'CurrentApplyFeedback');
-                    function failed() {
-                        feedback.textContent = 'Saved item results could not be loaded. Some tags may have changed. Retry loading results or open History before applying again.';
-                        setFeedbackTone('CurrentApplyFeedback', 'error');
-                        document.querySelector('#RetryApplyResults').hidden = false;
-                    }
-                }
-                document.querySelector('#RetryApplyResults').addEventListener('click', loadCurrentApply);
                 function renderRecordedItems(run, details) {
                         (field(run, 'detailsAvailable') ? field(run, 'items') || [] : []).forEach(function (item) {
                             var article = document.createElement('article');
@@ -3416,42 +3627,6 @@
                             details.appendChild(article);
                         });
                 }
-                function loadRunDetails(id) {
-                    historyNeedsReload = false;
-                    selectedRunId = id;
-                    Array.from(document.querySelector('#RunList').children).forEach(function (row) {
-                        row.setAttribute('aria-pressed', String(row.getAttribute('data-run-id') === id));
-                    });
-                    document.querySelector('#RunDetailPanel').hidden = false;
-                    var heading = document.querySelector('#RunDetailHeading');
-                    heading.textContent = 'Run results';
-                    document.querySelector('#HistoryRunDetails').hidden = false;
-                    document.querySelector('#HistoryRunId').textContent = 'Run ' + id;
-                    var details = document.querySelector('#RunDetails');
-                    details.replaceChildren();
-                    document.querySelector('#RunDetailCounts').hidden = true;
-                    document.querySelector('#HistoryRunMetadata').replaceChildren();
-                    document.querySelector('#HistoryRunRules').replaceChildren();
-                    document.querySelector('#RunDetailFeedback').textContent = 'Loading recorded details…';
-                    runRequest('runDetails', function () { return ApiClient.getJSON(ApiClient.getUrl('MetaTagger/Runs/' + id)); }, function (run) {
-                        if (field(run, 'runId') && field(run, 'runId') !== id) {
-                            setFeedbackTone('RunDetailFeedback', 'error');
-                            document.querySelector('#RunDetailFeedback').textContent = 'Matching details could not be loaded. Refresh history to retry.';
-                            return;
-                        }
-                        var tone = summaryTone(Object.assign({}, field(run, 'summary'), { outcome: field(run, 'outcome') }));
-                        var olderDetail = field(run, 'detailVersion') !== 1;
-                        var rulesUnavailable = !field(run, 'recordedRules');
-                        if (tone !== 'error' && (!field(run, 'detailsAvailable') || field(run, 'detailsTruncated') || olderDetail || rulesUnavailable)) { tone = 'warning'; }
-                        setFeedbackTone('RunDetailFeedback', tone);
-                        document.querySelector('#RunDetailFeedback').textContent = field(run, 'detailsAvailable')
-                            ? 'Recorded results. Preview an item again before applying changes. ' + (field(run, 'detailsTruncated') ? 'Some item details were not retained. Counts cover the whole run. ' : '') + (olderDetail ? 'This older run lacks recorded rules, kept tags, or write confirmation details. ' : rulesUnavailable ? 'Recorded rules are unavailable. ' : '') + (field(run, 'detailsUnavailableReason') || '') + ' ' + runGuidance(run)
-                            : 'Item details for this run are unavailable. ' + (field(run, 'detailsUnavailableReason') || '') + ' ' + runGuidance(run);
-                        renderRunCounts(run);
-                        renderRecordedRun(run);
-                        renderRecordedItems(run, details);
-                    }, function () { document.querySelector('#RunDetailFeedback').textContent = 'This run is unavailable or has expired from history. Refresh history.'; });
-                }
                 document.querySelector('#RefreshRunsButton').addEventListener('click', loadRuns);
                 var exampleTimer;
                 var exampleSearchTimer;
@@ -3465,7 +3640,7 @@
                     }
                 });
                 function exampleIsVisible() {
-                    return active && settingsLoaded && selectedView === 'Overview' && document.querySelector('#ExampleAside').open;
+                    return active && settingsLoaded && selectedView === 'Settings' && document.querySelector('#ExampleAside').open;
                 }
                 function exampleLabel(item) {
                     return [field(item, 'name'), field(item, 'itemType'), field(item, 'year')].filter(Boolean).join(' · ');
@@ -3577,7 +3752,7 @@
                 }
 
                 function cleanupReady() {
-                    return settingsReady() && !document.querySelector('#PanelMaintenance').hidden
+                    return settingsReady() && selectedView === 'Maintenance'
                         && !pendingRequests.cleanup && !pendingRequests.apply;
                 }
 
@@ -3609,6 +3784,9 @@
                     document.querySelector('#ClearItemButton').disabled = !selectedItem;
                     document.querySelector('#RunPreviewButton').disabled = !settingsReady() || !field(savedConfiguration, 'isEnabled') || !!requestedTask || !!pendingRequests.taskStart || !!pendingRequests.taskLaunch;
                     document.querySelector('#RunApplyButton').disabled = document.querySelector('#RunPreviewButton').disabled;
+                    document.querySelector('#CheckAgainButton').disabled = document.querySelector('#RunPreviewButton').disabled;
+                    document.querySelector('#OutdatedCheckNotice').hidden = !checkOutdated || !!requestedTask;
+                    document.querySelector('#UnsavedEditsNotice').hidden = !hasUnsavedChanges;
                     document.querySelector('#StopPreviewButton').disabled = !requestedTask || !!pendingRequests.taskStop;
                     setSavePending(!active || !settingsLoaded || !!pendingRequests.settings);
                     var libraryBusy = !!requestedTask || !!pendingRequests.taskStart || !!pendingRequests.taskLaunch;
@@ -3635,13 +3813,13 @@
                         itemPreview: 'InspectorFeedback', cleanup: 'CleanupFeedback', apply: 'CleanupFeedback',
                         search: 'CleanupSearchFeedback', cleanupSearch: 'CleanupSearchFeedback', example: 'ExampleFeedback', exampleSearch: 'ExampleSearchFeedback',
                         items: 'ItemBrowserFeedback', libraries: 'ItemBrowserFeedback', preview: 'PreviewFeedback', settings: 'SettingsFeedback',
-                        runs: 'RunsFeedback', runDetails: 'RunDetailFeedback' }[channel];
+                        runs: 'RunsFeedback' }[channel];
                     var pending = { revision: revision, sessionEpoch: sessionEpoch, cleanupRevision: cleanupRevision, selectionRevision: selectionRevision };
                     function isCurrent() {
                         return active && pendingRequests[channel] === pending && pending.sessionEpoch === sessionEpoch
                             && (!['example', 'exampleSearch'].includes(channel) || exampleIsVisible())
-                            && (!['cleanup', 'apply'].includes(channel) || !document.querySelector('#PanelMaintenance').hidden)
-                            && (['currentApply', 'runDetails', 'taskStart', 'taskLaunch', 'taskPoll', 'taskStop', 'taskResult', 'itemStart', 'itemPoll', 'itemStop', 'itemRecovery'].includes(channel) || pending.revision === revision)
+                            && (!['cleanup', 'apply'].includes(channel) || selectedView === 'Maintenance')
+                            && (channel.indexOf('runDetail:') === 0 || ['taskStart', 'taskLaunch', 'taskPoll', 'taskStop', 'taskResult', 'itemStart', 'itemPoll', 'itemStop', 'itemRecovery'].includes(channel) || pending.revision === revision)
                             && (!['itemPreview', 'inspector'].includes(channel) || pending.selectionRevision === selectionRevision)
                             && ((channel !== 'cleanup' && channel !== 'apply') || pending.cleanupRevision === cleanupRevision);
                     }
@@ -3687,6 +3865,7 @@
                     setFeedbackTone('PreviewFeedback', 'warning');
                     feedback.textContent = settingsSaved ? (field(savedConfiguration, 'isEnabled') ? 'Settings saved. Select Preview tag changes to check for tag differences.' : 'Settings saved. Tagging is off. Maintenance is still available.') : 'Settings changed since this preview. Save settings, then select Preview tag changes.';
                     document.querySelector('#PreviewChanges').replaceChildren();
+                    document.querySelector('#ReviewAllItemsButton').hidden = true;
                 }
 
                 function markSettingsChanged(event) {
@@ -3864,7 +4043,7 @@
                     }, function (summary) {
                         setFeedbackTone('CleanupFeedback', summaryTone(summary));
                         var writes = previewProperty(summary, 'writesApplied', 'WritesApplied') || 0;
-                        feedback.textContent = 'Items updated: ' + writes + '. ' + (writes ? 'Check History for skipped or unfinished removals. ' : 'No plugin tags were removed. ') + cleanupCounts(summary) +
+                        feedback.textContent = 'Items updated: ' + writes + '. ' + (writes ? 'Check Earlier activity for skipped or unfinished removals. ' : 'No plugin tags were removed. ') + cleanupCounts(summary) +
                             ' Preview again to check for remaining tags.';
                         if (previewProperty(summary, 'previewOnly', 'PreviewOnly')) {
                             feedback.textContent = 'No tags were removed because the plugin could not read or save its tag records. Check the Jellyfin server log, then preview tag removal again.';
@@ -3899,10 +4078,14 @@
                 document.querySelector('#MetaTaggerConfigPage')
                     .addEventListener('pageshow', function() {
                         active = true;
-                        selectView('Overview');
+                        selectTab('Activity');
                         sessionEpoch++;
-                        delete pendingRequests.currentApply;
-                        loadCurrentApply();
+                        runList = [];
+                        feedState = {};
+                        Object.keys(pendingRequests).forEach(function (channel) {
+                            if (channel.indexOf('runDetail:') === 0) { delete pendingRequests[channel]; }
+                        });
+                        renderFeed();
                         recoverItemRun();
                         settingsLoaded = false;
                         document.querySelector('#PageLoadError').hidden = true;
@@ -3934,7 +4117,7 @@
                             renderNamespaceExamples(normalized);
                             updateConditionalFields();
                             settingsLoaded = true;
-                            if (selectedView === 'Overview') { scheduleExampleSearch(); scheduleExample(); }
+                            if (selectedView === 'Settings') { scheduleExampleSearch(); scheduleExample(); }
                             renderSavedConfiguration(config);
                             savedConfigurationRevision = field(config, 'configurationRevision');
                             loadLibraries();
@@ -3945,6 +4128,7 @@
                             document.querySelector('#PageLoadError').hidden = false;
                             document.querySelector('#TaskFeedback').textContent = 'Settings unavailable. Reload the page to enable previews.';
                             document.querySelector('#OverviewOutcome').textContent = 'Settings unavailable';
+                            document.querySelector('#LatestRunDetailsButton').hidden = true;
                             document.querySelector('#OverviewWhen').textContent = '';
                             document.querySelector('#OverviewCounts').textContent = '';
                             setSettingsFeedback('Settings could not be loaded. Refresh the page or check the Jellyfin server log.', true);

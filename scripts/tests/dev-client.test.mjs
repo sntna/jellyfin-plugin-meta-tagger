@@ -4,7 +4,7 @@ import test from 'node:test';
 import vm from 'node:vm';
 
 const source = readFileSync(new URL('../dev-client.js', import.meta.url), 'utf8');
-function browser({ rememberedTab } = {}) {
+function browser({ rememberedTab, selectedTab } = {}) {
     let state = { revision: 'first', ready: true };
     let dirty = false;
     let timer;
@@ -14,13 +14,19 @@ function browser({ rememberedTab } = {}) {
     if (rememberedTab) storage.set('meta-tagger-dev-tab', rememberedTab);
     const banner = { style: {}, setAttribute() {} };
     const settingsFeedback = {};
+    let editable = false;
+    let tabClicks = 0;
+    const tab = { id: rememberedTab || selectedTab, click() { tabClicks++; } };
     const context = {
         sessionStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) },
         document: {
             body: { appendChild() {} },
             createElement: () => banner,
+            getElementById: id => id === tab.id ? tab : null,
             querySelector(query) {
-                assert.equal(query, '#SettingsFeedback[data-unsaved="true"]', 'Only the dirty-settings selector belongs to the polling seam');
+                if (query === '#MetaTaggerConfigPage #SaveSettingsButton:not(:disabled)') return editable ? {} : null;
+                if (query === '#MetaTaggerConfigPage [role="tab"][aria-selected="true"]') return selectedTab ? tab : null;
+                assert.equal(query, '#SettingsFeedback[data-unsaved="true"]', 'Only the tab and dirty-settings selectors belong to the polling seam');
                 return dirty ? settingsFeedback : null;
             }
         },
@@ -32,6 +38,8 @@ function browser({ rememberedTab } = {}) {
     return {
         banner, storage,
         set state(value) { state = value; }, set dirty(value) { dirty = value; }, set available(value) { available = value; },
+        set editable(value) { editable = value; },
+        get tabClicks() { return tabClicks; },
         get reloads() { return reloads; },
         get pollingScheduled() { return Boolean(timer); },
         flush: () => new Promise(resolve => setImmediate(resolve)),
@@ -39,13 +47,13 @@ function browser({ rememberedTab } = {}) {
     };
 }
 
-test('a ready revision reloads once and stops polling the departing page', async () => {
-    const page = browser();
+test('a ready revision reloads once, remembers the selected tab, and stops polling the departing page', async () => {
+    const page = browser({ selectedTab: 'TabItems' });
     await page.flush();
     page.state = { revision: 'second', ready: true };
     await page.tick();
     assert.equal(page.reloads, 1);
-    assert.equal(page.storage.has('meta-tagger-dev-tab'), false);
+    assert.equal(page.storage.get('meta-tagger-dev-tab'), 'TabItems');
     assert.equal(page.pollingScheduled, false);
 });
 
@@ -66,12 +74,18 @@ test('unsaved settings defer reload until saved and builds never reload early', 
     assert.equal(page.reloads, 1);
 });
 
-test('leftover tab storage is discarded without restoring a removed control', async () => {
+test('a remembered tab is restored once, after settings become editable', async () => {
     const page = browser({ rememberedTab: 'TabSettings' });
     await page.flush();
+    assert.equal(page.tabClicks, 0);
+    assert.equal(page.storage.get('meta-tagger-dev-tab'), 'TabSettings');
+    page.editable = true;
+    await page.tick();
+    assert.equal(page.tabClicks, 1);
     assert.equal(page.storage.has('meta-tagger-dev-tab'), false);
+    await page.tick();
+    assert.equal(page.tabClicks, 1);
     assert.equal(page.reloads, 0);
-    assert.equal(page.banner.textContent, '');
 });
 
 test('dev server reconnect recovers and reloads when a new revision is ready', async () => {
