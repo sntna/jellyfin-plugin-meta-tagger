@@ -135,6 +135,11 @@ function dashboard() {
             this.element(id).open = open;
             await this.event(id, 'toggle');
         },
+        async go(name) {
+            const control = { Activity: 'WorkspaceButton', Settings: 'WorkspaceButton', Items: 'OpenInspectButton', History: 'OpenRunsButton', Maintenance: 'OpenMaintenanceButton' }[name];
+            assert.ok(control, 'Unknown dashboard section ' + name);
+            await this.click(control);
+        },
         async activate(element) { element.focus(); element.dispatch("click"); await flush(); },
         focused() { return focusedElement; },
         detach() { attached = false; },
@@ -180,7 +185,7 @@ const preview = {
 
 test('settings item choices search automatically and show selection with source values', async () => {
     const page = await readyDashboard();
-    await page.click('WorkspaceButton');
+    await page.go('Settings');
     page.element('ExampleAside').open = true;
     await page.event('ExampleAside', 'toggle');
     page.element('ExampleSearch').value = 'Apollo';
@@ -220,7 +225,7 @@ test('editing settings prevents a pending cleanup preview from restoring approva
     const page = dashboard();
     await page.open();
     await page.respond('MetaTagger/Preview', preview);
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     await page.click('PreviewCleanupButton');
     await page.edit('GeneratedTagPrefix', 'custom');
     await page.respond('MetaTagger/Cleanup/Preview', cleanupPreview);
@@ -315,7 +320,7 @@ function assertNoReadWrites(page) {
 
 test('a fresh cleanup requires confirmation and consumes approval before sending one apply', async () => {
     const page = await readyDashboard();
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     await page.click('PreviewCleanupButton');
     assert.equal(page.element('PreviewCleanupButton').disabled, true);
     await page.respond('MetaTagger/Cleanup/Preview', cleanupPreview);
@@ -335,7 +340,7 @@ test('a fresh cleanup requires confirmation and consumes approval before sending
 
 test('a late cleanup failure cannot replace the settings-changed warning', async () => {
     const page = await readyDashboard();
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     await page.click('PreviewCleanupButton');
     await page.edit('EnableGenres', true);
     await page.fail('MetaTagger/Cleanup/Preview');
@@ -346,12 +351,12 @@ test('a late cleanup failure cannot replace the settings-changed warning', async
 
 test('current preview failures release controls and allow a successful retry', async () => {
     const page = await readyDashboard();
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     await page.click('PreviewCleanupButton');
     await page.fail('MetaTagger/Cleanup/Preview');
     assert.match(page.element('CleanupFeedback').textContent, /Tag removal preview failed/);
     assert.equal(page.element('PreviewCleanupButton').disabled, false);
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     await page.click('PreviewCleanupButton');
     await page.respond('MetaTagger/Cleanup/Preview', cleanupPreview);
     assert.equal(page.element('ConfirmCleanup').disabled, false);
@@ -359,7 +364,7 @@ test('current preview failures release controls and allow a successful retry', a
 
 test('a removal preview explains unavailable plugin records instead of implying there are no tags to remove', async () => {
     const page = await readyDashboard();
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     await page.click('PreviewCleanupButton');
     await page.respond('MetaTagger/Cleanup/Preview', {
         summary: { outcome: 'Preview fallback', previewOnly: true, itemsScanned: 0 }, changes: []
@@ -371,7 +376,7 @@ test('a removal preview explains unavailable plugin records instead of implying 
 
 test('saving settings keeps old approval invalid and permits a newly calculated preview', async () => {
     const page = await readyDashboard();
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     await page.click('PreviewCleanupButton');
     await page.respond('MetaTagger/Cleanup/Preview', cleanupPreview);
     await confirmCleanup(page);
@@ -384,7 +389,7 @@ test('saving settings keeps old approval invalid and permits a newly calculated 
     await page.respond('save-settings', {});
     assert.equal(page.element('PreviewCleanupButton').disabled, false);
     assert.equal(page.element('ApplyCleanupButton').disabled, true);
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     await page.click('PreviewCleanupButton');
     await page.respond('MetaTagger/Cleanup/Preview', { ...cleanupPreview, token: 'new-approval' });
     await confirmCleanup(page);
@@ -394,7 +399,7 @@ test('saving settings keeps old approval invalid and permits a newly calculated 
 
 test('changing the cleanup target clears both displayed removals and confirmation', async () => {
     const page = await readyDashboard();
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     await page.click('PreviewCleanupButton');
     await page.respond('MetaTagger/Cleanup/Preview', cleanupPreview);
     await confirmCleanup(page);
@@ -491,14 +496,14 @@ test('requests finishing after the page is removed do not touch its DOM', async 
 
 test('switching the workspace to History and back preserves the unsaved draft without requests', async () => {
     const page = await readyDashboard();
-    await page.click('WorkspaceButton');
+    await page.go('Settings');
     page.element('ExampleAside').open = true;
     await page.event('ExampleAside', 'toggle');
     await page.edit('GeneratedTagPrefix', 'draft');
-    await page.click('OpenRunsButton');
+    await page.go('History');
     assert.equal(page.element('PanelReview').hidden, true);
     assert.equal(page.element('PanelSettings').hidden, true);
-    await page.click('WorkspaceButton');
+    await page.go('Settings');
     page.element('ExampleAside').open = true;
     await page.event('ExampleAside', 'toggle');
     assert.equal(page.element('GeneratedTagPrefix').value, 'draft');
@@ -510,7 +515,7 @@ test('switching the workspace to History and back preserves the unsaved draft wi
 
 test('Escape closes an on-demand view and restores entry focus', async () => {
     const page = await readyDashboard();
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     assert.equal(page.element('PanelMaintenance').hidden, false);
     await page.event('MetaTaggerConfigPage', 'keydown', { key: 'Escape' });
     assert.equal(page.element('PanelOverview').hidden, false);
@@ -753,7 +758,7 @@ test('searching for a new example invalidates the earlier example response and t
 });
 
 async function chooseExample(page, item) {
-    await page.click('WorkspaceButton');
+    await page.go('Settings');
     page.element('ExampleAside').open = true;
     await page.event('ExampleAside', 'toggle');
     await page.tick();
@@ -779,7 +784,7 @@ test('example selection rejects older targets and navigation responses without s
     first.resolve({ generatedTags: ['obsolete:first'] });
     await page.event('ExampleSearch', 'blur');
     assert.doesNotMatch(page.element('ExampleTags').textContent, /obsolete/);
-    await page.click('WorkspaceButton');
+    await page.go('Settings');
     second.resolve({ generatedTags: ['obsolete:second'] });
     await page.event('ExampleSearch', 'blur');
     assert.doesNotMatch(page.element('ExampleTags').textContent, /obsolete/);
@@ -789,7 +794,7 @@ test('example selection rejects older targets and navigation responses without s
 
 test('search feedback handles no matches, failure, retry, and Enter without saving', async () => {
     const page = await readyDashboard();
-    await page.click('WorkspaceButton');
+    await page.go('Settings');
     page.element('ExampleAside').open = true;
     await page.event('ExampleAside', 'toggle');
     await page.event('ExampleSearch', 'keydown', { key: 'Enter' });
@@ -837,7 +842,7 @@ test('language choices save and stay selected while metadata refresh preserves t
 test('opening Settings during configuration loading starts item choices when loading finishes', async () => {
     const page = dashboard();
     await page.event('MetaTaggerConfigPage', 'pageshow');
-    await page.click('WorkspaceButton');
+    await page.go('Settings');
     page.element('ExampleAside').open = true;
     await page.event('ExampleAside', 'toggle');
     await page.respond('load-settings', { GeneratedTagPrefix: 'meta', ManualTagPrefix: 'manual', TagSeparator: ':', IsEnabled: true });
@@ -849,8 +854,8 @@ test('saving settings restarts pending item search and selected item calculation
     const page = await readyDashboard();
     await chooseExample(page, { itemId: 'a', name: 'Keep selected', itemType: 'Movie' });
     const earlierExample = page.request('MetaTagger/Example');
-    await page.click('WorkspaceButton');
-    await page.click('WorkspaceButton');
+    await page.go('Settings');
+    await page.go('Settings');
     page.element('ExampleAside').open = true;
     await page.event('ExampleAside', 'toggle');
     await page.tick();
@@ -903,7 +908,7 @@ test('source summaries name every saved selection while later edits remain a sep
 
 test('the Settings aside requests only while visible and rejects responses after navigation', async () => {
     const page = await readyDashboard();
-    await page.click('WorkspaceButton');
+    await page.go('Settings');
     page.element('ExampleAside').open = true;
     await page.event('ExampleAside', 'toggle');
     await page.tick();
@@ -912,14 +917,14 @@ test('the Settings aside requests only while visible and rejects responses after
     await page.activate(page.element('ExampleResults').children[0].children[0]);
     await page.tick();
     const older = page.request('MetaTagger/Example');
-    await page.click('OpenRunsButton');
+    await page.go('History');
     await page.edit('GeneratedTagPrefix', 'latest');
     await page.tick();
     older.resolve({ generatedTags: ['obsolete:tag'] });
     await page.event('ExampleSearch', 'blur');
     assert.equal(page.sent('MetaTagger/Example').length, 1);
     assert.doesNotMatch(page.element('ExampleTags').textContent, /obsolete/);
-    await page.click('WorkspaceButton');
+    await page.go('Settings');
     page.element('ExampleAside').open = true;
     await page.event('ExampleAside', 'toggle');
     await page.tick();
@@ -956,17 +961,17 @@ test('collapsed setup summaries follow the draft and validation opens its enclos
 
 test('leaving Maintenance rejects a pending removal preview even after returning', async () => {
     const page = await readyDashboard();
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     assert.equal(page.element('PreviewCleanupButton').disabled, false);
     assert.equal(page.element('CleanupDisclosure'), undefined);
     assert.equal(page.element('CleanupScope').closest('details'), null);
     await page.click('PreviewCleanupButton');
     const pending = page.request('MetaTagger/Cleanup/Preview');
-    await page.click('WorkspaceButton');
+    await page.go('Activity');
     assert.equal(page.element('PreviewCleanupButton').disabled, true);
     assert.equal(page.element('ConfirmCleanup').checked, false);
     assert.equal(page.element('ApplyCleanupButton').disabled, true);
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     pending.resolve(cleanupPreview);
     await page.event('CleanupScope', 'blur');
     assert.equal(page.element('CleanupChanges').children.length, 0);
@@ -995,7 +1000,7 @@ test('saved run action stays explicit and editing settings or opening Scheduled 
     assert.equal(page.element('PreviewOnly').checked, true);
     assert.match(page.element('OverviewAutomationHelp').textContent, /Scheduled Tasks/);
     assert.equal(page.element('EditAutomationButton'), undefined);
-    await page.click('WorkspaceButton');
+    await page.go('Settings');
     assert.equal(page.element('PanelSettings').hidden, false);
     await page.edit('PreviewOnly', false);
     await page.edit('RunAfterLibraryScan', true);
@@ -1148,7 +1153,7 @@ test('an interrupted preview keeps its incomplete, protection, and failure conte
 test('a newer direct generation preview survives late older history without merging changes or moving focus', async () => {
     const page = dashboard();
     await page.open();
-    await page.click('WorkspaceButton');
+    await page.go('Settings');
     page.element('ExampleAside').open = true;
     await page.event('ExampleAside', 'toggle');
     await page.respond('MetaTagger/Preview', { status: 'Ready', summary: {
@@ -1298,15 +1303,15 @@ test('Inspect and History open on demand and retain browsing context', async () 
     const page = await readyDashboard();
     assert.ok(page.element('OpenInspectButton'));
     assert.ok(page.element('OpenRunsButton'));
-    await page.click('OpenInspectButton');
+    await page.go('Items');
     assert.equal(page.element('InspectionPanel').hidden, false);
     assert.equal(page.element('OpenInspectButton').getAttribute('aria-expanded'), 'true');
     page.element('ItemSearch').value = 'Dune';
-    await page.click('OpenRunsButton');
+    await page.go('History');
     assert.equal(page.element('OpenRunsButton').getAttribute('aria-expanded'), 'true');
-    await page.click('OpenInspectButton');
+    await page.go('Items');
     assert.equal(page.element('ItemSearch').value, 'Dune');
-    await page.click('OpenRunsButton');
+    await page.go('History');
     assert.equal(page.element('OpenRunsButton').getAttribute('aria-expanded'), 'true');
 });
 
@@ -1349,14 +1354,14 @@ test('failed and no-change checks permit direct Apply and refresh', async () => 
 
 test('Maintenance opens on demand and leaving it invalidates removal approval', async () => {
     const page = await readyDashboard();
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     assert.equal(page.element('OpenMaintenanceButton').getAttribute('aria-expanded'), 'true');
     assert.equal(page.focused(), page.element('MaintenanceHeading'));
     await page.click('PreviewCleanupButton');
     await page.respond('MetaTagger/Cleanup/Preview', cleanupPreview);
     await confirmCleanup(page);
     assert.equal(page.element('ApplyCleanupButton').disabled, false);
-    await page.click('WorkspaceButton');
+    await page.go('Settings');
     page.element('ExampleAside').open = true;
     await page.event('ExampleAside', 'toggle');
     assert.equal(page.element('PanelSettings').hidden, false);
@@ -1469,7 +1474,7 @@ test('claim warnings follow draft choices while the tag-return warning follows s
 
 test('partial removal reports updated items without claiming all removals succeeded', async () => {
     const page = await readyDashboard();
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     await page.click('PreviewCleanupButton');
     await page.respond('MetaTagger/Cleanup/Preview', cleanupPreview);
     await confirmCleanup(page);
@@ -1601,7 +1606,7 @@ test('a failed save stays an error with unsaved settings, then becomes plain loa
 
 test('cleanup search errors appear beside search and clear when searching again', async () => {
     const page = await readyDashboard();
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     page.element('CleanupScope').value = 'item';
     await page.event('CleanupScope', 'change');
     page.element('CleanupSearchTerm').value = 'Movie';
@@ -1654,7 +1659,7 @@ test('preview-result inspection requests artwork immediately and adds parent fal
     const page = dashboard();
     await page.open();
     await page.respond('MetaTagger/Preview', { status: 'Ready', changes: [{ itemId: 'episode', itemName: 'Pilot', itemType: 'Episode', addedTags: ['meta:genre:drama'] }], summary: {} });
-    await page.click('WorkspaceButton');
+    await page.go('Activity');
     const article = page.element('PreviewChanges').children[0];
     await page.activate(article.children.find(child => child.textContent === 'Preview this item'));
     assert.match(page.element('InspectorArtwork').children[0].children[1].src, /Items\/episode\/Images\/Primary/);
@@ -1762,7 +1767,7 @@ test('tag changes expose feedback tones while the overview heading stays unstyle
 test('cleanup uses the danger variant while remaining disabled until approved', async () => {
     assert.match(markup, /id="ApplyCleanupButton"[^>]*class="[^"]*button-danger[^"]*"[^>]*disabled/);
     const page = await readyDashboard();
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     assert.equal(page.element('ApplyCleanupButton').disabled, true);
     await page.click('PreviewCleanupButton');
     await page.respond('MetaTagger/Cleanup/Preview', cleanupPreview);
@@ -2217,8 +2222,8 @@ test('the main workspace exposes editable settings and results together and reta
     assert.equal(page.element('ItemTypeOptions').tagName, 'SECTION');
     assert.equal(page.element('AutomationOptions').tagName, 'SECTION');
     await page.edit('EnableGenres', true);
-    await page.click('OpenInspectButton');
-    await page.click('WorkspaceButton');
+    await page.go('Items');
+    await page.go('Settings');
     assert.equal(page.element('EnableGenres').checked, true);
     assert.equal(page.element('PanelSettings').hidden, false);
     assert.equal(page.sent('save-settings').length, 0);
@@ -2310,7 +2315,7 @@ for (const obsoleteOutcome of ['success', 'failure']) {
 test('on-demand browsing opens with focus and returns to its workspace entry', async () => {
     const page = await readyDashboard();
     assert.doesNotMatch(markup, /role="tab(?:list|panel)?"/);
-    await page.click('OpenInspectButton');
+    await page.go('Items');
     assert.equal(page.element('PanelOverview').hidden, true);
     assert.equal(page.element('PanelInspect').hidden, false);
     assert.equal(page.focused(), page.element('BrowseHeading'));
@@ -2408,7 +2413,7 @@ const readLifecycleViews = {
     },
     async maintenance() {
         const page = await readyDashboard();
-        await page.click('OpenMaintenanceButton');
+        await page.go('Maintenance');
         await page.click('PreviewCleanupButton');
         await page.respond('MetaTagger/Cleanup/Preview', cleanupPreview);
         await confirmCleanup(page);
@@ -2416,7 +2421,7 @@ const readLifecycleViews = {
         return {
             request: () => page.request('MetaTagger/Cleanup/Preview'),
             close: () => page.click('MaintenanceBackButton'),
-            async reopen() { await page.click('OpenMaintenanceButton'); await page.click('PreviewCleanupButton'); },
+            async reopen() { await page.go('Maintenance'); await page.click('PreviewCleanupButton'); },
             retry: () => page.click('PreviewCleanupButton'),
             flush: () => page.event('CleanupFeedback', 'blur'),
             obsoleteResponse: { ...cleanupPreview, changes: [{ ...cleanupPreview.changes[0], itemName: 'Obsolete result', removedTags: ['old'] }] },
@@ -2455,7 +2460,7 @@ const readLifecycleViews = {
     },
     async browsing() {
         const page = await readyDashboard();
-        await page.click('OpenInspectButton');
+        await page.go('Items');
         await page.respond('MetaTagger/Items', { items: [{ itemId: 'original', name: 'Original' }], totalCount: 40 });
         await page.click('NextItemsButton');
         return {
@@ -2467,7 +2472,7 @@ const readLifecycleViews = {
             },
             close: () => page.click('BackToReviewButton'),
             async reopen() {
-                await page.click('OpenInspectButton');
+                await page.go('Items');
                 assert.match(page.sent('MetaTagger/Items').at(-1).kind, /startIndex=25/);
             },
             retry: () => page.click('RetryItemsButton'),
@@ -2508,7 +2513,7 @@ const readLifecycleViews = {
             request: () => page.request('MetaTagger/Runs/' + (selected === 0 ? 'past' : 'current')),
             async replace() { selected = 1; await page.activate(rows[selected]); },
             close: () => page.click('HistoryBackButton'),
-            reopen: () => page.click('OpenRunsButton'),
+            reopen: () => page.go('History'),
             retry: () => page.activate(rows[selected]),
             flush: () => page.event('RunDetails', 'blur'),
             obsoleteResponse: { detailsAvailable: true, items: [{ name: 'Obsolete result', writeOutcome: 'Confirmed' }] },
@@ -2558,7 +2563,7 @@ test('closed history ignores obsolete detail success and failure and retries the
     await page.activate(page.element('RecentRuns').children[0]);
     const first = page.request('MetaTagger/Runs/past');
     await page.click('HistoryBackButton');
-    await page.click('OpenRunsButton');
+    await page.go('History');
     const retry = page.request('MetaTagger/Runs/past');
     first.resolve({ detailsAvailable: true, items: [{ name: 'Obsolete detail' }] });
     retry.reject(new Error('Unavailable'));
@@ -2570,7 +2575,7 @@ test('closed history ignores obsolete detail success and failure and retries the
     const refresh = page.request('MetaTagger/Runs/past');
     await page.click('HistoryBackButton');
     refresh.reject(new Error('Late failure'));
-    await page.click('OpenRunsButton');
+    await page.go('History');
     await page.respond('MetaTagger/Runs/past', { detailsAvailable: true, items: [{ name: 'Retained detail' }] });
     assert.match(page.element('RunDetails').textContent, /Retained detail/);
     assert.doesNotMatch(page.element('RunDetailFeedback').textContent, /Late failure/);
@@ -2606,14 +2611,14 @@ for (const obsoleteOutcome of ['success', 'failure']) {
 
 test('maintenance returns to the inspector and late removal searches cannot replace a new target', async () => {
     const page = await readyDashboard();
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     page.element('CleanupScope').value = 'item';
     await page.event('CleanupScope', 'change');
     page.element('CleanupSearchTerm').value = 'older';
     await page.click('CleanupSearchButton');
     const older = page.request('MetaTagger/Cleanup/Items');
     await page.click('MaintenanceBackButton');
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     page.element('CleanupSearchTerm').value = 'current';
     await page.click('CleanupSearchButton');
     await page.respond('MetaTagger/Cleanup/Items', [{ itemId: 'current', name: 'Current movie' }]);
@@ -2628,7 +2633,7 @@ test('maintenance returns to the inspector and late removal searches cannot repl
     assert.equal(page.focused(), page.element('RebuildTrackingLedgerOnNextRun'));
     await page.edit('RebuildTrackingLedgerOnNextRun', true);
     await page.edit('ClaimExistingGeneratedTagsOnNextRun', true);
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     await page.click('MaintenanceBackButton');
     assert.equal(page.element('RebuildTrackingLedgerOnNextRun').checked, true);
     assert.equal(page.element('ClaimExistingGeneratedTagsOnNextRun').checked, true);
@@ -2642,7 +2647,7 @@ test('a completed background check keeps the current on-demand view and focus', 
     await page.click('RunPreviewButton');
     await page.respond('load-settings', { ConfigurationRevision: 'revision' });
     await page.respond('ScheduledTasks', [{ Id: 'task', Key: 'MetaTaggerPreviewTags', State: 'Running' }]);
-    await page.click('OpenMaintenanceButton');
+    await page.go('Maintenance');
     await page.respond('ScheduledTasks/task', { State: 'Idle', LastExecutionResult: {
         StartTimeUtc: '2026-09-13T12:00:00Z', EndTimeUtc: '2026-09-13T12:00:02Z', Status: 'Completed'
     } });
@@ -2655,7 +2660,7 @@ test('a completed background check keeps the current on-demand view and focus', 
 
 test('a cancelled search debounce cannot reset nested pagination when closing the inspector', async () => {
     const page = await readyDashboard();
-    await page.click('OpenInspectButton');
+    await page.go('Items');
     await page.respond('MetaTagger/Items', { totalCount: 1, items: [{ itemId: 'series', name: 'Series', itemType: 'Series' }] });
     page.element('ItemSearch').value = 'pending';
     await page.event('ItemSearch', 'input');
@@ -2664,7 +2669,7 @@ test('a cancelled search debounce cannot reset nested pagination when closing th
     await page.click('NextItemsButton');
     await page.respond('MetaTagger/Items', { totalCount: 30, items: [{ itemId: 'season26', name: 'Season 26', itemType: 'Season' }] });
     await page.click('BackToReviewButton');
-    await page.click('OpenInspectButton');
+    await page.go('Items');
     assert.match(page.element('ItemBrowserFeedback').textContent, /Showing 26/);
     assert.match(page.element('ItemList').textContent, /Season 26/);
     await page.tick();
