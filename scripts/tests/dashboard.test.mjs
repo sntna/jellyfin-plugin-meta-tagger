@@ -182,6 +182,12 @@ const preview = {
     ]
 };
 
+test('the unsaved bar can stick to the viewport inside Jellyfin page chrome', () => {
+    // Jellyfin clips [data-role="content"], which makes a sticky bar scroll with the content instead. The page must lift that clip.
+    assert.match(markup, /#MetaTaggerConfigPage \[data-role="content"\]\s*\{[^}]*overflow:\s*visible/);
+    assert.match(markup, /\.metadataTaggerSaveBar\s*\{[^}]*position:\s*sticky;[^}]*bottom:\s*0/);
+});
+
 test('settings item choices search automatically and show selection with source values', async () => {
     const page = await readyDashboard();
     await page.go('Settings');

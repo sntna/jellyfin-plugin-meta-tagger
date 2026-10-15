@@ -116,6 +116,12 @@
                 display: none !important;
             }
 
+            /* Jellyfin clips [data-role="content"] (overflow: hidden), which turns it into the scrollport for
+               sticky descendants. Lift the clip so the unsaved bar sticks to the viewport. */
+            #MetaTaggerConfigPage [data-role="content"] {
+                overflow: visible;
+            }
+
             #MetaTaggerConfigPage .content-primary {
                 max-width: 1240px;
                 padding: var(--mt-space-lg) 28px 40px;
