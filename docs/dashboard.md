@@ -51,7 +51,8 @@ series; breadcrumbs return to its library. Selecting an item does not start a ch
 
 - **Apply tags now to this item** recalculates its tags from current metadata and
   saved settings without a preview or confirmation.
-- **Check changes first** optionally shows proposed tag changes.
+- **Check changes first** optionally shows proposed tag changes. While another
+  run is in progress it says so instead of waiting; check again afterward.
 - **Stop item run** cancels this request, even while it waits behind another run.
 - **Preview tag removal** opens Maintenance with this item selected and previews
   its removal. **‹ Back to Items** returns to the item.
@@ -111,7 +112,8 @@ list, confirm **I reviewed the tags listed for removal.**, then select
 **Remove listed tags**. While tagging is on, future runs can add the tags again;
 **Turn off Meta Tagger** clears **Turn on Meta Tagger** so you can save before
 removal. Editing settings, changing the target, or leaving Maintenance
-clears the preview and confirmation.
+clears the preview and confirmation. While another run is in progress, preview
+and removal change nothing and ask you to preview again after it finishes.
 
 ## Labels
 

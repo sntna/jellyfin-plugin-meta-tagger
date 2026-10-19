@@ -8,18 +8,18 @@ namespace Jellyfin.Plugin.MetaTagger;
 
 public sealed partial class MetaTaggerRunner
 {
-    public async Task<MetaTaggerGenerationStatus> GetGenerationStatusAsync(CancellationToken cancellationToken)
+    public Task<MetaTaggerGenerationStatus> GetGenerationStatusAsync(CancellationToken cancellationToken)
     {
-        await _runGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        // Generation state is replaced as a copy when saved, so reading it does not wait for a run.
         try
         {
-            return GenerationStatus(_host.GetConfiguration().Installation);
+            return Task.FromResult(GenerationStatus(_host.GetConfiguration().Installation));
         }
         catch (InvalidOperationException)
         {
-            return GenerationStatus(null);
+            return Task.FromResult(GenerationStatus(null));
         }
-        finally { _runGate.Release(); }
     }
 
     private static MetaTaggerGenerationStatus GenerationStatus(InstallationState? installation)
