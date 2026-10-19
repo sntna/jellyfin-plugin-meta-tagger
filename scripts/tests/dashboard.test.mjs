@@ -584,7 +584,7 @@ test('item search uses its library and page, discards stale results, and starts 
 });
 
 for (const previewOnly of [true, false]) {
-    test(`Preview tag changes always starts only the preview task when scheduled preview is ${previewOnly}`, async () => {
+    test(`Check changes first always starts only the preview task when scheduled preview is ${previewOnly}`, async () => {
         const page = await readyDashboard({ PreviewOnly: previewOnly });
         await page.click('RunPreviewButton');
         await page.click('RunPreviewButton');
@@ -1345,7 +1345,7 @@ test('failed and no-change checks permit direct Apply and refresh', async () => 
     await page.activate(page.element('PreviewChanges').children[0].children.at(-1));
     await page.click('PreviewItemButton');
     await page.fail('MetaTagger/Items/movie/Preview');
-    assert.match(page.element('InspectorFeedback').textContent, /Could not preview.*Refresh item preview/);
+    assert.match(page.element('InspectorFeedback').textContent, /Could not preview.*Select Check changes first/);
     assert.equal(page.element('ApplyItemButton').disabled, false);
     await page.click('PreviewItemButton');
     await page.respond('MetaTagger/Items/movie/Preview', { addedTags: [], removedTags: [] });
@@ -1473,7 +1473,7 @@ test('claim warnings follow draft choices while the tag-return warning follows s
     await page.respond('save-settings', {});
     assert.equal(page.element('CleanupReturnWarning').hidden, true);
     assert.match(page.element('SettingsFeedback').textContent, /Tagging is off/);
-    assert.doesNotMatch(page.element('SettingsFeedback').textContent, /Select Preview tag changes/);
+    assert.doesNotMatch(page.element('SettingsFeedback').textContent, /Select Check changes first/);
 });
 
 test('partial removal reports updated items without claiming all removals succeeded', async () => {

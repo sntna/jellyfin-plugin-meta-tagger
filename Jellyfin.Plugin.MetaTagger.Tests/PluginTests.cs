@@ -49,7 +49,7 @@ public sealed class PluginTests : IDisposable
         Assert.Contains("id=\"SettingsFeedback\"", markup, StringComparison.Ordinal);
         Assert.Contains("You have unsaved settings.", markup, StringComparison.Ordinal);
         Assert.Contains("Saving settings…", markup, StringComparison.Ordinal);
-        Assert.Contains("Settings saved. Select Preview tag changes", markup, StringComparison.Ordinal);
+        Assert.Contains("Settings saved. Select Check changes first", markup, StringComparison.Ordinal);
         Assert.Contains("Settings could not be saved.", markup, StringComparison.Ordinal);
         Assert.Contains("Settings could not be loaded.", markup, StringComparison.Ordinal);
     }

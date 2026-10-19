@@ -2407,19 +2407,19 @@
                 feedback.setAttribute('data-feedback-tone', 'neutral');
 
                 if (status === 'NoRuns' || !summary) {
-                    feedback.textContent = 'No runs recorded. Select Preview tag changes to check for tag differences.';
+                    feedback.textContent = 'No runs recorded. Select Check changes first to check for tag differences.';
                     return;
                 }
 
                 if (status === 'LatestRunApplied') {
-                    feedback.textContent = 'The latest run attempted to apply changes. Select Preview tag changes to check for tag differences.';
+                    feedback.textContent = 'The latest run attempted to apply changes. Select Check changes first to check for tag differences.';
                     return;
                 }
 
                 if (status === 'Unavailable') {
                     feedback.setAttribute('role', 'alert');
                     feedback.setAttribute('data-feedback-tone', 'error');
-                    feedback.textContent = 'Preview details are unavailable or use older settings. Select Preview tag changes to check again.';
+                    feedback.textContent = 'Preview details are unavailable or use older settings. Select Check changes first to check again.';
                     return;
                 }
 
@@ -2431,7 +2431,7 @@
                 if (!changes.length) {
                     feedback.setAttribute('role', 'alert');
                     feedback.setAttribute('data-feedback-tone', 'error');
-                    feedback.textContent = 'Preview details are unavailable. Select Preview tag changes to try again.';
+                    feedback.textContent = 'Preview details are unavailable. Select Check changes first to try again.';
                     return;
                 }
 
@@ -2640,7 +2640,7 @@
                     document.querySelector('#RulesInEffectText').textContent = 'Rules in effect: ' + selectedSources(config).replace('None selected', 'no sources selected') +
                         ' \u00b7 tags like ' + [normalized.generatedPrefix, 'genre', 'animation'].join(normalized.separator);
                     document.querySelector('#OverviewTaggingHelp').textContent = field(config, 'isEnabled')
-                        ? 'Preview tag changes never changes tags. Generate metadata tags and Check all items use the scheduled run action.'
+                        ? 'Check changes first never changes tags. Generate metadata tags and Check all items use the scheduled run action.'
                         : 'Tagging is off. Generation and previews are stopped. Maintenance is still available.';
                     document.querySelector('#OverviewAutomationText').textContent = field(config, 'runAfterLibraryScan')
                         ? 'Post-scan runs also use this action while tagging is on. Manage task schedules in'
@@ -2902,7 +2902,7 @@
                             document.querySelector('#TaskFeedback').textContent = 'Start response unavailable. Checking Jellyfin for this run…';
                             pollGenerationTask();
                         });
-                    }, function () { document.querySelector('#TaskFeedback').textContent = 'Scheduled Tasks could not be loaded. Try Preview tag changes again.'; });
+                    }, function () { document.querySelector('#TaskFeedback').textContent = 'Scheduled Tasks could not be loaded. Select Check changes first to try again.'; });
                 }
                 function pollGenerationTask() {
                     if (!active || !requestedTask) { return; }
@@ -3100,7 +3100,7 @@
                     var id = field(selectedItem, 'itemId');
                     runRequest('itemPreview', function () { return cleanupPost('MetaTagger/Items/' + encodeURIComponent(id) + '/Preview', {}); }, function (result) {
                         renderInspection(result, true);
-                    }, function () { invalidateItem('Could not preview this item. Select Refresh item preview to try again.'); });
+                    }, function () { invalidateItem('Could not preview this item. Select Check changes first to try again.'); });
                 }
                 document.querySelector('#PreviewItemButton').addEventListener('click', previewItem);
                 var itemRun = null;
@@ -3532,7 +3532,7 @@
                             setCheckOutdated(true);
                             document.querySelector('#PreviewChanges').replaceChildren();
                             setFeedbackTone('PreviewFeedback', 'warning');
-                            feedback.textContent = 'Settings changed after this preview. Select Preview tag changes to check again.';
+                            feedback.textContent = 'Settings changed after this preview. Select Check changes first to check again.';
                             return;
                         }
                         renderLatestPreview(result, inspectPreviewItem, createArtwork);
@@ -3559,7 +3559,7 @@
                         if (savedConfigurationRevision !== field(recordedPreview, 'configurationRevision')) {
                             setCheckOutdated(true);
                             setFeedbackTone('PreviewFeedback', 'warning');
-                            feedback.textContent = 'Settings changed after this preview. Select Preview tag changes to check again.';
+                            feedback.textContent = 'Settings changed after this preview. Select Check changes first to check again.';
                             return;
                         }
                         if (!recordedPreviewDetails) { feedback.textContent = 'Loading retained preview details…'; return; }
@@ -3569,7 +3569,7 @@
                         context.textContent += (truncated ? 'Some item details were not retained. Counts cover the whole run. ' : '') +
                             displayOutcome(field(recordedPreview, 'outcome') || 'Outcome unavailable') + '.' + incompletePreview(field(recordedPreview, 'outcome')) + ' ' + describeRun(recordedPreview);
                         if (!retained) {
-                            feedback.textContent = 'Preview item details are unavailable. Select Preview tag changes to check again.';
+                            feedback.textContent = 'Preview item details are unavailable. Select Check changes first to check again.';
                             feedback.setAttribute('role', 'alert');
                             feedback.setAttribute('data-feedback-tone', 'error');
                             return;
@@ -3587,7 +3587,7 @@
                     }
                     feedback.textContent = historyStatus === 'loading' ? 'Loading tag preview history…'
                         : latestPreviewFailed || historyStatus === 'unavailable' ? 'Latest tag preview could not be loaded. Select Reload preview results or open Earlier activity to try again.'
-                        : 'No tag preview is available. Select Preview tag changes to check for tag differences.';
+                        : 'No tag preview is available. Select Check changes first to check for tag differences.';
                 }
                 function renderRecordedStatus() {
                     renderReview();
@@ -3595,7 +3595,7 @@
                     document.querySelector('#ItemStatusSource').setAttribute('data-stale', String(!!stale));
                     document.querySelector('#ItemStatusSource').textContent = recordedPreview
                         ? (stale ? 'Outdated results. Settings have changed since this preview. ' : '') + 'Preview ' + displayDate(field(recordedPreview, 'startedUtc')) + '. Not checked means this preview has no recorded result for the item.'
-                        : 'No library preview is available. Select Preview tag changes to check the item types saved in Settings. Items without results show Not checked.';
+                        : 'No library preview is available. Select Check changes first to check the item types saved in Settings. Items without results show Not checked.';
                     renderItems();
                 }
                 function appendRunField(container, label, value) {
@@ -3900,7 +3900,7 @@
                     feedback.setAttribute('role', 'status');
                     feedback.setAttribute('data-feedback-tone', 'neutral');
                     setFeedbackTone('PreviewFeedback', 'warning');
-                    feedback.textContent = settingsSaved ? (field(savedConfiguration, 'isEnabled') ? 'Settings saved. Select Preview tag changes to check for tag differences.' : 'Settings saved. Tagging is off. Maintenance is still available.') : 'Settings changed since this preview. Save settings, then select Preview tag changes.';
+                    feedback.textContent = settingsSaved ? (field(savedConfiguration, 'isEnabled') ? 'Settings saved. Select Check changes first to check for tag differences.' : 'Settings saved. Tagging is off. Maintenance is still available.') : 'Settings changed since this preview. Save settings, then select Check changes first.';
                     document.querySelector('#PreviewChanges').replaceChildren();
                     document.querySelector('#ReviewAllItemsButton').hidden = true;
                 }
@@ -4234,7 +4234,7 @@
                         }, function (result) {
                             hasUnsavedChanges = false;
                             savedConfigurationRevision = null;
-                            setSettingsFeedback(field(draft, 'isEnabled') ? 'Settings saved. Select Preview tag changes to check for tag differences.' : 'Settings saved. Tagging is off. Maintenance is still available.', false);
+                            setSettingsFeedback(field(draft, 'isEnabled') ? 'Settings saved. Select Check changes first to check for tag differences.' : 'Settings saved. Tagging is off. Maintenance is still available.', false);
                             if (!requestedTask) { setFeedbackTone('TaskFeedback', 'neutral'); document.querySelector('#TaskFeedback').textContent = field(draft, 'isEnabled') ? 'Ready to preview with saved settings.' : 'Tagging is off. Turn it on in Settings and save to run a preview.'; }
                             markPreviewOutOfDate(true);
                             runRequest('configurationRevision', function () {
