@@ -188,6 +188,37 @@ test('the unsaved bar can stick to the viewport inside Jellyfin page chrome', ()
     assert.match(markup, /\.metadataTaggerSaveBar\s*\{[^}]*position:\s*sticky;[^}]*bottom:\s*0/);
 });
 
+test('every style selector names an element or class the page uses', () => {
+    const style = markup.match(/<style>([\s\S]*?)<\/style>/)[1];
+    const page = markup.replace(style, '');
+    // Jellyfin's emby-* components render these classes at runtime.
+    const hostClasses = ['checkboxIcon', 'checkboxOutline', 'inputLabelFocused', 'selectArrowContainer', 'selectLabelFocused'];
+    const selectors = style.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\{[^{}]*\}/g, '{}');
+    const orphans = [...new Set([...selectors.matchAll(/([#.])([A-Za-z][\w-]*)/g)].map(match => match[0]))]
+        .filter(selector => !hostClasses.includes(selector.slice(1)))
+        .filter(selector => !new RegExp(`\\b${selector.slice(1)}\\b`).test(page));
+    assert.deepEqual(orphans, []);
+});
+
+test('public docs name only labels the page shows', () => {
+    const docs = ['README.md', 'docs/dashboard.md', 'docs/meta-tagger-plugin.md']
+        .map(path => [path, readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8')]);
+    const pageText = markup.replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+    // Bold text that is not this page's: Jellyfin navigation, a task name, and the supported server version.
+    const jellyfinLabels = ['Dashboard → Plugins → Repositories', 'Apply metadata tag changes', '12.0.0'];
+    // Labels and navigation the four-tab redesign removed.
+    const removed = ['Overview', 'Browse items', 'History', 'Try these settings', 'Try unsaved settings on an item', 'More sources',
+        'Edit settings', 'Review removal', 'Recent runs', 'Refresh history', 'Tracking and legacy tag settings', 'workspace',
+        'Back button', 'Escape', 'earlier installation temporarily', 'Apply changes across all libraries', 'Temporary maintenance'];
+    for (const [path, text] of docs) {
+        const prose = text.replace(/\s+/g, ' ');
+        for (const [, label] of prose.matchAll(/\*\*([^*]+)\*\*/g)) {
+            if (!jellyfinLabels.includes(label)) assert.ok(pageText.includes(label), `${path} names "${label}", which the page does not show`);
+        }
+        for (const label of removed) assert.equal(prose.includes(label), false, `${path} still mentions "${label}"`);
+    }
+});
+
 test('settings item choices search automatically and show selection with source values', async () => {
     const page = await readyDashboard();
     await page.go('Settings');
@@ -553,7 +584,7 @@ test('item search uses its library and page, discards stale results, and starts 
 });
 
 for (const previewOnly of [true, false]) {
-    test(`Preview tag changes always starts only the preview task when scheduled preview is ${previewOnly}`, async () => {
+    test(`Check changes first always starts only the preview task when scheduled preview is ${previewOnly}`, async () => {
         const page = await readyDashboard({ PreviewOnly: previewOnly });
         await page.click('RunPreviewButton');
         await page.click('RunPreviewButton');
@@ -1314,7 +1345,7 @@ test('failed and no-change checks permit direct Apply and refresh', async () => 
     await page.activate(page.element('PreviewChanges').children[0].children.at(-1));
     await page.click('PreviewItemButton');
     await page.fail('MetaTagger/Items/movie/Preview');
-    assert.match(page.element('InspectorFeedback').textContent, /Could not preview.*Refresh item preview/);
+    assert.match(page.element('InspectorFeedback').textContent, /Could not preview.*Select Check changes first/);
     assert.equal(page.element('ApplyItemButton').disabled, false);
     await page.click('PreviewItemButton');
     await page.respond('MetaTagger/Items/movie/Preview', { addedTags: [], removedTags: [] });
@@ -1442,7 +1473,7 @@ test('claim warnings follow draft choices while the tag-return warning follows s
     await page.respond('save-settings', {});
     assert.equal(page.element('CleanupReturnWarning').hidden, true);
     assert.match(page.element('SettingsFeedback').textContent, /Tagging is off/);
-    assert.doesNotMatch(page.element('SettingsFeedback').textContent, /Select Preview tag changes/);
+    assert.doesNotMatch(page.element('SettingsFeedback').textContent, /Select Check changes first/);
 });
 
 test('partial removal reports updated items without claiming all removals succeeded', async () => {
