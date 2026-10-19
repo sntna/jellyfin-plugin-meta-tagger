@@ -116,6 +116,12 @@
                 display: none !important;
             }
 
+            /* Jellyfin clips [data-role="content"] (overflow: hidden), which turns it into the scrollport for
+               sticky descendants. Lift the clip so the unsaved bar sticks to the viewport. */
+            #MetaTaggerConfigPage [data-role="content"] {
+                overflow: visible;
+            }
+
             #MetaTaggerConfigPage .content-primary {
                 max-width: 1240px;
                 padding: var(--mt-space-lg) 28px 40px;
@@ -650,18 +656,6 @@
                 overflow-wrap: anywhere;
             }
 
-            #MetaTaggerConfigPage .metadataTaggerSettingsLayout {
-                display: grid;
-                grid-template-columns: minmax(0,1fr);
-                gap: var(--mt-space-md);
-                align-items: start;
-            }
-
-            #MetaTaggerConfigPage .metadataTaggerSettingsLayout > * {
-                min-width: 0;
-                grid-column: 1;
-            }
-
             #MetaTaggerConfigPage section.metadataTaggerSection {
                 padding: var(--mt-space-lg);
                 border: 1px solid var(--mt-border);
@@ -903,29 +897,6 @@
 
             #MetaTaggerConfigPage details > :last-child:not(summary) {
                 margin-bottom: var(--mt-space-md);
-            }
-
-            #MetaTaggerConfigPage .metadataTaggerAdvancedContent {
-                margin-top: 6px;
-            }
-
-            #MetaTaggerConfigPage .metadataTaggerSaveRow {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                gap: var(--mt-space-md);
-                margin: 20px 0;
-                padding-block: var(--mt-space-md);
-                border-top: 1px solid var(--tagger-button-border);
-            }
-
-            #MetaTaggerConfigPage .metadataTaggerSettingsLayout > :is(section.metadataTaggerSection,details,.metadataTaggerSaveRow) {
-                margin: 0;
-            }
-
-            #MetaTaggerConfigPage #SettingsFeedback {
-                font-size: var(--mt-font-size);
-                color: var(--feedback-color, var(--mt-muted));
             }
 
             #MetaTaggerConfigPage #SaveSettingsButton {
@@ -1263,7 +1234,7 @@
             }
 
             @container (max-width: 720px) {
-                #MetaTaggerConfigPage :is(.metadataTaggerWorkspace,.metadataTaggerSettingsLayout) {
+                #MetaTaggerConfigPage .metadataTaggerWorkspace {
                     grid-template-columns: minmax(0,1fr);
                 }
             }
@@ -1278,10 +1249,6 @@
                 }
                 #MetaTaggerConfigPage .metadataTaggerCard {
                     padding: var(--mt-space-md);
-                }
-                #MetaTaggerConfigPage .metadataTaggerSaveRow {
-                    align-items: stretch;
-                    flex-direction: column;
                 }
             }
 
@@ -1348,24 +1315,7 @@
             #MetaTaggerConfigPage .metadataTaggerRunCounts dt { color: var(--mt-muted); }
             #MetaTaggerConfigPage .metadataTaggerRunCounts dd { overflow-wrap: anywhere; margin: var(--mt-space-xs) 0 0; font-weight: 600; }
 
-            #MetaTaggerConfigPage .metadataTaggerSettingsWorkspace { display: block; }
-            #MetaTaggerConfigPage .metadataTaggerSettingsLayout { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-            #MetaTaggerConfigPage .metadataTaggerSettingsLayout > * { grid-column: auto; min-width: 0; }
             #MetaTaggerConfigPage .metadataTaggerVisuallyHidden { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-            #MetaTaggerConfigPage #TaggingOptions { grid-column: 1 / -1; padding: var(--mt-space-md); }
-            #MetaTaggerConfigPage #SourceOptions { grid-column: 1; grid-row: 2; }
-            #MetaTaggerConfigPage #ItemTypeOptions { grid-column: 1; grid-row: 3; }
-            #MetaTaggerConfigPage #AutomationOptions { grid-column: 2; grid-row: 2 / span 2; }
-            #MetaTaggerConfigPage :is(#SourceOptions,#ItemTypeOptions,#AutomationOptions) { padding: var(--mt-space-md); border: 0; background: var(--mt-ink); }
-            #MetaTaggerConfigPage #ItemTypeOptions .metadataTaggerFieldset { display: flex; flex-wrap: wrap; gap: var(--mt-space-md); }
-            #MetaTaggerConfigPage #ItemTypeOptions :is(legend,.metadataTaggerSectionDescription) { display: none; }
-            #MetaTaggerConfigPage .metadataTaggerSaveRow { grid-column: 1 / -1; }
-            #MetaTaggerConfigPage .metadataTaggerSaveRow { flex-wrap: wrap; justify-content: flex-start; }
-            #MetaTaggerConfigPage #ExampleAside { margin-block: var(--mt-space-md); }
-            @media (max-width: 760px) {
-                #MetaTaggerConfigPage .metadataTaggerSettingsLayout { grid-template-columns: minmax(0, 1fr); }
-                #MetaTaggerConfigPage :is(#SourceOptions,#ItemTypeOptions,#AutomationOptions) { grid-column: 1; grid-row: auto; }
-            }
         
 
             /* Four-tab shell */
@@ -1539,6 +1489,87 @@
                 max-height: min(60vh, 640px);
                 overflow-y: auto;
             }
+            /* Settings cards, save bar and Maintenance */
+            #MetaTaggerConfigPage .metadataTaggerSettingsWorkspace {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr);
+                gap: var(--mt-space-lg);
+                align-items: start;
+            }
+            #MetaTaggerConfigPage .metadataTaggerSettingsWorkspace > * { min-width: 0; }
+            @container (min-width: 801px) {
+                #MetaTaggerConfigPage .metadataTaggerSettingsWorkspace { grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr); }
+                #MetaTaggerConfigPage #ExampleAside { position: sticky; top: var(--mt-space-md); }
+            }
+            #MetaTaggerConfigPage .metadataTaggerCards { display: grid; gap: var(--mt-space-sm); align-content: start; min-width: 0; }
+            #MetaTaggerConfigPage .metadataTaggerCards > section.metadataTaggerSection { margin: 0; padding: var(--mt-space-md); }
+            #MetaTaggerConfigPage #SettingsFeedback { margin: 0; font-size: var(--mt-font-size); color: var(--feedback-color, var(--mt-muted)); }
+            #MetaTaggerConfigPage .metadataTaggerGroupCard {
+                border: 1px solid var(--mt-border);
+                border-radius: var(--mt-radius);
+                background: var(--mt-ink);
+                min-width: 0;
+            }
+            #MetaTaggerConfigPage .metadataTaggerCardHeading { margin: 0; font-size: inherit; font-weight: inherit; }
+            #MetaTaggerConfigPage .metadataTaggerCardHead {
+                display: flex;
+                width: 100%;
+                align-items: flex-start;
+                justify-content: space-between;
+                gap: var(--mt-space-md);
+                min-height: var(--mt-control-height);
+                padding: var(--mt-space-md);
+                border: 0;
+                border-radius: var(--mt-radius);
+                background: transparent;
+                color: inherit;
+                font: inherit;
+                text-align: left;
+                cursor: pointer;
+            }
+            #MetaTaggerConfigPage .metadataTaggerCardHead:hover { background: var(--mt-hover); }
+            #MetaTaggerConfigPage .metadataTaggerCardText { display: grid; gap: var(--mt-space-xs); min-width: 0; }
+            #MetaTaggerConfigPage .metadataTaggerCardTitle { font-size: 16px; font-weight: 600; }
+            #MetaTaggerConfigPage .metadataTaggerCardSentence { color: var(--mt-muted); overflow-wrap: anywhere; }
+            #MetaTaggerConfigPage .metadataTaggerCardAction { flex: none; color: var(--mt-accent); font-weight: 500; }
+            #MetaTaggerConfigPage .metadataTaggerCardBody { padding: var(--mt-space-md); border-top: 1px solid var(--mt-border); min-width: 0; }
+            #MetaTaggerConfigPage .metadataTaggerCardBody > * + *, #MetaTaggerConfigPage .metadataTaggerCardBody #ItemTypeOptions,
+            #MetaTaggerConfigPage .metadataTaggerCardBody #LogPrivacyOptions { margin-top: var(--mt-space-md); }
+            #MetaTaggerConfigPage .metadataTaggerCardBody #SourceOptions + #ItemTypeOptions { padding-top: var(--mt-space-md); border-top: 1px solid var(--mt-border); }
+            #MetaTaggerConfigPage .metadataTaggerCardBody #LogPrivacyOptions { padding-top: var(--mt-space-md); border-top: 1px solid var(--mt-border); }
+            #MetaTaggerConfigPage .metadataTaggerCardBody h4 { margin: 0 0 var(--mt-space-xs); font-size: 16px; }
+            #MetaTaggerConfigPage #ItemTypeOptions .metadataTaggerFieldset { display: flex; flex-wrap: wrap; gap: var(--mt-space-md); }
+            #MetaTaggerConfigPage #ItemTypeOptions .metadataTaggerFieldset > * { min-width: 0; }
+            #MetaTaggerConfigPage #OutdatedMaintenanceLink { display: inline; min-height: 0; }
+
+            #MetaTaggerConfigPage .metadataTaggerSaveBar {
+                position: sticky;
+                bottom: 0;
+                z-index: 20;
+                margin-top: var(--mt-space-lg);
+                padding: var(--mt-space-sm) var(--mt-space-md);
+                border-top: 1px solid var(--tagger-warn);
+                background: var(--mt-ink);
+                box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.35);
+            }
+            #MetaTaggerConfigPage .metadataTaggerSaveBar[hidden] { display: none; }
+            #MetaTaggerConfigPage .metadataTaggerSaveBarInner { display: flex; flex-wrap: wrap; align-items: center; gap: var(--mt-space-sm); }
+            #MetaTaggerConfigPage .metadataTaggerSaveBarMessage { flex: 1 1 260px; min-width: 0; margin: 0; color: var(--tagger-warn); overflow-wrap: anywhere; }
+            #MetaTaggerConfigPage .metadataTaggerSaveBarInner > button { width: auto; flex: 0 0 auto; margin: 0; }
+            #MetaTaggerConfigPage .metadataTaggerSaveBarInner > #SaveApplyFeedback { flex: 1 1 100%; margin: 0; color: var(--feedback-color, var(--mt-muted)); }
+            #MetaTaggerConfigPage .metadataTaggerSaveBarInner > #SaveApplyFeedback:empty { display: none; }
+            @media (max-width: 600px) {
+                #MetaTaggerConfigPage .metadataTaggerSaveBar { padding-inline: var(--mt-space-md); }
+                #MetaTaggerConfigPage .metadataTaggerSaveBarInner > button { flex: 1 1 100%; }
+            }
+
+            #MetaTaggerConfigPage #PanelMaintenance > .metadataTaggerCard { margin-bottom: var(--mt-space-md); }
+            #MetaTaggerConfigPage #PanelMaintenance .metadataTaggerCard h3 { margin-top: 0; }
+            #MetaTaggerConfigPage .metadataTaggerDangerCard { border-color: var(--tagger-negative); }
+            #MetaTaggerConfigPage #CleanupReturnWarning { display: grid; gap: var(--mt-space-sm); justify-items: start; }
+            #MetaTaggerConfigPage #CleanupReturnWarning[hidden] { display: none; }
+            #MetaTaggerConfigPage #CleanupReturnWarning p { margin: 0; }
+
         </style>
         <div data-role="content">
             <div class="content-primary">
@@ -1635,10 +1666,11 @@
         </div></aside>
     </div>
 </section>
+<form id="MetaTaggerConfigForm">
+<button type="submit" class="metadataTaggerVisuallyHidden" tabindex="-1" aria-hidden="true">Save settings</button>
 <section id="PanelSettings" role="tabpanel" aria-labelledby="TabSettings" hidden>
                 <div class="metadataTaggerSettingsWorkspace">
-                <form id="MetaTaggerConfigForm">
-<div class="metadataTaggerSettingsLayout">
+                <div class="metadataTaggerCards">
                     <section id="TaggingOptions" class="metadataTaggerSection" aria-labelledby="PluginStatusHeading">
                         <h2 id="PluginStatusHeading" tabindex="-1" class="metadataTaggerVisuallyHidden">Tagging</h2>
                         <div class="checkboxContainer checkboxContainer-withDescription">
@@ -1650,12 +1682,16 @@
                                 When off, generation stops. Existing tags stay and Maintenance remains available.
                             </div>
                         </div>
-
                     </section>
+                    <p id="SettingsFeedback" role="status" aria-live="polite">Loading settings…</p>
 
-                    <section id="SourceOptions" class="metadataTaggerSection" aria-labelledby="SourcesHeading">
-                        <h2 id="SourcesHeading">Metadata sources</h2>
-
+                    <section id="CardSources" class="metadataTaggerGroupCard" data-settings-card="true">
+                        <h3 class="metadataTaggerCardHeading"><button id="CardSourcesHead" type="button" class="metadataTaggerCardHead" aria-expanded="false" aria-controls="CardSourcesBody">
+                            <span class="metadataTaggerCardText"><span class="metadataTaggerCardTitle">Sources &amp; item types</span><span id="CardSourcesSentence" class="metadataTaggerCardSentence">Loading…</span></span>
+                            <span id="CardSourcesAction" class="metadataTaggerCardAction" aria-hidden="true">Edit</span>
+                        </button></h3>
+                        <div id="CardSourcesBody" class="metadataTaggerCardBody" data-card-body="true" hidden>
+                        <div id="SourceOptions">
                         <p class="metadataTaggerSectionDescription">
                             Turn existing metadata into tags.
                         </p>
@@ -1679,10 +1715,53 @@
                         <p class="fieldDescription">Audio language tags copy recorded track codes, including commentary. Blank and undetermined codes are skipped.</p>
                         <p class="fieldDescription">Selected sources: <span id="SelectedSources">Loading…</span></p>
 
-                    </section>
+                        <details id="MoreSources" class="metadataTaggerMoreSources">
+                            <summary>Optional sources · <span id="AdditionalSourcesCount">0 selected</span></summary>
+                            <div class="metadataTaggerSourceChoices">
+                            <div class="checkboxContainer checkboxContainer-withDescription">
+                                <label class="emby-checkbox-label"><input id="EnableStudios" type="checkbox" is="emby-checkbox" /><span>Studios</span></label>
+                                <div class="fieldDescription">Pixar → <code data-generated-tag-parts="studio,pixar">meta:studio:pixar</code></div>
+                            </div>
+                            <div class="checkboxContainer checkboxContainer-withDescription">
+                                <label class="emby-checkbox-label"><input id="EnableProductionCountries" type="checkbox" is="emby-checkbox" /><span>Production countries</span></label>
+                                <div class="fieldDescription">United States → <code data-generated-tag-parts="country,united-states">meta:country:united-states</code></div>
+                            </div>
+                            <div class="checkboxContainer checkboxContainer-withDescription">
+                                <label class="emby-checkbox-label"><input id="EnableProductionYear" type="checkbox" is="emby-checkbox" /><span>Production year</span></label>
+                                <div class="fieldDescription">2024 → <code data-generated-tag-parts="year,2024">meta:year:2024</code></div>
+                            </div>
+                            <div class="checkboxContainer checkboxContainer-withDescription">
+                                <label class="emby-checkbox-label"><input id="EnableSubtitleLanguages" type="checkbox" is="emby-checkbox" /><span>Subtitle languages</span></label>
+                                <div class="fieldDescription">spa → <code data-generated-tag-parts="subtitle-language,spa">meta:subtitle-language:spa</code></div>
+                            </div>
+                        <p class="fieldDescription">Language tags copy recorded audio and subtitle track codes, including commentary and forced subtitles. They do not use Jellyfin's metadata language preference. Blank and undetermined codes are skipped.</p>
+                            </div>
+                            <div class="checkboxContainer checkboxContainer-withDescription">
+                                <label class="emby-checkbox-label"><input id="EnableExistingTagsAsKeywords" type="checkbox" aria-controls="KeywordOptions" is="emby-checkbox" /><span>Existing tags as keywords</span></label>
+                                <div class="fieldDescription"><code>friendship</code> → <code data-generated-tag-parts="keyword,friendship">meta:keyword:friendship</code>. Skips plugin tags and tags with the generated or manual prefix and separator.</div>
+                            </div>
+                            <details id="KeywordOptions" hidden>
+                                <summary>Keyword limits and exclusions</summary>
+                                <div class="inputContainer">
+                                    <label class="inputLabel inputLabelUnfocused" for="MaxKeywordTagsPerItem">Maximum keyword tags per item</label>
+                                    <input id="MaxKeywordTagsPerItem" type="number" min="0" step="1" aria-describedby="MaxKeywordTagsPerItemHelp" is="emby-input" />
+                                    <div id="MaxKeywordTagsPerItemHelp" class="fieldDescription">Use 0 for no limit.</div>
+                                </div>
+                                <div class="inputContainer">
+                                    <label class="inputLabel inputLabelUnfocused" for="ExcludedKeywordPrefixes">Skip existing tags that start with</label>
+                                    <input id="ExcludedKeywordPrefixes" type="text" aria-describedby="ExcludedKeywordPrefixesHelp" is="emby-input" />
+                                    <div id="ExcludedKeywordPrefixesHelp" class="fieldDescription">Separate values with commas or semicolons, for example <code>private:, skip-</code>.</div>
+                                </div>
+                            </details>
+                            <div class="checkboxContainer checkboxContainer-withDescription">
+                                <label class="emby-checkbox-label"><input id="EnableProviderIds" type="checkbox" is="emby-checkbox" /><span>Metadata providers</span></label>
+                                <div class="fieldDescription">A TMDb ID produces <code data-generated-tag-parts="provider,tmdb">meta:provider:tmdb</code>. The provider ID itself is not copied.</div>
+                            </div>
+                        </details>
+                        </div>
 
-                    <section id="ItemTypeOptions">
-                        <h2 id="ItemsHeading">Item types · <span id="ItemTypesSummary">Loading…</span></h2>
+                        <div id="ItemTypeOptions">
+                        <h4 id="ItemsHeading">Item types · <span id="ItemTypesSummary">Loading…</span></h4>
                         <p class="metadataTaggerSectionDescription">
                             Tag these item types across all libraries. Maintenance can remove recorded tags from other item types too.
                         </p>
@@ -1713,10 +1792,16 @@
                                 <div class="fieldDescription">Checks Jellyfin video items that are not movies, series, or episodes.</div>
                             </div>
                         </fieldset>
+                        </div>
+                        </div>
                     </section>
 
-                    <section id="AutomationOptions" class="metadataTaggerSection" aria-labelledby="RunHeading">
-                        <h2 id="RunHeading">Automation · <span id="AutomationSummary">Loading…</span></h2>
+                    <section id="CardAutomation" class="metadataTaggerGroupCard" data-settings-card="true">
+                        <h3 class="metadataTaggerCardHeading"><button id="CardAutomationHead" type="button" class="metadataTaggerCardHead" aria-expanded="false" aria-controls="CardAutomationBody">
+                            <span class="metadataTaggerCardText"><span class="metadataTaggerCardTitle">Automation</span><span id="CardAutomationSentence" class="metadataTaggerCardSentence">Loading…</span></span>
+                            <span id="CardAutomationAction" class="metadataTaggerCardAction" aria-hidden="true">Edit</span>
+                        </button></h3>
+                        <div id="CardAutomationBody" class="metadataTaggerCardBody" data-card-body="true" hidden>
                         <p class="metadataTaggerSectionDescription">
                             Choose whether automatic runs preview or save tags.
                         </p>
@@ -1765,53 +1850,15 @@
                             Manage saved triggers in <a href="#/dashboard/tasks">Scheduled Tasks</a>.
                             The daily task follows automatic mode. Incremental runs enumerate the selected scope and skip unchanged items.
                         </div>
+                        </div>
                     </section>
 
-                        <details id="MoreSources" class="metadataTaggerMoreSources">
-                            <summary>Optional sources · <span id="AdditionalSourcesCount">0 selected</span></summary>
-                            <div class="metadataTaggerSourceChoices">
-                            <div class="checkboxContainer checkboxContainer-withDescription">
-                                <label class="emby-checkbox-label"><input id="EnableStudios" type="checkbox" is="emby-checkbox" /><span>Studios</span></label>
-                                <div class="fieldDescription">Pixar → <code data-generated-tag-parts="studio,pixar">meta:studio:pixar</code></div>
-                            </div>
-                            <div class="checkboxContainer checkboxContainer-withDescription">
-                                <label class="emby-checkbox-label"><input id="EnableProductionCountries" type="checkbox" is="emby-checkbox" /><span>Production countries</span></label>
-                                <div class="fieldDescription">United States → <code data-generated-tag-parts="country,united-states">meta:country:united-states</code></div>
-                            </div>
-                            <div class="checkboxContainer checkboxContainer-withDescription">
-                                <label class="emby-checkbox-label"><input id="EnableProductionYear" type="checkbox" is="emby-checkbox" /><span>Production year</span></label>
-                                <div class="fieldDescription">2024 → <code data-generated-tag-parts="year,2024">meta:year:2024</code></div>
-                            </div>
-                            <div class="checkboxContainer checkboxContainer-withDescription">
-                                <label class="emby-checkbox-label"><input id="EnableSubtitleLanguages" type="checkbox" is="emby-checkbox" /><span>Subtitle languages</span></label>
-                                <div class="fieldDescription">spa → <code data-generated-tag-parts="subtitle-language,spa">meta:subtitle-language:spa</code></div>
-                            </div>
-                        <p class="fieldDescription">Language tags copy recorded audio and subtitle track codes, including commentary and forced subtitles. They do not use Jellyfin's metadata language preference. Blank and undetermined codes are skipped.</p>
-                            </div>
-                            <div class="checkboxContainer checkboxContainer-withDescription">
-                                <label class="emby-checkbox-label"><input id="EnableExistingTagsAsKeywords" type="checkbox" aria-controls="KeywordOptions" is="emby-checkbox" /><span>Existing tags as keywords</span></label>
-                                <div class="fieldDescription"><code>friendship</code> → <code data-generated-tag-parts="keyword,friendship">meta:keyword:friendship</code>. Skips plugin tags and tags with the generated or manual prefix and separator.</div>
-                            </div>
-                            <details id="KeywordOptions" hidden>
-                                <summary>Keyword limits and exclusions</summary>
-                                <div class="inputContainer">
-                                    <label class="inputLabel inputLabelUnfocused" for="MaxKeywordTagsPerItem">Maximum keyword tags per item</label>
-                                    <input id="MaxKeywordTagsPerItem" type="number" min="0" step="1" aria-describedby="MaxKeywordTagsPerItemHelp" is="emby-input" />
-                                    <div id="MaxKeywordTagsPerItemHelp" class="fieldDescription">Use 0 for no limit.</div>
-                                </div>
-                                <div class="inputContainer">
-                                    <label class="inputLabel inputLabelUnfocused" for="ExcludedKeywordPrefixes">Skip existing tags that start with</label>
-                                    <input id="ExcludedKeywordPrefixes" type="text" aria-describedby="ExcludedKeywordPrefixesHelp" is="emby-input" />
-                                    <div id="ExcludedKeywordPrefixesHelp" class="fieldDescription">Separate values with commas or semicolons, for example <code>private:, skip-</code>.</div>
-                                </div>
-                            </details>
-                            <div class="checkboxContainer checkboxContainer-withDescription">
-                                <label class="emby-checkbox-label"><input id="EnableProviderIds" type="checkbox" is="emby-checkbox" /><span>Metadata providers</span></label>
-                                <div class="fieldDescription">A TMDb ID produces <code data-generated-tag-parts="provider,tmdb">meta:provider:tmdb</code>. The provider ID itself is not copied.</div>
-                            </div>
-                        </details>
-                    <details id="TagFormatOptions">
-                        <summary id="TagFormatHeading">Tag format · <span id="TagFormatSummary">meta:genre:animation</span></summary>
+                    <section id="CardTagFormat" class="metadataTaggerGroupCard" data-settings-card="true">
+                        <h3 class="metadataTaggerCardHeading"><button id="CardTagFormatHead" type="button" class="metadataTaggerCardHead" aria-expanded="false" aria-controls="CardTagFormatBody">
+                            <span class="metadataTaggerCardText"><span class="metadataTaggerCardTitle">Tag format</span><span id="CardTagFormatSentence" class="metadataTaggerCardSentence">Loading…</span></span>
+                            <span id="CardTagFormatAction" class="metadataTaggerCardAction" aria-hidden="true">Edit</span>
+                        </button></h3>
+                        <div id="CardTagFormatBody" class="metadataTaggerCardBody" data-card-body="true" hidden>
                         <p class="metadataTaggerSectionDescription">
                             Tags use a prefix, source, and value, such as <code>meta:genre:animation</code>.
                         </p>
@@ -1872,10 +1919,15 @@
                                 </li>
                             </ul>
                         </details>
-                    </details>
+                        </div>
+                    </section>
 
-                    <details class="metadataTaggerSection" aria-labelledby="CleanupHeading">
-                        <summary id="CleanupHeading">Outdated tags</summary>
+                    <section id="CardOutdated" class="metadataTaggerGroupCard" data-settings-card="true">
+                        <h3 class="metadataTaggerCardHeading"><button id="CardOutdatedHead" type="button" class="metadataTaggerCardHead" aria-expanded="false" aria-controls="CardOutdatedBody">
+                            <span class="metadataTaggerCardText"><span class="metadataTaggerCardTitle">Outdated tags</span><span id="CardOutdatedSentence" class="metadataTaggerCardSentence">Loading…</span></span>
+                            <span id="CardOutdatedAction" class="metadataTaggerCardAction" aria-hidden="true">Edit</span>
+                        </button></h3>
+                        <div id="CardOutdatedBody" class="metadataTaggerCardBody" data-card-body="true" hidden>
                         <p class="metadataTaggerSectionDescription">
                             Plugin tags that no longer match your metadata or settings, such as a genre you changed.
                         </p>
@@ -1896,22 +1948,18 @@
                             </div>
                         </div>
 
-                        <div class="checkboxContainer checkboxContainer-withDescription">
-                            <label class="emby-checkbox-label">
-                                <input id="ClaimExistingGeneratedTagsForCleanup" type="checkbox" is="emby-checkbox" />
-                                <span>Include tags from an earlier installation</span>
-                            </label>
-                            <div class="fieldDescription">
-                                Use when an earlier installation left tags that the plugin no longer has records for.
-                                Library runs will record tags with the current generated prefix and separator, including outdated ones.
-                                This allows their removal if you choose Remove when applying changes.
-                                This does not apply to single-item previews or Remove plugin tags.
-                            </div>
+                        <p class="fieldDescription">Tags left by an earlier installation are handled in <button id="OutdatedMaintenanceLink" type="button" class="metadataTaggerLink">Maintenance</button>.</p>
                         </div>
-                        <p id="ClaimTagsWarning" class="metadataTaggerNotice" data-feedback-tone="warning" hidden>Matching tags you added yourself can also be recorded and removed when your Outdated tags setting allows removal.</p>
-                    </details>
+                    </section>
 
-<details id="RunLimitOptions">                            <summary>Run limits</summary>
+                    <section id="CardLimits" class="metadataTaggerGroupCard" data-settings-card="true">
+                        <h3 class="metadataTaggerCardHeading"><button id="CardLimitsHead" type="button" class="metadataTaggerCardHead" aria-expanded="false" aria-controls="CardLimitsBody">
+                            <span class="metadataTaggerCardText"><span class="metadataTaggerCardTitle">Limits &amp; privacy</span><span id="CardLimitsSentence" class="metadataTaggerCardSentence">Loading…</span></span>
+                            <span id="CardLimitsAction" class="metadataTaggerCardAction" aria-hidden="true">Edit</span>
+                        </button></h3>
+                        <div id="CardLimitsBody" class="metadataTaggerCardBody" data-card-body="true" hidden>
+                        <div id="RunLimitOptions">
+                            <h4 class="metadataTaggerSubheading">Run limits</h4>
                             <p class="metadataTaggerSectionDescription">
                                 Use these limits on a busy server. A value of 0 means no limit.
                             </p>
@@ -1938,14 +1986,10 @@
                                 <input id="WriteDelayMilliseconds" type="number" min="0" step="1" aria-describedby="WriteDelayMillisecondsHelp" is="emby-input" />
                                 <div id="WriteDelayMillisecondsHelp" class="fieldDescription">Waits between item updates to reduce server load.</div>
                             </div>
+                        </div>
 
-</details>
-                    <details id="AdvancedOptions" class="metadataTaggerAdvanced">
-                        <summary>Advanced behavior</summary>
-                        <p class="fieldDescription">Log privacy and temporary maintenance actions.</p>
-
-                        <div class="metadataTaggerAdvancedContent">
-                            <h2 class="metadataTaggerSubheading">Log privacy</h2>
+                        <div id="LogPrivacyOptions">
+                            <h4 class="metadataTaggerSubheading">Log privacy</h4>
                             <div class="checkboxContainer checkboxContainer-withDescription">
                                 <label class="emby-checkbox-label">
                                     <input id="QuietLogging" type="checkbox" is="emby-checkbox" />
@@ -1953,59 +1997,14 @@
                                 </label>
                                 <div class="fieldDescription">Routine change logs show item IDs and counts instead.</div>
                             </div>
-
-                            <h2 class="metadataTaggerSubheading">Temporary maintenance actions</h2>
-                            <p class="metadataTaggerSectionDescription">
-                                Applies only to Generate metadata tags and post-scan runs. Each choice stays on until a Generate metadata tags run finishes without errors or hitting a run limit.
-                            </p>
-
-                            <div class="checkboxContainer checkboxContainer-withDescription">
-                                <label class="emby-checkbox-label">
-                                    <input id="ForceFullScanOnNextRun" type="checkbox" is="emby-checkbox" />
-                                    <span>Recheck all selected item types</span>
-                                </label>
-                                <div class="fieldDescription">Also checks items whose metadata, tags, and settings have not changed. Locks and skip tags still apply.</div>
-                            </div>
-
-                            <div class="checkboxContainer checkboxContainer-withDescription">
-                                <label class="emby-checkbox-label">
-                                    <input id="RebuildTrackingLedgerOnNextRun" type="checkbox" is="emby-checkbox" />
-                                    <span>Rebuild plugin tag records</span>
-                                </label>
-                                <div class="fieldDescription">
-                                    Updates the records used to track plugin tags and skip unchanged items. Does not change tags in Jellyfin.
-                                </div>
-                            </div>
-
-                            <div class="checkboxContainer checkboxContainer-withDescription">
-                                <label class="emby-checkbox-label">
-                                    <input id="ClaimExistingGeneratedTagsOnNextRun" type="checkbox" is="emby-checkbox" />
-                                    <span>Include tags from an earlier installation temporarily</span>
-                                </label>
-                                <div class="fieldDescription">
-                                    Same effect as Include tags from an earlier installation above, but clears after a successful Generate metadata tags run.
-                                    Matching tags can then be removed according to your Outdated tags setting.
-                                </div>
-                            </div>
-                            <p id="TemporaryClaimTagsWarning" class="metadataTaggerNotice" data-feedback-tone="warning" hidden>Matching tags you added yourself can also be recorded and removed when your Outdated tags setting allows removal.</p>
                         </div>
-                    </details>
+                        </div>
+                    </section>
+                </div>
 
-                    <p class="fieldDescription">Saved settings control future runs. Automatic runs can change tags when Preview scheduled and post-scan runs is unchecked.</p>
-                    <div class="metadataTaggerSaveRow">
-                        <p id="SettingsFeedback" role="status" aria-live="polite">Loading settings…</p>
-                        <button id="SaveSettingsButton" is="emby-button" type="submit" class="raised button-submit block emby-button">
-                            <span>Save settings</span>
-                        </button>
-                        <p>Save &amp; apply uses configured item types across all libraries.</p>
-                        <button id="SaveApplyButton" type="button" class="raised emby-button">Save &amp; apply tags now</button>
-                        <p id="SaveApplyFeedback" role="status"></p>
-                    </div>
-</div>
-                </form>
-                    <details id="ExampleAside">
-<summary id="ExampleHeading">Try unsaved settings on an item</summary>
-                        <p>See which tags the current settings would generate, including unsaved changes. Nothing is saved.</p>
+                    <aside id="ExampleAside" aria-labelledby="ExampleHeading">
+<h2 id="ExampleHeading">Try unsaved settings</h2>
+                        <p>See which tags the current settings would generate for one item, including unsaved changes. Nothing is saved.</p>
                         <label class="inputLabel inputLabelUnfocused" for="ExampleSearch">Find an item by title</label>
                         <input id="ExampleSearch" type="search" maxlength="200" aria-controls="ExampleResults" is="emby-input" />
                         <p id="ExampleSearchFeedback" role="status">Loading item choices…</p>
@@ -2016,20 +2015,65 @@
                         <p id="ExampleRefreshHelp">Reload current metadata and recalculate the example.</p>
                         <p id="ExampleFeedback" role="status">Choose an item to see its generated tags.</p>
                         <div id="ExampleTags"></div>
-                    </details>
+                    </aside>
 </div>
 </section>
 
 <section id="PanelMaintenance" role="tabpanel" aria-labelledby="TabMaintenance" hidden>
                 <button id="BackToItemsButton" type="button" class="metadataTaggerLink" hidden>‹ Back to Items</button>
                 <h2 id="MaintenanceHeading" tabindex="-1">Maintenance</h2>
-                <p>Remove recorded plugin tags, or open advanced settings to rebuild tracking and claim tags from an earlier installation.</p>
-                <button id="MaintenanceSettingsButton" type="button" class="metadataTaggerLink">Tracking and legacy tag settings</button>
+                <p class="metadataTaggerSectionDescription">Rarely needed. Choices here are saved with Save settings and take effect on the next scheduled run, not immediately. Manual tags, locks, and skip controls are always respected.</p>
+
+                <section id="NextRunActions" class="metadataTaggerCard" aria-labelledby="NextRunActionsHeading">
+                    <h3 id="NextRunActionsHeading">Next-run actions</h3>
+                    <p class="metadataTaggerSectionDescription">
+                        Applies to the daily Generate metadata tags task and post-scan runs, not Apply tags now or Check changes first. Each choice clears after a clean daily run, one that finishes without errors or hitting a run limit.
+                    </p>
+
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="ForceFullScanOnNextRun" type="checkbox" is="emby-checkbox" />
+                            <span>Recheck all selected item types</span>
+                        </label>
+                        <div class="fieldDescription">Also checks items whose metadata, tags, and settings have not changed. Locks and skip tags still apply.</div>
+                    </div>
+
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="RebuildTrackingLedgerOnNextRun" type="checkbox" is="emby-checkbox" />
+                            <span>Rebuild plugin tag records</span>
+                        </label>
+                        <div class="fieldDescription">
+                            Updates the records used to track plugin tags and skip unchanged items. Does not change tags in Jellyfin.
+                        </div>
+                    </div>
+                </section>
+
+                <section id="EarlierInstallationCard" class="metadataTaggerCard" aria-labelledby="EarlierInstallationHeading">
+                    <h3 id="EarlierInstallationHeading">Tags from an earlier installation</h3>
+                    <p class="metadataTaggerSectionDescription">
+                        Let the plugin record unrecorded tags that match the current generated prefix and separator, including outdated ones.
+                        They can then be removed according to your Outdated tags setting. This does not apply to single-item previews or Remove plugin tags.
+                    </p>
+                    <div class="selectContainer">
+                        <label class="selectLabel" for="EarlierInstallationChoice">Include tags from an earlier installation</label>
+                        <select is="emby-select" id="EarlierInstallationChoice" class="emby-select-withcolor emby-select" aria-describedby="EarlierInstallationHelp">
+                            <option value="Off">Off</option>
+                            <option value="Next">Next scheduled run</option>
+                            <option value="Every">Every library run</option>
+                        </select>
+                        <div id="EarlierInstallationHelp" class="fieldDescription"></div>
+                    </div>
+                    <p id="ClaimTagsWarning" class="metadataTaggerNotice" data-feedback-tone="warning" hidden>Matching tags you added yourself can also be recorded and removed when your Outdated tags setting allows removal.</p>
+                    <p id="TemporaryClaimTagsWarning" class="metadataTaggerNotice" data-feedback-tone="warning" hidden>Matching tags you added yourself can also be recorded and removed when your Outdated tags setting allows removal.</p>
+                </section>
+
+                <section id="RemovePluginTagsCard" class="metadataTaggerCard metadataTaggerDangerCard" aria-labelledby="ClearPluginTagsHeading">
                 <h3 id="ClearPluginTagsHeading" tabindex="-1">Remove plugin tags</h3>
                 <p class="metadataTaggerSectionDescription">Preview tag removal before confirming. Manual and unrecorded tags stay. Protected items are skipped.</p>
                 <div class="metadataTaggerCleanup">
                     <p class="metadataTaggerSectionDescription">Includes recorded tags with older prefixes or item types no longer selected. A matching prefix alone never permits removal.</p>
-                    <p id="CleanupReturnWarning" class="metadataTaggerNotice" data-feedback-tone="warning" hidden>Future tagging runs can add these tags again. Turn off Meta Tagger and save before removal to prevent this.</p>
+                    <div id="CleanupReturnWarning" class="metadataTaggerNotice" data-feedback-tone="warning" hidden><p>Future tagging runs can add these tags again. Turn off Meta Tagger and save before removal to prevent this.</p><button id="TurnTaggingOffButton" type="button" class="emby-button">Turn off Meta Tagger</button></div>
                     <details><summary>Resume tagging after removal</summary>
                         <p>Uncheck <strong>Turn on Meta Tagger</strong> in Settings and save before removing tags. To resume tagging other items afterward, add <code data-manual-tag-parts="tagger,skip">manual:tagger:skip</code> to the cleared item in Jellyfin's metadata editor before turning tagging back on.</p>
                         <p>Jellyfin metadata locks and manual skip tags protect items from removal. The preview lists skipped items.</p>
@@ -2069,6 +2113,17 @@
                     </div>
                 </div>
                 </section>
+</section>
+</form>
+<div id="SaveBar" class="metadataTaggerSaveBar" role="region" aria-label="Unsaved settings" hidden>
+    <div class="metadataTaggerSaveBarInner">
+        <p id="SaveBarMessage" class="metadataTaggerSaveBarMessage">You have unsaved settings. Runs use saved settings until you save.</p>
+        <button id="DiscardSettingsButton" type="button" is="emby-button" class="raised emby-button">Discard</button>
+        <button id="SaveApplyButton" type="button" is="emby-button" class="raised emby-button">Save &amp; apply tags now</button>
+        <button id="SaveSettingsButton" type="button" is="emby-button" class="raised button-submit emby-button">Save settings</button>
+        <p id="SaveApplyFeedback" role="status"></p>
+    </div>
+</div>
             </div>
         </div>
         <script type="text/javascript">
@@ -2096,7 +2151,6 @@
                     'IncludeEpisodes',
                     'IncludeVideos',
                     'StaleTagMode',
-                    'ClaimExistingGeneratedTagsForCleanup',
                     'PreviewOnly',
                     'QuietLogging',
                     'DefaultRunMode',
@@ -2107,8 +2161,7 @@
                     'MaxRunMinutes',
                     'WriteDelayMilliseconds',
                     'ForceFullScanOnNextRun',
-                    'RebuildTrackingLedgerOnNextRun',
-                    'ClaimExistingGeneratedTagsOnNextRun'
+                    'RebuildTrackingLedgerOnNextRun'
                 ],
                 numberFields: [
                     'MaxKeywordTagsPerItem',
@@ -2235,7 +2288,9 @@
                     example.textContent = [normalized.manualPrefix].concat(parts).join(normalized.separator);
                 });
 
-                document.querySelector('#TagFormatSummary').textContent = [normalized.generatedPrefix, 'genre', 'animation'].join(normalized.separator);
+                document.querySelector('#CardTagFormatSentence').textContent = 'Tags look like ' +
+                    [normalized.generatedPrefix, 'genre', 'animation'].join(normalized.separator) +
+                    '. Manual tags use ' + normalized.manualPrefix + normalized.separator + '.';
                 var errorContainer = document.querySelector('#TagNamespaceErrors');
                 errorContainer.textContent = normalized.errors.join(' ');
                 errorContainer.hidden = normalized.errors.length === 0;
@@ -2247,12 +2302,36 @@
                 });
             }
 
+            // Earlier-installation tags are one visible choice over two stored booleans.
+            // Persistent wins when a legacy or hand-edited file has both on.
+            function claimChoiceFromConfig(config) {
+                return config.ClaimExistingGeneratedTagsForCleanup ? 'Every'
+                    : config.ClaimExistingGeneratedTagsOnNextRun ? 'Next' : 'Off';
+            }
+
+            function applyClaimChoice(config, choice) {
+                config.ClaimExistingGeneratedTagsForCleanup = choice === 'Every';
+                config.ClaimExistingGeneratedTagsOnNextRun = choice === 'Next';
+            }
+
             function readFormConfig() {
                 var config = {};
                 MetaTaggerConfig.fields.forEach(function (field) {
                     readFieldValue(config, field);
                 });
+                applyClaimChoice(config, document.querySelector('#EarlierInstallationChoice').value);
                 return config;
+            }
+
+            function populateForm(config) {
+                MetaTaggerConfig.fields.forEach(function (field) {
+                    setFieldValue(config, field);
+                });
+                document.querySelector('#EarlierInstallationChoice').value = claimChoiceFromConfig(config);
+            }
+
+            function isSettingsControl(id) {
+                return MetaTaggerConfig.fields.indexOf(id) !== -1 || id === 'EarlierInstallationChoice';
             }
 
             var sourceChoices = [
@@ -2275,22 +2354,79 @@
             }
 
             var validationEditors = {};
+            var settingsCards = ['CardSources', 'CardAutomation', 'CardTagFormat', 'CardOutdated', 'CardLimits'];
+            // Set by the dashboard session so validation can bring a hidden tab into view.
+            var dashboardSelectTab;
+
+            // Editing is accordion-style. Validation reveals instead, so every invalid card stays open.
+            function setCardOpen(cardId, open, keepOthers) {
+                settingsCards.forEach(function (id) {
+                    var current = !document.querySelector('#' + id + 'Body').hidden;
+                    var isOpen = id === cardId ? open : !!keepOthers && current;
+                    document.querySelector('#' + id + 'Body').hidden = !isOpen;
+                    document.querySelector('#' + id + 'Head').setAttribute('aria-expanded', String(isOpen));
+                    document.querySelector('#' + id + 'Action').textContent = isOpen ? 'Close' : 'Edit';
+                });
+            }
+
             function revealEnclosingDetails(element) {
                 for (var parent = element.parentElement; parent; parent = parent.parentElement) {
                     if (parent.tagName === 'DETAILS') { parent.open = true; }
-                    // Conditional editors still contain saved values that can fail native validation.
-                    if (parent.hidden) { parent.hidden = false; validationEditors[parent.id] = true; }
+                    if (parent.getAttribute && parent.getAttribute('data-card-body')) {
+                        setCardOpen(parent.id.replace(/Body$/, ''), true, true);
+                    } else if (parent.getAttribute && parent.getAttribute('role') === 'tabpanel') {
+                        // An invalid value must never stay on a tab the person cannot see.
+                        if (parent.hidden && dashboardSelectTab) { dashboardSelectTab(parent.id.replace(/^Panel/, '')); }
+                    } else if (parent.hidden) {
+                        // Conditional editors still contain saved values that can fail native validation.
+                        parent.hidden = false;
+                        validationEditors[parent.id] = true;
+                    }
                     if (parent.id === 'MetaTaggerConfigForm') { break; }
                 }
             }
+
+            function describeLimits(draft) {
+                var limits = [['MaxItemsPerRun', 'items checked'], ['MaxWritesPerRun', 'items updated'], ['MaxRunMinutes', 'minutes']]
+                    .filter(function (entry) { return draft[entry[0]] > 0; })
+                    .map(function (entry) { return draft[entry[0]] + ' ' + entry[1]; });
+                return (limits.length ? 'Each run stops at ' + limits.join(', ') + '.' : 'No run limits.') +
+                    (draft.WriteDelayMilliseconds > 0 ? ' A ' + draft.WriteDelayMilliseconds + ' ms pause follows each update.' : '') +
+                    ' Item names are ' + (draft.QuietLogging ? 'hidden' : 'shown') + ' in logs.';
+            }
+
+            function renderCardSentences(draft) {
+                var sources = selectedSources(draft);
+                var types = selectedItemTypes(draft);
+                var sentence = {
+                    CardSources: (sources === 'None selected' ? 'No metadata sources are selected' : 'Create tags from ' + sources) +
+                        (types.indexOf('None selected') === 0 ? ', and no item types are selected.' : ' for ' + types + '.'),
+                    CardAutomation: 'Check ' + (draft.DefaultRunMode === 'FullScan' ? 'all selected item types' : 'new or changed items') + '. ' +
+                        (draft.PreviewOnly ? 'Preview only: scheduled and post-scan runs never write tags.' : 'Apply changes: scheduled and post-scan runs write tags.') +
+                        ' Post-scan runs ' + (draft.RunAfterLibraryScan ? 'on (' + draft.MinimumMinutesBetweenAutoRuns + ' min wait).' : 'off.'),
+                    CardOutdated: { Keep: 'Outdated plugin tags are kept.', Preview: 'Outdated plugin tags are kept and listed in results.',
+                        Remove: 'Outdated plugin tags are removed when you apply changes.' }[draft.StaleTagMode] +
+                        (draft.ClaimExistingGeneratedTagsForCleanup ? ' Tags from an earlier installation are also recorded on every library run.'
+                            : draft.ClaimExistingGeneratedTagsOnNextRun ? ' Tags from an earlier installation are also recorded on the next scheduled run.' : ''),
+                    CardLimits: describeLimits(draft)
+                };
+                Object.keys(sentence).forEach(function (id) { document.querySelector('#' + id + 'Sentence').textContent = sentence[id]; });
+            }
+
+            var earlierInstallationHelp = {
+                Off: 'Only tags the plugin has recorded, or that match current generated output, are managed.',
+                Next: 'Records unrecorded tags with the current prefix on the next scheduled run. Applies to the daily Generate metadata tags task and post-scan runs, not Apply tags now or Check changes first. It clears after a clean daily run.',
+                Every: 'Records unrecorded tags on every library run. Hand-entered matching tags can be recorded and removed too when outdated tags are set to be removed.'
+            };
 
             function updateConditionalFields(event) {
                 var draft = readFormConfig();
                 document.querySelector('#ClaimTagsWarning').hidden = !draft.ClaimExistingGeneratedTagsForCleanup;
                 document.querySelector('#TemporaryClaimTagsWarning').hidden = !draft.ClaimExistingGeneratedTagsOnNextRun;
+                document.querySelector('#EarlierInstallationHelp').textContent = earlierInstallationHelp[claimChoiceFromConfig(draft)];
                 document.querySelector('#ItemTypesSummary').textContent = selectedItemTypes(draft);
-                document.querySelector('#AutomationSummary').textContent = (draft.PreviewOnly ? 'Preview only' : 'Apply changes') + ' · Post-scan runs ' + (draft.RunAfterLibraryScan ? 'on' : 'off');
-                document.querySelector('#SelectedSources').textContent = selectedSources(readFormConfig());
+                renderCardSentences(draft);
+                document.querySelector('#SelectedSources').textContent = selectedSources(draft);
                 document.querySelector('#AdditionalSourcesCount').textContent =
                     sourceChoices.slice(3).filter(function (entry) { return document.querySelector('#' + entry[0]).checked; }).length + ' selected';
                 [['KeywordOptions', 'EnableExistingTagsAsKeywords'], ['EpisodeOptions', 'IncludeEpisodes'], ['PostScanOptions', 'RunAfterLibraryScan']].forEach(function (entry) {
@@ -2304,11 +2440,14 @@
                 feedback.setAttribute('data-feedback-tone', isError ? 'error' : 'neutral');
                 feedback.setAttribute('role', isError ? 'alert' : 'status');
                 feedback.textContent = message;
+                // The bar is the only settings message visible on other tabs.
+                document.querySelector('#SaveBarMessage').textContent = message;
             }
 
             function setSavePending(isPending) {
                 document.querySelector('#SaveSettingsButton').disabled = isPending;
                 document.querySelector('#SaveApplyButton').disabled = isPending;
+                document.querySelector('#DiscardSettingsButton').disabled = isPending;
             }
 
             function previewProperty(value, camelCaseName, pascalCaseName) {
@@ -2533,10 +2672,15 @@
                     selectTab('Items');
                     document.querySelector('#' + (document.querySelector('#ClearItemButton').disabled ? 'InspectorHeading' : 'ClearItemButton')).focus();
                 });
-                document.querySelector('#MaintenanceSettingsButton').addEventListener('click', function () {
-                    selectTab('Settings');
-                    document.querySelector('#AdvancedOptions').open = true;
-                    document.querySelector('#RebuildTrackingLedgerOnNextRun').focus();
+                dashboardSelectTab = selectTab;
+                document.querySelector('#OutdatedMaintenanceLink').addEventListener('click', function () {
+                    selectTab('Maintenance');
+                    document.querySelector('#EarlierInstallationChoice').focus();
+                });
+                settingsCards.forEach(function (id) {
+                    document.querySelector('#' + id + 'Head').addEventListener('click', function () {
+                        setCardOpen(id, document.querySelector('#' + id + 'Body').hidden);
+                    });
                 });
                 var hasUnsavedChanges = false;
                 var settingsLoaded = false;
@@ -3632,15 +3776,8 @@
                 var exampleSearchTimer;
                 var selectedExample = null;
                 var exampleItems = [];
-                document.querySelector('#ExampleAside').addEventListener('toggle', function () {
-                    if (exampleIsVisible()) { scheduleExampleSearch(); scheduleExample(); }
-                    else {
-                        clearTimeout(exampleTimer); clearTimeout(exampleSearchTimer);
-                        delete pendingRequests.example; delete pendingRequests.exampleSearch;
-                    }
-                });
                 function exampleIsVisible() {
-                    return active && settingsLoaded && selectedView === 'Settings' && document.querySelector('#ExampleAside').open;
+                    return active && settingsLoaded && selectedView === 'Settings';
                 }
                 function exampleLabel(item) {
                     return [field(item, 'name'), field(item, 'itemType'), field(item, 'year')].filter(Boolean).join(' · ');
@@ -3787,12 +3924,15 @@
                     document.querySelector('#CheckAgainButton').disabled = document.querySelector('#RunPreviewButton').disabled;
                     document.querySelector('#OutdatedCheckNotice').hidden = !checkOutdated || !!requestedTask;
                     document.querySelector('#UnsavedEditsNotice').hidden = !hasUnsavedChanges;
+                    document.querySelector('#SaveBar').hidden = !hasUnsavedChanges;
+                    document.querySelector('#SettingsFeedback').setAttribute('data-unsaved', String(hasUnsavedChanges));
+                    document.querySelector('#TurnTaggingOffButton').disabled = !active || !settingsLoaded;
                     document.querySelector('#StopPreviewButton').disabled = !requestedTask || !!pendingRequests.taskStop;
                     setSavePending(!active || !settingsLoaded || !!pendingRequests.settings);
                     var libraryBusy = !!requestedTask || !!pendingRequests.taskStart || !!pendingRequests.taskLaunch;
                     document.querySelector('#SaveApplyButton').disabled = document.querySelector('#SaveApplyButton').disabled || libraryBusy;
                     document.querySelector('#SaveApplyFeedback').textContent = libraryBusy ? 'Wait for the current library run before using Save & apply tags now.' : '';
-                    MetaTaggerConfig.fields.forEach(function (field) {
+                    MetaTaggerConfig.fields.concat(['EarlierInstallationChoice']).forEach(function (field) {
                         document.querySelector('#' + field).disabled = !active || !settingsLoaded;
                     });
                     document.querySelector('#RefreshPreviewButton').disabled =
@@ -3869,7 +4009,8 @@
                 }
 
                 function markSettingsChanged(event) {
-                    if (event && event.target.id.indexOf('Example') === 0) { return; }
+                    // The form also holds removal controls and the example search. Only settings are drafts.
+                    if (event && event.target && !isSettingsControl(event.target.id)) { return; }
                     updateConditionalFields(event);
                     var unsavedMessage = 'You have unsaved settings. Save them before running a preview or applying changes. The settings example uses your unsaved changes.';
                     hasUnsavedChanges = true;
@@ -4111,9 +4252,7 @@
                         }, function (config) {
                             var normalized = normalizeNamespaceConfig(config);
                             applyNormalizedNamespace(config, normalized);
-                            MetaTaggerConfig.fields.forEach(function (field) {
-                                setFieldValue(config, field);
-                            });
+                            populateForm(config);
                             renderNamespaceExamples(normalized);
                             updateConditionalFields();
                             settingsLoaded = true;
@@ -4212,12 +4351,44 @@
                             setSettingsFeedback('Settings could not be saved. Try again or check the Jellyfin server log.', true);
                         });
                         settingsWrite.then(function () {
-                            if (andApply && savedSuccessfully && active && sessionEpoch === saveSessionEpoch) { startGenerationTask(true, true); }
+                            if (andApply && savedSuccessfully && active && sessionEpoch === saveSessionEpoch) {
+                                selectTab('Activity');
+                                startGenerationTask(true, true);
+                            }
                         });
                         return false;
                 }
+                function discardSettings() {
+                    if (!active || !settingsLoaded || pendingRequests.settings || !hasUnsavedChanges) { return; }
+                    populateForm(savedConfiguration);
+                    validationEditors = {};
+                    renderNamespaceExamples(normalizeNamespaceConfig(readFormConfig()));
+                    updateConditionalFields();
+                    hasUnsavedChanges = false;
+                    revision++;
+                    invalidateItem('Unsaved settings discarded. Preview this item again.');
+                    invalidateCleanup('Unsaved settings discarded. Preview tag removal again.');
+                    scheduleExample();
+                    if (!requestedTask) {
+                        setFeedbackTone('TaskFeedback', 'neutral');
+                        document.querySelector('#TaskFeedback').textContent = field(savedConfiguration, 'isEnabled') ? 'Ready to preview with saved settings.' : 'Tagging is off. Turn it on in Settings and save to run a preview.';
+                    }
+                    setSettingsFeedback('Unsaved settings discarded.', false);
+                    setFeedbackTone('SettingsFeedback', 'neutral');
+                    renderRecordedStatus();
+                    updateControls();
+                    loadLatestPreview();
+                }
                 document.querySelector('#MetaTaggerConfigForm').addEventListener('submit', function (e) { e.preventDefault(); saveSettings(false); });
+                document.querySelector('#SaveSettingsButton').addEventListener('click', function () { saveSettings(false); });
                 document.querySelector('#SaveApplyButton').addEventListener('click', function () { saveSettings(true); });
+                document.querySelector('#DiscardSettingsButton').addEventListener('click', discardSettings);
+                document.querySelector('#TurnTaggingOffButton').addEventListener('click', function () {
+                    var enabled = document.querySelector('#IsEnabled');
+                    if (!enabled.checked) { return; }
+                    enabled.checked = false;
+                    markSettingsChanged({ target: enabled });
+                });
 
                 document.querySelector('#RefreshPreviewButton').addEventListener('click', function () { loadLatestPreview(); loadRuns(); });
 
