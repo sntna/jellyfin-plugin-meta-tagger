@@ -21,78 +21,80 @@ The plugin does not generate interpreted policy tags such as `audience:kids`,
 
 ## Quick start
 
-1. Fresh installations use automatic Apply and post-scan runs. Select
-   **Preview scheduled and post-scan runs** if you want read-only automatic runs.
-2. Choose the Jellyfin details and item types you want to tag.
-3. Save the settings.
-4. Optionally select **Check changes first** to preview configured item types across
-   all libraries without changing tags.
-5. Select **Apply tags now** for that scope, or select one item in **Browse items**
+1. Fresh installations use automatic Apply and post-scan runs. On the **Settings**
+   tab, open **Automation** and select **Preview scheduled and post-scan runs** if
+   you want read-only automatic runs.
+2. Open **Sources & item types** and choose the Jellyfin details and item types
+   you want to tag.
+3. Select **Save settings** in the bar at the bottom of the page.
+4. Optionally select **Check changes first** on **Activity** to preview configured
+   item types across all libraries without changing tags.
+5. Select **Apply tags now** for that scope, or select one item on **Items**
    and use **Apply tags now to this item**. No preview or confirmation is required.
-   Apply recalculates current metadata and saved rules. **Stop item run** also cancels
+   Apply recalculates current metadata and saved settings. **Stop item run** also cancels
    queued item work. **Save & apply tags now** saves the submitted draft before
    library-wide Apply; failed saves prevent generation.
 
-**Overview** shows the latest run, saved tagging settings, scheduled run action,
-and post-scan settings. **Preview results** shows the latest generation
-preview, using its retained history when a later Apply or cleanup replaced the
-latest-summary preview. It identifies outdated settings and incomplete or
-unavailable details. **Browse items** opens the browser; its visible **Filter**
-dropdown filters preview status on the loaded page. **History**
-is secondary to Overview and Preview results and retains recent attempts and their
-available details. Selecting a run marks it and focuses its details heading below
-the list. Recorded results never grant approval to apply tags.
+**Activity** shows the scope and **Rules in effect**, the **Latest run**, and
+**Proposed tag changes** from the latest generation preview. Proposed changes use
+retained run details when a later Apply or cleanup replaced the latest-summary
+preview, and identify outdated settings and incomplete or unavailable details.
+**Items** browses and inspects items; its **Filter** dropdown filters preview
+status on the loaded page. **Earlier activity** on Activity lists recent runs
+and their available details. Recorded results never authorize applying tags.
 
-History keeps 20 attempts, with up to 1,000 item details and 5 MiB of detail data
-per run. Open a run's **Run details** to see its recorded rules, selected item
+Earlier activity keeps 20 runs, with up to 1,000 item details and 5 MiB of detail
+data per run. Open a run's **Run details** to see its recorded rules, selected item
 types, trigger, times, authorization, and processing coverage. Authorization
 records permission; checked, updated, and remaining counts show the work done.
 Item results distinguish Preview proposals, confirmed tag writes, unconfirmed
 attempts, and ownership records that could not be saved. They retain added,
 removed, and kept tags plus source explanations. Later settings or metadata edits
 do not recalculate these results. Older, unavailable, or truncated details carry
-an explicit notice. History is read-only and never authorizes generation or tag
-removal. Inspect the current item before retrying an unconfirmed update.
+an explicit notice. Earlier activity is read-only and never authorizes generation
+or tag removal. Inspect the current item before retrying an unconfirmed update.
 
-**Settings** keeps all configuration controls. The
-**Try these settings** aside uses the current draft while Settings is visible,
-without saving settings or changing tags. It sits beside the form on wide screens
-and below it on narrow screens. Leaving Settings stops searches and calculations
-while retaining the query and selected item. Returning uses the latest draft.
-See the [dashboard guide](dashboard.md) for scope, approval, and
-history limits.
+**Settings** groups configuration into cards. The **Try unsaved settings** aside
+uses the current draft while Settings is visible, without saving settings or
+changing tags. It sits beside the cards on wide screens and below them on narrow
+screens. Leaving Settings stops searches and calculations while retaining the
+query and selected item. Returning uses the latest draft. See the
+[dashboard guide](dashboard.md) for scope, authorization, and Earlier activity limits.
 
 ## Settings guide
 
 Genres, parental rating, and audio languages are shown first and enabled by
-default. The other six sources start off inside the collapsed **More sources**
-section. The source summary names every enabled choice even while that section
-is closed. Existing saved selections are preserved.
+default. The other six sources start off inside the collapsed **Optional sources**
+section. The **Sources & item types** card summary names every enabled choice even
+while that section is closed. Existing saved selections are preserved.
 
 New installations select movies and series, use **New or changed items** with
 automatic Apply and post-scan runs, and keep outdated tags. Episodes, generic
 videos, and parent-series inheritance start off. Existing items are excluded
 from automatic generation until explicitly authorized through Apply.
-Tag format and item types are separate disclosures with draft summaries.
-The item-type summary says whether episodes include series metadata. Native
-validation opens hidden editors so their values can be corrected.
-**Edit settings** on Overview opens Settings. Saved automation remains visible
-on Overview; a draft does not change those saved values.
+Each card summarizes its draft values, and **Edit** opens it. The item-type
+summary says whether episodes include series metadata. Validation opens the
+cards and hidden editors that hold invalid values so they can be corrected.
+**Edit rules ›** on Activity opens Settings. Saved settings stay visible on
+Activity; a draft does not change them.
 
-For library tagging, Preview results' **Apply changes across all libraries** guidance
-names **Apply metadata tag changes** and links to Jellyfin's Scheduled Tasks.
-The link does not save or launch anything. The task uses current saved settings
-and metadata across all libraries, with selected item types, protections, and
-run limits. Save the draft first. Choosing automatic Preview does not prevent this explicit
-Apply task from writing tags. Turning off post-scan runs does not remove any
-independently configured Scheduled Tasks triggers.
+Settings are saved only with **Save settings** or **Save & apply tags now** in the
+sticky bar that appears while changes are unsaved. **Discard** restores the saved
+settings. Runs always use saved settings.
 
-**Maintenance** shows **Remove plugin tags** controls directly. The inspector's
-**Preview tag removal** action opens Maintenance and selects the correct target.
-Leaving Maintenance clears its confirmation; a fresh removal preview is
-required before confirming again. Advanced limits, log privacy, temporary
-maintenance options, all outdated-tag choices, and ownership-recovery controls
-remain in Settings.
+For library tagging, Jellyfin's **Apply metadata tag changes** scheduled task
+uses current saved settings and metadata across all libraries, with selected
+item types, protections, and run limits. The Automation card links to Scheduled
+Tasks; the link does not save or launch anything. Save the draft first. Choosing
+automatic Preview does not prevent this explicit Apply task from writing tags.
+Turning off post-scan runs does not remove any independently configured
+Scheduled Tasks triggers.
+
+**Maintenance** holds next-run actions, tags from an earlier installation, and
+**Remove plugin tags**. The Items inspector's **Preview tag removal** action opens
+Maintenance and selects that item. Leaving Maintenance clears its confirmation;
+a fresh removal preview is required before confirming again. Run limits, log
+privacy, and outdated-tag choices are in Settings.
 
 ### Tag format
 
@@ -126,8 +128,8 @@ The default sources are **Genres**, **Parental rating**, and **Audio languages**
 Studios, production countries, production year, subtitle languages, existing
 tags as keywords, and metadata providers are optional and start off.
 
-- **Genres**, **parental rating**, **studios**, **production countries**, and
-  **production year** copy those Jellyfin values into normalized tags.
+- **Genres**, **Parental rating**, **Studios**, **Production countries**, and
+  **Production year** copy those Jellyfin values into normalized tags.
 - **Parental rating** uses Jellyfin's **Custom rating** when it is set and
   otherwise uses **Parental rating** (`OfficialRating` in the server API).
 - **Audio languages** copies recorded audio track codes, including commentary.
@@ -161,7 +163,7 @@ between post-scan runs is 30 minutes.
   metadata, tags, and settings match the plugin records, or **All selected item
   types** to recheck them. Both respect Jellyfin locks, skip tags, and run limits.
   Generate, Preview, Apply, and runs after library scans use this choice unless
-  a temporary maintenance action overrides it.
+  a next-run action overrides it.
 - **Preview scheduled and post-scan runs** keeps tags unchanged during Generate metadata tags,
   Check all items for metadata tag changes, and runs after library scans. Clear
   the checkbox to let these runs apply changes. Preview metadata tag changes
@@ -182,10 +184,12 @@ generate. A genre tag can become outdated when you edit the genre in Jellyfin.
 - **Remove when applying changes** lists them under **Tags to remove** and
   allows their removal during Apply. Preview never changes tags.
 
-**Include tags from an earlier installation** records tags with the current
-generated prefix and separator that the plugin has no records for, including
-outdated and hand-entered matching tags. They can then be removed according to
-the Outdated tags setting. This applies only to library tagging runs. Tags that
+**Include tags from an earlier installation** on the Maintenance tab records tags
+with the current generated prefix and separator that the plugin has no records
+for, including outdated and hand-entered matching tags. They can then be removed
+according to the Outdated tags setting. It applies only to library tagging runs:
+**Next scheduled run** records them on the next daily or post-scan run and clears
+after a clean daily run, and **Every library run** keeps recording them. Tags that
 match the current generated output can become plugin tags without this option.
 
 ### Remove plugin tags
@@ -208,15 +212,15 @@ removing tags. For one item, remove its plugin tags, add the configured manual
 skip tag in Jellyfin, then turn tagging back on and save. The default skip tag is
 `manual:tagger:skip`. Remove any existing lock or skip tag before tag removal.
 
-Run limits also apply to removal. If a run stops at a limit, select **Review
-removal** again and confirm the remaining removals.
+Run limits also apply to removal. If a run stops at a limit, select **Preview
+tag removal** again and confirm the remaining removals.
 
 Editing settings, changing the selected item, or leaving Maintenance clears the
 affected removal preview and confirmation. Leaving the dashboard ends the
 preview session; requests already sent to Jellyfin can still finish. Edits made
 while saving remain unsaved until you save again.
 
-### Advanced settings
+### Limits and privacy
 
 **Maximum items checked per run**, **Maximum items updated per run**, and
 **Maximum minutes per run** stop a run at the chosen limit. `0` means no limit.
@@ -224,18 +228,21 @@ One item update can change several tags. **Pause after each item update** reduce
 server load. **Hide item names and tag values in routine logs** uses item IDs
 and counts instead.
 
-Temporary maintenance checkboxes apply to Generate metadata tags and runs after
-library scans. They do not affect the separate Preview metadata tag changes,
-Apply metadata tag changes, Check all items for metadata tag changes, or Rebuild
-plugin tag records tasks. A checkbox may apply to several runs; it clears only
-after Generate metadata tags finishes without errors or reaching a run limit.
+### Maintenance
+
+**Next-run actions** are saved with **Save settings**. They apply to Generate
+metadata tags and runs after library scans. They do not affect **Apply tags now**,
+**Check changes first**, or the separate Preview metadata tag changes, Apply
+metadata tag changes, Check all items for metadata tag changes, or Rebuild plugin
+tag records tasks. An action may apply to several runs; it clears only after
+Generate metadata tags finishes without errors or reaching a run limit.
 
 - **Recheck all selected item types** also checks unchanged items.
 - **Rebuild plugin tag records** updates the records used to identify removable
   tags and skip unchanged items. It does not change tags in Jellyfin.
-- **Include tags from an earlier installation temporarily** has the same effect
-  as the option under Outdated tags, but clears after a successful Generate
-  metadata tags run.
+
+**Include tags from an earlier installation** is described under
+[Outdated tags](#outdated-tags).
 
 ## Tag preservation
 
@@ -257,7 +264,7 @@ authorizes them; eligible later additions can receive tags automatically.
 Incremental processing can enumerate the full selected scope and skip unchanged items.
 
 `MinimumMinutesBetweenAutoRuns` skips post-scan processing when the latest tagging
-run was too recent. History records **Skipped: cooldown**, with no items checked
+run was too recent. Earlier activity records **Skipped: cooldown**, with no items checked
 or tags written. The skip neither extends the cooldown nor queues a run. The next
 library scan after the cooldown can run. The daily task does not use this cooldown.
 

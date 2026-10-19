@@ -81,7 +81,7 @@ and installs the plugin, and watches for edits:
 - C#, project-file, and plugin catalog image changes rebuild and install the DLL, restart the disposable
   server, then reload the browser once Jellyfin is ready.
 - Unsaved settings defer automatic reload. Save them to continue, or manually
-  reload to discard them. Reload returns to the workspace; item selections and unsubmitted action
+  reload to discard them. Reload returns to the Activity tab; item selections and unsubmitted action
   confirmations are cleared.
 - Build failures appear in the terminal and development banner. Fix the error
   and save again to retry. Ctrl+C stops the watcher and proxy, leaving Jellyfin running.
@@ -167,7 +167,7 @@ source-served development checks alone do not verify the packaged page.
 | Development proxy | `scripts/dev.py` serves source edits and rebuilds C#; `scripts/tests/test_dev.py` checks watcher and proxy behavior. |
 | Embedded page | `Jellyfin.Plugin.MetaTagger.Tests/PluginTests.cs` verifies the dashboard menu entry and page embedded in the built assembly. |
 | HTTP integration | `scripts/dashboard-smoke.py` checks authenticated plugin routes, writes, and persistence against generated Jellyfin state. |
-| Browser integration | `scripts/check-dashboard-browser.mjs` checks installed-package layout, overflow, views, and keyboard focus in Jellyfin's web host, plus the development reload contract against actual markup. |
+| Browser integration | `scripts/check-dashboard-browser.mjs` checks installed-package layout, overflow, tabs, and keyboard focus in Jellyfin's web host, plus the development reload contract against actual markup. |
 
 Install the browser runner's pinned dependencies and Chromium once:
 
@@ -201,7 +201,7 @@ for review handoff requirements. These local references support review without
 becoming public, issue-specific documentation.
 
 The plugin bundles its dashboard layout and styles, scoped to Meta Tagger.
-The workspace and on-demand views use charcoal backgrounds, ivory text, cyan actions, slate borders,
+The four dashboard tabs use charcoal backgrounds, ivory text, cyan actions, slate borders,
 and 8 px corners. Dashboard styles are defined in `configPage.html`.
 Controls inherit Jellyfin's font; metadata uses a system monospace stack.
 The plugin retains this palette in Jellyfin's light and dark themes. Error and

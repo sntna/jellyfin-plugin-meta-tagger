@@ -188,6 +188,37 @@ test('the unsaved bar can stick to the viewport inside Jellyfin page chrome', ()
     assert.match(markup, /\.metadataTaggerSaveBar\s*\{[^}]*position:\s*sticky;[^}]*bottom:\s*0/);
 });
 
+test('every style selector names an element or class the page uses', () => {
+    const style = markup.match(/<style>([\s\S]*?)<\/style>/)[1];
+    const page = markup.replace(style, '');
+    // Jellyfin's emby-* components render these classes at runtime.
+    const hostClasses = ['checkboxIcon', 'checkboxOutline', 'inputLabelFocused', 'selectArrowContainer', 'selectLabelFocused'];
+    const selectors = style.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\{[^{}]*\}/g, '{}');
+    const orphans = [...new Set([...selectors.matchAll(/([#.])([A-Za-z][\w-]*)/g)].map(match => match[0]))]
+        .filter(selector => !hostClasses.includes(selector.slice(1)))
+        .filter(selector => !new RegExp(`\\b${selector.slice(1)}\\b`).test(page));
+    assert.deepEqual(orphans, []);
+});
+
+test('public docs name only labels the page shows', () => {
+    const docs = ['README.md', 'docs/dashboard.md', 'docs/meta-tagger-plugin.md']
+        .map(path => [path, readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8')]);
+    const pageText = markup.replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+    // Bold text that is not this page's: Jellyfin navigation, a task name, and the supported server version.
+    const jellyfinLabels = ['Dashboard → Plugins → Repositories', 'Apply metadata tag changes', '12.0.0'];
+    // Labels and navigation the four-tab redesign removed.
+    const removed = ['Overview', 'Browse items', 'History', 'Try these settings', 'Try unsaved settings on an item', 'More sources',
+        'Edit settings', 'Review removal', 'Recent runs', 'Refresh history', 'Tracking and legacy tag settings', 'workspace',
+        'Back button', 'Escape', 'earlier installation temporarily', 'Apply changes across all libraries', 'Temporary maintenance'];
+    for (const [path, text] of docs) {
+        const prose = text.replace(/\s+/g, ' ');
+        for (const [, label] of prose.matchAll(/\*\*([^*]+)\*\*/g)) {
+            if (!jellyfinLabels.includes(label)) assert.ok(pageText.includes(label), `${path} names "${label}", which the page does not show`);
+        }
+        for (const label of removed) assert.equal(prose.includes(label), false, `${path} still mentions "${label}"`);
+    }
+});
+
 test('settings item choices search automatically and show selection with source values', async () => {
     const page = await readyDashboard();
     await page.go('Settings');

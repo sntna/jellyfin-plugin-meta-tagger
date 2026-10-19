@@ -1,67 +1,119 @@
 # Dashboard guide
 
-Meta Tagger opens in a compact workspace. Browse items, History, and Maintenance open on demand from the workspace tools. Each view has a Back button that returns to its entry point. Escape also returns when focus is outside a text field or select control. Drafts, item selection, search, pagination, and series breadcrumbs stay in place. Leaving a view discards unfinished read requests; reopening retries the selected page or retained run.
+Meta Tagger has four tabs: **Activity**, **Items**, **Settings**, and
+**Maintenance**. Activity opens first. Use the Left and Right arrow keys, Home, or End to move
+between tabs. Switching tabs keeps unsaved settings, the item search, the selected
+item, pagination, and series breadcrumbs. Leaving a tab discards unfinished read
+requests for it; returning retries the selected page or run.
 
-- **Workspace** puts editable common sources, item types, automatic mode, and post-scan controls together.
-  The saved scope appears beside **Apply tags now** and **Check changes first**.
-  Apply uses current metadata and saved settings and explicitly authorizes existing items in that scope.
-  Checking writes no tags and never saves a draft. **Stop run** requests cancellation.
-  **Proposed tag changes** shows the latest available generation preview with its date,
-  settings freshness, and incomplete or unavailable details. **Saved tag results** shows
-  the current Apply run's retained item outcomes, including confirmed and unconfirmed
-  writes, failures, and missing details. Both use Jellyfin artwork with title fallbacks.
-  A failed result request offers a retry without starting another run.
-  Optional sources, Tag format, Outdated tags, Run limits, and Advanced behavior remain
-  in named disclosures. Validation reveals invalid controls before saving.
-  **Save settings** explicitly saves the draft. **Save & apply tags now** starts Apply
-  only after a successful save. Later edits remain unsaved.
-  **Try unsaved settings on an item** searches up to 25 choices and calculates an example
-  without saving. Collapsing it or leaving the workspace stops example requests and
-  retains the query and selection. Reopening it uses the latest draft.
-- **Browse items** opens search, library filtering, pages of 25, and the item
-  inspector. The visible **Filter** dropdown filters preview status and applies
-  only to the loaded page. A preview item's **Preview this item** action selects that item.
-  Selecting an item does not start a check. **Apply tags now to this item** recalculates
-  its tags from current metadata and saved settings without a preview or confirmation.
-  **Check changes first** optionally shows proposed tag changes. **Stop item run**
-  cancels this request even while it waits behind another run. Progress and the final
-  saved-write count appear beside the action. Unsaved settings must be saved first.
-- **Recent runs** opens any of the latest three runs directly in History. The selected snapshot stays read-only.
-- **History** shows recorded runs and item results in separate scrolling lists.
-  **Skipped: cooldown** means a post-scan trigger checked no items and changed no tags.
-  It neither extends the cooldown nor queues a later run.
-  Selecting a run within History keeps keyboard focus and list position on that run.
-  Opening a recent run focuses its detail heading. Refresh history also retries the selected run.
-  Counts appear separately from status guidance. Preview results and history items include thumbnails.
-- **Maintenance** shows removal controls directly for tags recorded as plugin-owned. It requires
-  a fresh preview and explicit confirmation. Leaving Maintenance invalidates
-  that preview and confirmation. The Browse items shortcut opens Maintenance with
-  the selected item ready to preview. Back returns to that inspector.
-  **Tracking and legacy tag settings** opens the existing Advanced behavior controls
-  for rechecking items, rebuilding plugin tag records, and temporarily claiming legacy tags.
-  These choices remain draft settings until saved and do not authorize generation.
+## Activity
 
-**History** is available from the workspace tools and Recent runs.
-It retains the latest 20 attempts, including failures, cancellations, and
-incomplete runs. Each run keeps up to 1,000 item details and 5 MiB of detail
-data. Missing or shortened results are identified. History never authorizes an
-item update or tag removal. Plugin tag removal still requires a separate preview
-and confirmation; leaving Maintenance clears that confirmation. In Browse items,
-**Preview tag removal** opens the removal destination with the selected item and
-requests its removal list. **Remove listed tags** requires separate confirmation.
+The scope card names the configured item types across all libraries and the
+saved **Rules in effect**. **Edit rules ›** opens Settings.
 
-For library-wide changes, use **Apply tags now** at the top of the page. It uses
-current saved settings and metadata for configured item types across all libraries,
-subject to protections and run limits. A browsing library filter never narrows this scope.
-**Save & apply tags now** saves the submitted settings first; a failed save prevents
-Apply. Edits made while saving remain a separate unsaved draft. **Check changes first**
-never saves a draft or enables automatic Apply. Jellyfin's **Apply metadata tag changes**
-scheduled task remains available. Explicit Apply can write tags even when automatic
-runs use Preview. Recorded checks and history never authorize writes. Post-scan being
-Off does not disable separate Jellyfin task triggers.
+- **Apply tags now** recalculates current metadata and saved settings and writes
+  permitted changes. It explicitly authorizes existing items in that scope, even
+  when automatic runs only preview. Item protections and run limits still apply.
+- **Check changes first** writes no tags and never saves a draft.
+- **Stop run** requests cancellation.
 
-Switching destinations preserves draft edits. Save before running a preview.
-New installations enable genres, parental rating, and audio languages for movies and series. Other sources, episodes, and generic videos start off. Existing saved selections are preserved.
+A browsing library filter in Items never narrows this scope. When the last check
+used older settings, **Check again** runs a new one. When Settings has unsaved
+edits, **Review settings** opens them; runs always use saved settings.
+
+**Latest run** shows the most recent run, its time, and its counts.
+**View run details** opens that run in Earlier activity.
+
+**Proposed tag changes** shows the latest available generation preview with its
+date, an **Outdated** chip when settings changed after it, and incomplete or
+unavailable details. **Preview this item** opens that item in Items.
+**Review all in Items ›** opens Items filtered to items with tag differences.
+**Reload preview results** retries a failed or stale result without starting a run.
+
+**Earlier activity** lists recorded runs, newest first. Filter it with **All**,
+**Changed tags**, or **Problems**, and use **Refresh activity** to reload it.
+Select a run to expand its summary and item results, including confirmed and
+unconfirmed writes, failures, and missing details. **Run details** lists its
+recorded rules, selected item types, trigger, times, authorization, and processing
+coverage. **Skipped: cooldown** means a post-scan trigger checked no items and
+changed no tags. It neither extends the cooldown nor queues a later run.
+
+Earlier activity keeps the latest 20 runs, including failures, cancellations,
+and incomplete runs. Each run keeps up to 1,000 item details and 5 MiB of detail
+data. Missing or shortened results are identified. Recorded runs never authorize
+an item update or tag removal.
+
+## Items
+
+**Search items**, **Library**, and the **Filter** dropdown browse items in pages
+of 25. The filter applies only to the loaded page. **Browse seasons** opens a
+series; breadcrumbs return to its library. Selecting an item does not start a check.
+
+- **Apply tags now to this item** recalculates its tags from current metadata and
+  saved settings without a preview or confirmation.
+- **Check changes first** optionally shows proposed tag changes.
+- **Stop item run** cancels this request, even while it waits behind another run.
+- **Preview tag removal** opens Maintenance with this item selected and previews
+  its removal. **‹ Back to Items** returns to the item.
+
+Progress and the final saved-write count appear beside the actions. Save unsaved
+settings first.
+
+## Settings
+
+**Turn on Meta Tagger** stops generation when cleared. Existing tags stay and
+Maintenance remains available. Settings are grouped into cards, each with a
+one-line summary of the current draft: **Sources & item types**, **Automation**,
+**Tag format**, **Outdated tags**, and **Limits & privacy**. **Edit** opens one
+card at a time and **Close** collapses it. Validation opens every card with an
+invalid value and focuses the first one.
+
+**Try unsaved settings** searches item choices and calculates an example for one
+item using the current draft, without saving. It runs only while Settings is
+visible and keeps the query and selection when you leave. **Reload example**
+reads current metadata again.
+
+Changes are saved only when you select **Save settings**. While any setting is
+unsaved, a sticky bar stays at the bottom of the page on every tab:
+
+- **Save settings** saves the draft.
+- **Save & apply tags now** starts Apply only after a successful save.
+- **Discard** restores the saved settings.
+
+Edits made while saving remain a separate unsaved draft. Settings on the
+Maintenance tab are saved the same way.
+
+## Maintenance
+
+Maintenance holds rarely needed choices. Manual tags, locks, and skip controls are
+always respected.
+
+**Next-run actions** apply to the daily Generate metadata tags task and post-scan
+runs, not **Apply tags now** or **Check changes first**. Each clears after a daily
+run that finishes without errors or hitting a run limit.
+
+- **Recheck all selected item types** also checks unchanged items.
+- **Rebuild plugin tag records** refreshes plugin tag records without changing
+  tags in Jellyfin.
+
+**Include tags from an earlier installation** records unrecorded tags that match
+the current generated prefix and separator, including outdated and hand-entered
+ones, so they can be removed according to the Outdated tags setting:
+
+- **Off** manages only recorded tags and tags matching current generated output.
+- **Next scheduled run** records them once, on the next daily or post-scan run.
+  It clears after a clean daily run.
+- **Every library run** records them on every library tagging run.
+
+**Remove plugin tags** removes only tags recorded as plugin-owned. Choose
+**All libraries** or **One item**, select **Preview tag removal**, review the
+list, confirm **I reviewed the tags listed for removal.**, then select
+**Remove listed tags**. While tagging is on, future runs can add the tags again;
+**Turn off Meta Tagger** clears **Turn on Meta Tagger** so you can save before
+removal. Editing settings, changing the target, or leaving Maintenance
+clears the preview and confirmation.
+
+## Labels
 
 The main labels distinguish differences from saved changes:
 
@@ -75,18 +127,27 @@ The main labels distinguish differences from saved changes:
 | Plugin tags | Tags recorded for an item after the plugin added them or recognized matching tags already there. A matching prefix alone does not allow removal. |
 | Not checked | This preview has no recorded result for the item. It may not have reached the item, or its details may not have been retained. |
 | No tag differences | That recorded check found no differences. It does not describe the item's current state. |
-| Outdated results | Preview settings differ from the current saved settings or unsaved edits. |
+| Outdated | Preview settings differ from the current saved settings. |
 
 Checkbox instructions use **select** and **clear**. Saved setting states use
 **On** and **Off**. **Disabled** means a control cannot currently be used.
 
+## Runs and recovery
+
 Item checks are read-only and expire as evidence whenever metadata or settings change.
 Apply always recalculates current data. Item run IDs identify cancellation and status;
 an old run cannot cancel a newer one. Reloading the page recovers the most recent
-retained item run. After a server restart, use History if its live status is unavailable.
-If a write or ownership checkpoint cannot be confirmed, inspect the item before retrying.
+retained item run. After a server restart, use Earlier activity if its live status
+is unavailable. If a write or ownership checkpoint cannot be confirmed, inspect the
+item before retrying.
 
-See the [settings guide](meta-tagger-plugin.md) for configuration and tag removal.
+Jellyfin's **Apply metadata tag changes** scheduled task remains available.
+Recorded checks never authorize writes. Post-scan being Off does not disable
+separate Jellyfin task triggers.
+
+New installations enable genres, parental rating, and audio languages for movies
+and series. Other sources, episodes, and generic videos start off. Existing saved
+selections are preserved.
 
 Fresh installations use automatic Apply and post-scan runs. The existing library
 baseline is saved before automatic writes; existing items need explicit Apply
@@ -95,3 +156,5 @@ Find all five visible tasks under **Meta Tagger** in Scheduled Tasks. The defaul
 daily Generate metadata tags task follows automatic mode; post-scan is a separate
 hook. Incremental runs can enumerate the full selected scope and skip unchanged
 items.
+
+See the [settings guide](meta-tagger-plugin.md) for configuration and tag removal.

@@ -266,10 +266,6 @@
                 margin-top: var(--mt-space-md);
             }
 
-
-
-
-
             #MetaTaggerConfigPage .metadataTaggerTaskStatus {
                 padding: var(--mt-space-xs) 0 var(--mt-space-xs) var(--mt-space-md);
                 border-inline-start: 2px solid var(--tagger-button-border);
@@ -301,32 +297,6 @@
                 justify-content: space-between;
                 gap: var(--mt-space-sm);
                 margin-bottom: var(--mt-space-sm);
-            }
-
-            #MetaTaggerConfigPage .metadataTaggerKeyValues {
-                display: grid;
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-                column-gap: var(--mt-space-xl);
-                margin: 0 0 20px;
-            }
-
-            #MetaTaggerConfigPage .metadataTaggerKeyValues > div {
-                display: grid;
-                grid-template-columns: minmax(0, 1fr);
-                gap: var(--mt-space-xs);
-                align-content: start;
-                padding: var(--mt-space-md) 0;
-                border-bottom: 1px solid var(--mt-border);
-                font-size: var(--mt-font-size);
-            }
-
-            #MetaTaggerConfigPage .metadataTaggerKeyValues dt {
-                color: var(--feedback-color, var(--mt-muted));
-            }
-
-            #MetaTaggerConfigPage .metadataTaggerKeyValues dd {
-                margin: 0;
-                text-align: left;
             }
 
             #MetaTaggerConfigPage .metadataTaggerToolbar {
@@ -583,23 +553,6 @@
                 margin-bottom: var(--mt-space);
             }
 
-            #MetaTaggerConfigPage .metadataTaggerConfirmation {
-                display: flex;
-                align-items: flex-start;
-                gap: var(--mt-space);
-                padding: var(--mt-space-sm);
-                background: transparent;
-                border: 1px solid var(--mt-border);
-                min-height: 44px;
-                font-size: var(--mt-font-size);
-                margin: var(--mt-space-xs) 0 var(--mt-space-sm);
-            }
-
-            #MetaTaggerConfigPage .metadataTaggerConfirmation input {
-                margin: 3px 0 0;
-                accent-color: var(--mt-accent);
-            }
-
             #MetaTaggerConfigPage .metadataTaggerTagGroup {
                 margin-top: 18px;
             }
@@ -657,16 +610,10 @@
             }
 
             #MetaTaggerConfigPage section.metadataTaggerSection {
-                padding: var(--mt-space-lg);
+                padding: var(--mt-space-md);
                 border: 1px solid var(--mt-border);
                 border-radius: var(--mt-radius);
                 background: var(--mt-ink);
-                margin-bottom: var(--mt-space-md);
-            }
-
-            #MetaTaggerConfigPage .metadataTaggerSection h2 {
-                font-size: 20px;
-                margin-bottom: 6px;
             }
 
             #MetaTaggerConfigPage .metadataTaggerSectionDescription {
@@ -899,22 +846,6 @@
                 margin-bottom: var(--mt-space-md);
             }
 
-            #MetaTaggerConfigPage #SaveSettingsButton {
-                width: auto;
-                flex-shrink: 0;
-            }
-
-            #MetaTaggerConfigPage .metadataTaggerSettingsWorkspace {
-                display: grid;
-                grid-template-columns: minmax(0,1.7fr) minmax(280px,1fr);
-                gap: var(--mt-space-lg);
-                align-items: start;
-            }
-
-            #MetaTaggerConfigPage .metadataTaggerSettingsWorkspace > * {
-                min-width: 0;
-            }
-
             #MetaTaggerConfigPage #ExampleAside {
                 padding: var(--mt-space-lg);
                 border: 1px solid var(--mt-border);
@@ -933,18 +864,6 @@
 
             #MetaTaggerConfigPage #ExampleTags p + p {
                 margin-top: var(--mt-space-sm);
-            }
-
-            #MetaTaggerConfigPage #LibraryApplyGuidance {
-                border: 1px solid var(--mt-border);
-                border-radius: var(--mt-radius);
-                margin-bottom: var(--mt-space-md);
-                margin-top: var(--mt-space-xl);
-                padding: 20px;
-            }
-
-            #MetaTaggerConfigPage #LibraryApplyGuidance p {
-                margin-top: var(--mt-space);
             }
 
             #MetaTaggerConfigPage a.metadataTaggerLink {
@@ -1226,13 +1145,6 @@
                 box-shadow: none;
             }
 
-            @container (max-width: 440px) {
-                #MetaTaggerConfigPage .metadataTaggerSourceChoices > .checkboxContainer {
-                    grid-template-columns: 1fr;
-                    gap: var(--mt-space-xs);
-                }
-            }
-
             @container (max-width: 720px) {
                 #MetaTaggerConfigPage .metadataTaggerWorkspace {
                     grid-template-columns: minmax(0,1fr);
@@ -1240,6 +1152,10 @@
             }
 
             @container (max-width: 440px) {
+                #MetaTaggerConfigPage .metadataTaggerSourceChoices > .checkboxContainer {
+                    grid-template-columns: 1fr;
+                    gap: var(--mt-space-xs);
+                }
                 #MetaTaggerConfigPage .metadataTaggerHeader {
                     flex-direction: column;
                     align-items: stretch;
@@ -1256,17 +1172,8 @@
                 #MetaTaggerConfigPage .content-primary {
                     padding: 20px var(--mt-space-md) var(--mt-space-xl);
                 }
-                #MetaTaggerConfigPage button {
-                    min-height: 44px;
-                }
                 #MetaTaggerConfigPage :is(input:not([type="checkbox"]),select) {
                     font-size: 17px;
-                }
-            }
-
-            @container (max-width: 800px) {
-                #MetaTaggerConfigPage .metadataTaggerSettingsWorkspace {
-                    grid-template-columns: minmax(0,1fr);
                 }
             }
 
@@ -1292,9 +1199,6 @@
                     bottom: 7px;
                     transform: none;
                 }
-                #MetaTaggerConfigPage .metadataTaggerKeyValues {
-                    grid-template-columns: minmax(0, 1fr);
-                }
                 #MetaTaggerConfigPage :is(.metadataTaggerSubheader,.metadataTaggerHeader) {
                     flex-wrap: wrap;
                 }
@@ -1311,12 +1215,10 @@
             #MetaTaggerConfigPage .metadataTaggerResultHeader { display: flex; align-items: center; gap: var(--mt-space-md); }
             #MetaTaggerConfigPage .metadataTaggerResultHeader h3 { margin: 0; min-width: 0; overflow-wrap: anywhere; }
             #MetaTaggerConfigPage .metadataTaggerRunCounts { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: var(--mt-space-md); padding-block: var(--mt-space-md); border-block: 1px solid var(--mt-border); }
-            #MetaTaggerConfigPage .metadataTaggerRunCounts[hidden] { display: none; }
             #MetaTaggerConfigPage .metadataTaggerRunCounts dt { color: var(--mt-muted); }
             #MetaTaggerConfigPage .metadataTaggerRunCounts dd { overflow-wrap: anywhere; margin: var(--mt-space-xs) 0 0; font-weight: 600; }
 
             #MetaTaggerConfigPage .metadataTaggerVisuallyHidden { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-        
 
             /* Four-tab shell */
             #MetaTaggerConfigPage .metadataTaggerTabs {
@@ -1502,7 +1404,6 @@
                 #MetaTaggerConfigPage #ExampleAside { position: sticky; top: var(--mt-space-md); }
             }
             #MetaTaggerConfigPage .metadataTaggerCards { display: grid; gap: var(--mt-space-sm); align-content: start; min-width: 0; }
-            #MetaTaggerConfigPage .metadataTaggerCards > section.metadataTaggerSection { margin: 0; padding: var(--mt-space-md); }
             #MetaTaggerConfigPage #SettingsFeedback { margin: 0; font-size: var(--mt-font-size); color: var(--feedback-color, var(--mt-muted)); }
             #MetaTaggerConfigPage .metadataTaggerGroupCard {
                 border: 1px solid var(--mt-border);
@@ -1552,7 +1453,6 @@
                 background: var(--mt-ink);
                 box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.35);
             }
-            #MetaTaggerConfigPage .metadataTaggerSaveBar[hidden] { display: none; }
             #MetaTaggerConfigPage .metadataTaggerSaveBarInner { display: flex; flex-wrap: wrap; align-items: center; gap: var(--mt-space-sm); }
             #MetaTaggerConfigPage .metadataTaggerSaveBarMessage { flex: 1 1 260px; min-width: 0; margin: 0; color: var(--tagger-warn); overflow-wrap: anywhere; }
             #MetaTaggerConfigPage .metadataTaggerSaveBarInner > button { width: auto; flex: 0 0 auto; margin: 0; }
@@ -1567,7 +1467,6 @@
             #MetaTaggerConfigPage #PanelMaintenance .metadataTaggerCard h3 { margin-top: 0; }
             #MetaTaggerConfigPage .metadataTaggerDangerCard { border-color: var(--tagger-negative); }
             #MetaTaggerConfigPage #CleanupReturnWarning { display: grid; gap: var(--mt-space-sm); justify-items: start; }
-            #MetaTaggerConfigPage #CleanupReturnWarning[hidden] { display: none; }
             #MetaTaggerConfigPage #CleanupReturnWarning p { margin: 0; }
 
         </style>
@@ -2929,7 +2828,6 @@
                     document.querySelector('#InspectorFeedback').textContent = hasUnsavedChanges
                         ? 'Save settings, then refresh this item preview.' : 'Loading item…';
                     delete pendingRequests.itemPreview;
-                    delete pendingRequests.inspector;
                     document.querySelector('#InspectorFeedback').textContent = hasUnsavedChanges
                         ? 'Save settings before applying tags. The settings example uses your draft.'
                         : 'Apply tags now uses current metadata and saved settings. Check changes first is optional.';
@@ -3199,7 +3097,6 @@
                 function previewItem() {
                     if (!settingsReady() || !selectedItem || pendingRequests.itemPreview || itemRunBusy() || pendingRequests.itemStart) { return; }
                     invalidateItem('Checking this item with saved settings…');
-                    delete pendingRequests.inspector;
                     var id = field(selectedItem, 'itemId');
                     runRequest('itemPreview', function () { return cleanupPost('MetaTagger/Items/' + encodeURIComponent(id) + '/Preview', {}); }, function (result) {
                         renderInspection(result, true);
@@ -3960,7 +3857,7 @@
                             && (!['example', 'exampleSearch'].includes(channel) || exampleIsVisible())
                             && (!['cleanup', 'apply'].includes(channel) || selectedView === 'Maintenance')
                             && (channel.indexOf('runDetail:') === 0 || ['taskStart', 'taskLaunch', 'taskPoll', 'taskStop', 'taskResult', 'itemStart', 'itemPoll', 'itemStop', 'itemRecovery'].includes(channel) || pending.revision === revision)
-                            && (!['itemPreview', 'inspector'].includes(channel) || pending.selectionRevision === selectionRevision)
+                            && (channel !== 'itemPreview' || pending.selectionRevision === selectionRevision)
                             && ((channel !== 'cleanup' && channel !== 'apply') || pending.cleanupRevision === cleanupRevision);
                     }
                     if (feedbackId) { setFeedbackTone(feedbackId, 'neutral'); }

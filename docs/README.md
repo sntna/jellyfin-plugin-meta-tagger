@@ -4,7 +4,7 @@
 
 - [Installation and first use](../README.md)
 - [Settings, tag removal, and data handling](meta-tagger-plugin.md)
-- [Dashboard, previews, and history](dashboard.md)
+- [Dashboard tabs, previews, and earlier activity](dashboard.md)
 
 ## Developing Meta Tagger
 

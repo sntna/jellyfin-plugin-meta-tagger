@@ -36,12 +36,13 @@ Jellyfin. Do not copy the ZIP itself into the plugin directory.
 
 ## Get started
 
-1. Open Meta Tagger in Jellyfin's plugin settings.
-2. Choose your metadata sources and item types, then save. Select
+1. Open Meta Tagger in Jellyfin's plugin settings. It opens on the **Activity** tab.
+2. On **Settings**, choose your metadata sources and item types, then select
+   **Save settings** in the bar at the bottom of the page. Select
    **Preview scheduled and post-scan runs** if you want read-only automatic runs while trying the plugin.
-3. Optionally select **Check changes first** to review proposed changes without saving tags.
+3. Optionally select **Check changes first** on **Activity** to review proposed changes without saving tags.
 4. Select **Apply tags now** for configured item types across all libraries, or
-   choose one item in **Browse items** and use **Apply tags now to this item**.
+   choose one item on **Items** and use **Apply tags now to this item**.
 
 Apply recalculates current metadata and saved settings without requiring a preview
 or confirmation. **Save & apply tags now** saves your submitted settings first.
@@ -58,7 +59,7 @@ tag changes** under **Meta Tagger** in Jellyfin's **Scheduled Tasks**. It uses s
 settings. You can change automatic mode, post-scan processing and run limits in Settings.
 
 See the [settings guide](docs/meta-tagger-plugin.md) for all options, or the
-[dashboard guide](docs/dashboard.md) for previews, item browsing, and history.
+[dashboard guide](docs/dashboard.md) for previews, item browsing, and earlier activity.
 
 ## Your tags stay under your control
 
@@ -70,8 +71,8 @@ See the [settings guide](docs/meta-tagger-plugin.md) for all options, or the
 - Generated tags describe metadata. They do not infer audience, tone, or risk.
 
 Existing tags matching the current generated output can become recorded plugin
-tags. **Include tags from an earlier installation** can also record other tags
-with the generated prefix, including hand-entered ones. Review the
+tags. **Include tags from an earlier installation** on the **Maintenance** tab can
+also record other tags with the generated prefix, including hand-entered ones. Review the
 [tag preservation guide](docs/meta-tagger-plugin.md#tag-preservation) before enabling it.
 
 To remove plugin tags, turn off **Turn on Meta Tagger** and save, then open
