@@ -62,6 +62,19 @@ public sealed partial class MetaTaggerRunner
         }
     }
 
+    // Each publication rewrites and flushes the run's detail file and the history index.
+    // Library progress publishes on this interval; the start and finish always publish.
+    private static readonly TimeSpan HistoryProgressInterval = TimeSpan.FromSeconds(2);
+
+    private async Task<DateTimeOffset> PublishHistoryProgressAsync(MetaTaggerRunRecord record, DateTimeOffset lastPublished,
+        bool force = false)
+    {
+        var now = _clock.UtcNow;
+        if (!force && now - lastPublished < HistoryProgressInterval) { return lastPublished; }
+        await PublishHistoryAsync(record).ConfigureAwait(false);
+        return now;
+    }
+
     private static void CompleteOutcome(MetaTaggerRunSummary summary)
     {
         if (summary.Outcome == "Running")

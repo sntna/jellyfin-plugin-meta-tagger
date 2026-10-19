@@ -26,7 +26,8 @@ public sealed partial class MetaTaggerRunnerTests
             snapshot = reopened.LoadRunAsync(entry.RunId, CancellationToken.None).GetAwaiter().GetResult();
             cancellation.Cancel();
         });
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => CreateRunner(host, disk)
+        // Progress publishes on an interval, so the clock passes it between reads.
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => CreateRunner(host, disk, new SteppingClock(TimeSpan.FromSeconds(3)))
             .RunAsync(progress, cancellation.Token));
         Assert.Equal("Interrupted", snapshot!.Outcome);
         Assert.Equal(1, snapshot.Summary.ItemsScanned);
