@@ -285,6 +285,8 @@ public sealed partial class MetaTaggerRunner
 
             var loadedState = await LoadStateAsync(configuration, cancellationToken).ConfigureAwait(false);
             var state = loadedState.State;
+            // An unreadable ledger stays untouched so its records can be recovered; this run only previews.
+            var ledgerUnreadable = loadedState.ForcePreviewOnly;
             var cycleDegraded = loadedState.ForcePreviewOnly || uncertainInstallation;
             if (uncertainInstallation && !options.ClearGeneratedTags) { summary.Outcome = "Preview fallback"; }
             if (loadedState.ForcePreviewOnly)
@@ -350,7 +352,7 @@ public sealed partial class MetaTaggerRunner
                         .ToArray()
                 };
                 state.RunCursors[runProfileKey] = cursor;
-                await _stateStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
+                if (!ledgerUnreadable) { await _stateStore.SaveAsync(state, cancellationToken).ConfigureAwait(false); }
             }
             else
             {
@@ -434,7 +436,7 @@ public sealed partial class MetaTaggerRunner
                 summary.PreviewChangesExported = previewChanges.Count;
             }
 
-            await _stateStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
+            if (!ledgerUnreadable) { await _stateStore.SaveAsync(state, cancellationToken).ConfigureAwait(false); }
             stopwatch.Stop();
             summary.ElapsedMilliseconds = stopwatch.Elapsed.TotalMilliseconds;
 
@@ -538,7 +540,10 @@ public sealed partial class MetaTaggerRunner
         AppendProfileValue(canonical, options.Force ? "1" : "0");
         if (!options.ClearGeneratedTags)
         {
-            AppendProfileValue(canonical, configuration.Installation?.Generation?.Revision.ToString(CultureInfo.InvariantCulture) ?? "0");
+            // Single-item authorizations also advance the revision; they must not restart a library cycle.
+            var generation = configuration.Installation?.Generation;
+            AppendProfileValue(canonical, generation?.BaselineComplete == true ? "1" : "0");
+            AppendProfileValue(canonical, string.Join(',', (generation?.AuthorizedItemTypes ?? []).Order(StringComparer.Ordinal)));
             AppendProfileValue(canonical, invocation == RunInvocation.PostScan ? "post-scan"
                 : IsBulkBackfillInvocation(options, invocation) ? "backfill" : "automatic");
         }

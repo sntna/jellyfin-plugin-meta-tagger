@@ -152,8 +152,11 @@ public sealed partial class MetaTaggerRunnerTests
         Assert.Empty(movie.Tags);
     }
 
-    [Fact]
-    public async Task Generation_PartialPreview_StartsANewCycleWhenAuthorizationChanges()
+    [Theory]
+    [InlineData("item-types", true)]
+    [InlineData("single-item", false)]
+    public async Task Generation_PartialPreview_StartsANewCycleOnlyWhenItemTypeAuthorizationChanges(
+        string authorization, bool restarts)
     {
         var plugin = CreateFreshGenerationPlugin();
         plugin.Configuration.MaxItemsPerRun = 1;
@@ -163,15 +166,22 @@ public sealed partial class MetaTaggerRunnerTests
         var store = new MetaTaggerStateStore(_directory);
         var runner = CreateRunner(new PersistedConfigurationHost(plugin, [first, second]), store);
         await new PreviewMetadataTagTask(runner).ExecuteAsync(new NoOpProgress(), CancellationToken.None);
-        var preview = await runner.PreviewItemAsync(second.Id, CancellationToken.None);
-        await runner.ApplyItemAsync(second.Id, CancellationToken.None);
+        if (authorization == "item-types")
+        {
+            await new ApplyMetadataTagTask(runner).ExecuteAsync(new NoOpProgress(), CancellationToken.None);
+        }
+        else
+        {
+            await runner.PreviewItemAsync(second.Id, CancellationToken.None);
+            await runner.ApplyItemAsync(second.Id, CancellationToken.None);
+        }
         await new PreviewMetadataTagTask(runner).ExecuteAsync(new NoOpProgress(), CancellationToken.None);
 
         var entry = (await store.LoadRunsAsync(CancellationToken.None)).First();
         var run = await store.LoadRunAsync(entry.RunId, CancellationToken.None);
         Assert.NotNull(run);
-        Assert.Equal(first.Id.ToString("N"), Assert.Single(run.Items).ItemId);
-        Assert.Equal(1, run.Summary.ItemsRemaining);
+        Assert.Equal((restarts ? first : second).Id.ToString("N"), Assert.Single(run.Items).ItemId);
+        Assert.Equal(restarts ? 1 : 0, run.Summary.ItemsRemaining);
     }
 
     [Fact]
