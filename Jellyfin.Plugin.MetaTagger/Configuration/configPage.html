@@ -4251,10 +4251,14 @@
                                         var saved = Object.assign({}, draft);
                                         oneTimeFields.forEach(function (id) { saved[id] = Boolean(config[id]); });
                                         renderSavedConfiguration(saved);
+                                        // Refresh only controls that still show what was submitted.
+                                        // A control changed during the save stays part of the newer draft.
                                         ['ForceFullScanOnNextRun', 'RebuildTrackingLedgerOnNextRun'].forEach(function (id) {
-                                            document.querySelector('#' + id).checked = saved[id];
+                                            var control = document.querySelector('#' + id);
+                                            if (control.checked === Boolean(draft[id])) { control.checked = saved[id]; }
                                         });
-                                        document.querySelector('#EarlierInstallationChoice').value = claimChoiceFromConfig(saved);
+                                        var claimControl = document.querySelector('#EarlierInstallationChoice');
+                                        if (claimControl.value === claimChoiceFromConfig(draft)) { claimControl.value = claimChoiceFromConfig(saved); }
                                     }
                                     return result;
                                 });
