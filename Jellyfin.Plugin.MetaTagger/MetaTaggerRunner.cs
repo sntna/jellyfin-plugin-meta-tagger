@@ -370,6 +370,7 @@ public sealed partial class MetaTaggerRunner
             var cycleSize = cursor!.PendingItemIds.Length;
             summary.ItemsRemaining = cycleSize;
             var itemContext = new LibraryItemContext(configuration, state, cursor, options, generationSnapshot, budget, started, summary);
+            var historyPublished = _clock.UtcNow;
             while (cursor.NextIndex < cursor.PendingItemIds.Length)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -392,14 +393,16 @@ public sealed partial class MetaTaggerRunner
                     if (result.Status is ItemExecutionStatus.Uncertain or ItemExecutionStatus.Cancelled) { result.Error!.Throw(); }
                     if (result.WriteDelay is { } delay)
                     {
-                        await PublishHistoryAsync(record).ConfigureAwait(false);
+                        // Show the write before a configured pause.
+                        historyPublished = await PublishHistoryProgressAsync(record, historyPublished, force: delay > TimeSpan.Zero)
+                            .ConfigureAwait(false);
                         await _clock.DelayAsync(delay, cancellationToken).ConfigureAwait(false);
                     }
                 }
                 finally
                 {
                     summary.ItemsRemaining = ItemsRemaining(cursor);
-                    await PublishHistoryAsync(record).ConfigureAwait(false);
+                    historyPublished = await PublishHistoryProgressAsync(record, historyPublished).ConfigureAwait(false);
                     if (cycleSize > 0)
                     {
                         progress.Report(cursor.NextIndex * 100d / cycleSize);

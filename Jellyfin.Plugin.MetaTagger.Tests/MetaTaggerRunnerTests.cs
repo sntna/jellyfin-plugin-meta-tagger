@@ -596,6 +596,44 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
         Assert.Equal(["meta:year:2023", "meta:unowned", "meta:year:2024"], item.Tags);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RunAsync_PublishesLibraryProgressOnAnIntervalNotPerItem(bool timePasses)
+    {
+        var items = Enumerable.Range(1, 40).Select(_ => (BaseItem)new Movie { Id = Guid.NewGuid(), Genres = ["Drama"] }).ToArray();
+        var host = new InMemoryMetaTaggerHost(new PluginConfiguration { PreviewOnly = false }, items);
+        var store = new MetaTaggerStateStore(_directory);
+        var publications = new List<MetaTaggerRunRecord>();
+        var history = new HistoryCountingStore(store, publications);
+        IMetaTaggerClock clock = timePasses ? new SteppingClock(TimeSpan.FromSeconds(1)) : new ItemApprovalClock();
+
+        await CreateRunner(host, history, clock).RunAsync(new NoOpProgress(), CancellationToken.None, new MetaTaggerRunOptions { PreviewOnly = false });
+
+        Assert.Equal(40, host.UpdateAttempts.Count);
+        if (timePasses) { Assert.True(publications.Count > 2); }
+        else { Assert.Equal(2, publications.Count); }
+        var run = await store.LoadRunAsync(publications[^1].RunId, CancellationToken.None);
+        Assert.Equal(40, run!.Items.Count);
+        Assert.Equal("Completed", run.Outcome);
+    }
+
+    private sealed class HistoryCountingStore(MetaTaggerStateStore store, List<MetaTaggerRunRecord> publications) : IMetaTaggerStateStore
+    {
+        public Task<MetaTaggerState> LoadAsync(CancellationToken token) => store.LoadAsync(token);
+        public Task SaveAsync(MetaTaggerState state, CancellationToken token) => store.SaveAsync(state, token);
+        public Task SaveRunAsync(MetaTaggerRunRecord record, CancellationToken token) { publications.Add(record); return store.SaveRunAsync(record, token); }
+        public Task SaveSummaryAsync(MetaTaggerRunSummary summary, CancellationToken token) => store.SaveSummaryAsync(summary, token);
+        public Task<string> SavePreviewChangesAsync(IReadOnlyCollection<MetaTaggerPreviewChange> changes, CancellationToken token) => store.SavePreviewChangesAsync(changes, token);
+    }
+
+    private sealed class SteppingClock(TimeSpan step) : IMetaTaggerClock
+    {
+        private DateTimeOffset _now = new(2026, 9, 13, 12, 0, 0, TimeSpan.Zero);
+        public DateTimeOffset UtcNow => _now += step;
+        public Task DelayAsync(TimeSpan delay, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
     private sealed class ItemApprovalClock : IMetaTaggerClock
     {
         public DateTimeOffset UtcNow { get; set; } = new(2026, 9, 13, 12, 0, 0, TimeSpan.Zero);
