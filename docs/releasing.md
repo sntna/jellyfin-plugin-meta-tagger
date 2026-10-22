@@ -50,6 +50,11 @@ pushing, creating tags, or publishing. Review the diff, edit the release notes,
 and open a pull request. See [release preparation](release-builds.md#release-preparation)
 for explicit bumps, target versions, and dependency or maintenance releases.
 
+GitHub merge commits (`Merge pull request #N from …`) from before squash-merge
+titles were enforced cannot be classified. The command skips them and lists each
+one on stderr. Check those pull requests and add any user-facing change to the
+notes by hand. Also remove internal tooling entries that are not plugin changes.
+
 To prepare on GitHub, select **Actions → Prepare release → Run workflow** on
 `main`. It runs the same command and opens or updates a draft preparation pull
 request. Configure the repository-scoped GitHub App first using the

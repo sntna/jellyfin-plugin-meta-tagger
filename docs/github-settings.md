@@ -77,12 +77,11 @@ release PR. Updating its base or resolving conflicts alone does not refresh
 generated notes. Publish before merging further product or dependency changes.
 
 The Dependabot title configuration applies to new PRs. Check existing PR titles
-and rename any that do not follow Conventional Commit syntax. In particular,
-PR #5 currently needs a `chore(deps):` prefix. Existing `build(deps):` titles are
-valid too.
+and rename any that do not follow Conventional Commit syntax. Existing
+`build(deps):` titles are valid too.
 
 The automated release preparation work is separate from this configuration.
-Before its first release, review commits since the previous release tag for
-older non-Conventional titles and merge commits. These guardrails only govern
-future merges; they do not repair existing history. Do not rewrite published
-history or move release tags to satisfy the parser.
+These guardrails only govern future merges; they do not repair existing history.
+Release preparation skips older GitHub merge commits and lists them for manual
+changelog review; any other non-Conventional title still stops preparation. Do
+not rewrite published history or move release tags to satisfy the parser.

@@ -69,6 +69,24 @@ class PrepareReleaseTests(unittest.TestCase):
         self.assertEqual(head, self.git('rev-parse', 'HEAD'))
         self.assertEqual('v0.1.0', self.git('tag', '--list'))
 
+    def test_older_github_merge_commits_are_skipped_and_reported(self):
+        self.commit('Merge pull request #2 from sntna/dependabot/github_actions/actions/checkout-7.0.1')
+        self.commit("Merge branch 'main' into feature")
+        self.commit('fix: Preserve manual tags (#13)')
+        result = self.prepare()
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual('0.1.1', result.stdout.strip())
+        self.assertIn('Merge pull request #2 from sntna/dependabot/github_actions/actions/checkout-7.0.1', result.stderr)
+        notes = (self.root / 'CHANGELOG.md').read_text()
+        self.assertIn('### Fixed\n\n- Preserve manual tags (#13)', notes)
+        self.assertNotIn('Merge', notes.split('## [0.1.1]')[1].split('\n## ')[0])
+
+    def test_other_non_conventional_titles_are_still_rejected(self):
+        self.commit('Merge the release lifecycle fixes')
+        result = self.prepare()
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn('Invalid Conventional Commit title', result.stderr)
+
     def test_fix_produces_patch_and_maintenance_is_omitted(self):
         self.commit('fix(tags): Preserve manual tags (#13)')
         self.commit('docs: Update setup guide (#14)')

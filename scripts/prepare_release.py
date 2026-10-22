@@ -7,6 +7,7 @@ from datetime import date
 from pathlib import Path
 import re
 import subprocess
+import sys
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,6 +19,11 @@ CONTRACT = 'Jellyfin.Plugin.MetaTagger.Tests/PluginVersionContractTests.cs'
 
 def git(*args: str) -> str:
     return subprocess.check_output(['git', *args], cwd=ROOT, text=True).strip()
+
+
+# GitHub's merge-commit titles predate the squash-merge title guardrails. Their changes
+# are not classifiable here, so they are reported for manual changelog review instead.
+GITHUB_MERGE = r"Merge pull request #[0-9]+ from \S+|Merge branch '[^']+'( of \S+)?( into \S+)?"
 
 
 SEMVER = r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)'
@@ -48,7 +54,12 @@ def prepare(args) -> str:
         raise ValueError('The release range is empty.')
     groups = {'Added': [], 'Changed': [], 'Fixed': []}
     breaking = False
+    skipped = [title for title in titles if re.fullmatch(GITHUB_MERGE, title)]
+    for title in skipped:
+        print(f'Skipped merge commit; review its changes for the changelog: {title}', file=sys.stderr)
     for title in titles:
+        if title in skipped:
+            continue
         match = re.fullmatch(r'([a-z]+)(?:\(([^()]+)\))?(!)?: (\S.*)', title)
         if not match:
             raise ValueError(f'Invalid Conventional Commit title: {title!r}')
