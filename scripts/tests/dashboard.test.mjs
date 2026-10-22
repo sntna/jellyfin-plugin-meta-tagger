@@ -3217,6 +3217,23 @@ test('turning a used one-time action on again still saves it', async () => {
     assert.strictEqual(page.request('save-settings').body.ForceFullScanOnNextRun, true);
 });
 
+for (const [id, value] of [['ForceFullScanOnNextRun', true], ['RebuildTrackingLedgerOnNextRun', true], ['EarlierInstallationChoice', 'Every']]) {
+    test(`${id} changed during a save stays an unsaved edit when the save finishes`, async () => {
+        const page = await readyDashboard({});
+        await page.go('Maintenance');
+        await page.edit('MaxItemsPerRun', '5');
+        await page.click('SaveSettingsButton');
+        await page.respond('load-settings', {});
+        const save = page.request('save-settings');
+        await page.edit(id, value);
+        save.resolve({});
+        await page.tick();
+        const control = page.element(id);
+        assert.deepEqual(id === 'EarlierInstallationChoice' ? control.value : Boolean(control.checked), value);
+        assert.match(page.element('SettingsFeedback').textContent, /unsaved/);
+    });
+}
+
 test('Discard after a save restores the saved values, not the loaded ones', async () => {
     const page = await readyDashboard({ MaxItemsPerRun: 9 });
     await page.edit('MaxItemsPerRun', '20');
