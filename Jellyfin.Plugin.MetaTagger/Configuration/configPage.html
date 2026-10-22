@@ -3812,7 +3812,7 @@
                 }
                 function summaryTone(summary) {
                     return field(summary, 'failures') || ['Failed', 'Uncertain', 'Partial failure', 'Preview fallback', 'InvalidSettings', 'Unavailable'].includes(field(summary, 'outcome')) ? 'error'
-                        : field(summary, 'budgetLimitReached') || ['Cancelled', 'Interrupted', 'Budget limited'].includes(field(summary, 'outcome')) ? 'warning' : 'neutral';
+                        : field(summary, 'budgetLimitReached') || ['Cancelled', 'Interrupted', 'Budget limited', 'Run in progress', 'RunInProgress'].includes(field(summary, 'outcome')) ? 'warning' : 'neutral';
                 }
                 function updateControls() {
                     document.querySelector('#CleanupReturnWarning').hidden = !settingsLoaded || !field(savedConfiguration, 'isEnabled');
@@ -4071,6 +4071,9 @@
                         if (previewProperty(summary, 'outcome', 'Outcome') === 'Preview fallback') {
                             feedback.textContent = 'The plugin could not read or save its tag records. No tags were changed. Check the Jellyfin server log, then preview tag removal again.';
                         }
+                        if (previewProperty(summary, 'outcome', 'Outcome') === 'Run in progress') {
+                            feedback.textContent = 'Another tag run is in progress. No tags were changed. Preview tag removal again after it finishes.';
+                        }
                     }, function () {
                         feedback.textContent = 'Tag removal preview failed. No tags were changed. Try Preview tag removal again; if it fails, check the Jellyfin server log.';
                     });
@@ -4091,6 +4094,10 @@
                         return cleanupPost('MetaTagger/Cleanup/Apply', { token: token });
                     }, function (summary) {
                         setFeedbackTone('CleanupFeedback', summaryTone(summary));
+                        if (previewProperty(summary, 'outcome', 'Outcome') === 'Run in progress') {
+                            feedback.textContent = 'Another tag run is in progress. No tags were removed. Preview tag removal again after it finishes.';
+                            return;
+                        }
                         var writes = previewProperty(summary, 'writesApplied', 'WritesApplied') || 0;
                         feedback.textContent = 'Items updated: ' + writes + '. ' + (writes ? 'Check Earlier activity for skipped or unfinished removals. ' : 'No plugin tags were removed. ') + cleanupCounts(summary) +
                             ' Preview again to check for remaining tags.';

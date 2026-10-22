@@ -372,6 +372,43 @@ test('a fresh cleanup requires confirmation and consumes approval before sending
     assert.equal(page.element('ApplyCleanupButton').disabled, true);
 });
 
+test('a removal preview during another run says to wait and offers no confirmation', async () => {
+    const page = await readyDashboard();
+    await page.go('Maintenance');
+    await page.click('PreviewCleanupButton');
+    await page.respond('MetaTagger/Cleanup/Preview', { token: null, changes: [], summary: { outcome: 'Run in progress', previewOnly: true } });
+    assert.match(page.element('CleanupFeedback').textContent, /Another tag run is in progress\. No tags were changed\. Preview tag removal again after it finishes\./);
+    assert.equal(page.element('CleanupFeedback').getAttribute('data-feedback-tone'), 'warning');
+    assert.equal(page.element('ConfirmCleanup').disabled, true);
+    assert.equal(page.element('PreviewCleanupButton').disabled, false);
+});
+
+test('a removal during another run reports that no tags were removed', async () => {
+    const page = await readyDashboard();
+    await page.go('Maintenance');
+    await page.click('PreviewCleanupButton');
+    await page.respond('MetaTagger/Cleanup/Preview', cleanupPreview);
+    await confirmCleanup(page);
+    await page.click('ApplyCleanupButton');
+    await page.respond('MetaTagger/Cleanup/Apply', { outcome: 'Run in progress', writesApplied: 0, previewOnly: false });
+    assert.match(page.element('CleanupFeedback').textContent, /Another tag run is in progress\. No tags were removed\. Preview tag removal again after it finishes\./);
+    assert.equal(page.element('CleanupFeedback').getAttribute('data-feedback-tone'), 'warning');
+    assert.equal(page.element('ApplyCleanupButton').disabled, true);
+    assert.equal(page.element('PreviewCleanupButton').disabled, false);
+});
+
+test('an item check during another run explains the wait and keeps Apply available', async () => {
+    const page = await readyDashboard();
+    const article = page.element('PreviewChanges').children[0];
+    await page.activate(article.children.find(child => child.textContent === 'Preview this item'));
+    await page.click('PreviewItemButton');
+    await page.respond('MetaTagger/Items/movie/Preview', { itemId: 'movie', status: 'RunInProgress', reason: 'Another tag run is in progress. Select Check changes first again after it finishes.' });
+    assert.match(page.element('InspectorFeedback').textContent, /Another tag run is in progress/);
+    assert.equal(page.element('InspectorFeedback').getAttribute('data-feedback-tone'), 'warning');
+    assert.equal(page.element('PreviewItemButton').disabled, false);
+    assert.equal(page.element('ApplyItemButton').disabled, false);
+});
+
 test('a late cleanup failure cannot replace the settings-changed warning', async () => {
     const page = await readyDashboard();
     await page.go('Maintenance');

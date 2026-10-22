@@ -22,17 +22,23 @@ public sealed partial class MetaTaggerRunner
     public async Task<MetaTaggerItemInspection> InspectItemAsync(
         Guid itemId, PluginConfiguration? draft, CancellationToken cancellationToken)
     {
-        await _runGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            return (await _itemEvaluation.PlanAsync(itemId, draft, cancellationToken).ConfigureAwait(false)).Inspection;
-        }
-        finally { _runGate.Release(); }
+        // Inspection only reads: the ledger loads as a private copy and settings are cloned, so it
+        // does not wait for a library run. Writes and history stay behind the run gate.
+        return (await _itemEvaluation.PlanAsync(itemId, draft, cancellationToken).ConfigureAwait(false)).Inspection;
     }
 
     public async Task<MetaTaggerItemInspection> PreviewItemAsync(Guid itemId, CancellationToken cancellationToken)
     {
-        await _runGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        // A check records history and may capture the baseline, so it needs the gate, but it reports
+        // a busy runner instead of waiting behind a library run.
+        if (!await _runGate.WaitAsync(0, cancellationToken).ConfigureAwait(false))
+        {
+            return new MetaTaggerItemInspection
+            {
+                ItemId = itemId, Status = "RunInProgress", GenerationEligibility = GenerationItemEligibility.NotChecked.ToString(),
+                Reason = "Another tag run is in progress. Select Check changes first again after it finishes."
+            };
+        }
         MetaTaggerRunRecord? record = null;
         var summary = new MetaTaggerRunSummary { LastRunUtc = _clock.UtcNow, PreviewOnly = true, RunMode = "ItemGeneration" };
         try

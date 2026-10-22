@@ -20,6 +20,8 @@ public sealed partial class MetaTaggerRunner
     private readonly ILogger<MetaTaggerRunner> _logger;
     private readonly IMetaTaggerClock _clock;
     private readonly SemaphoreSlim _runGate = new(1, 1);
+    // Dashboard checks report a busy runner instead of queueing behind a library run.
+    internal const string RunInProgressOutcome = "Run in progress";
     private MetaTaggerCleanupPreview? _pendingCleanup;
 
     public MetaTaggerRunner(
@@ -95,7 +97,10 @@ public sealed partial class MetaTaggerRunner
         IProgress<double> progress,
         CancellationToken cancellationToken)
     {
-        await _runGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        if (!await _runGate.WaitAsync(0, cancellationToken).ConfigureAwait(false))
+        {
+            return new MetaTaggerCleanupPreview { ItemId = itemId, Summary = RunInProgressSummary(previewOnly: true) };
+        }
         try
         {
             _pendingCleanup = null;
@@ -129,7 +134,8 @@ public sealed partial class MetaTaggerRunner
         IProgress<double> progress,
         CancellationToken cancellationToken)
     {
-        await _runGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        // The reviewed preview stays valid; nothing was removed while another run held the gate.
+        if (!await _runGate.WaitAsync(0, cancellationToken).ConfigureAwait(false)) { return RunInProgressSummary(previewOnly: false); }
         try
         {
             var preview = _pendingCleanup;
@@ -158,6 +164,11 @@ public sealed partial class MetaTaggerRunner
             _runGate.Release();
         }
     }
+
+    private MetaTaggerRunSummary RunInProgressSummary(bool previewOnly) => new()
+    {
+        LastRunUtc = _clock.UtcNow, PreviewOnly = previewOnly, RunMode = "ClearGeneratedTags", Outcome = RunInProgressOutcome
+    };
 
     internal Task<MetaTaggerRunSummary> RunConfiguredDefaultAsync(
         IProgress<double> progress,
