@@ -2229,6 +2229,17 @@
                 document.querySelector('#EarlierInstallationChoice').value = claimChoiceFromConfig(config);
             }
 
+            // A run clears these after using them. Send one only when the admin changed it here,
+            // so a later save cannot turn a used action back on from stale loaded values.
+            var oneTimeFields = ['ForceFullScanOnNextRun', 'RebuildTrackingLedgerOnNextRun', 'ClaimExistingGeneratedTagsOnNextRun'];
+            function withoutUnchangedOneTimeFields(draft, loaded) {
+                var sent = Object.assign({}, draft);
+                oneTimeFields.forEach(function (id) {
+                    if (Boolean(sent[id]) === Boolean((loaded || {})[id])) { delete sent[id]; }
+                });
+                return sent;
+            }
+
             function isSettingsControl(id) {
                 return MetaTaggerConfig.fields.indexOf(id) !== -1 || id === 'EarlierInstallationChoice';
             }
@@ -4204,6 +4215,7 @@
                         // Capture what this save means before any asynchronous read.
                         // Edits made afterward belong to a later settings revision.
                         var draft = readFormConfig();
+                        var sent = withoutUnchangedOneTimeFields(draft, savedConfiguration);
                         var normalized = normalizeNamespaceConfig(draft);
                         renderNamespaceExamples(normalized);
                         hasUnsavedChanges = true;
@@ -4215,6 +4227,7 @@
                             return;
                         }
                         applyNormalizedNamespace(draft, normalized);
+                        applyNormalizedNamespace(sent, normalized);
                         document.querySelector('#GeneratedTagPrefix').value = normalized.generatedPrefix;
                         document.querySelector('#TagSeparator').value = normalized.separator;
                         document.querySelector('#ManualTagPrefix').value = normalized.manualPrefix;
@@ -4224,10 +4237,18 @@
                         var savedSuccessfully = false;
                         settingsWrite = runRequest('settings', function () {
                             return ApiClient.getPluginConfiguration(MetaTaggerConfig.pluginUniqueId).then(function (config) {
-                                Object.assign(config, draft);
+                                Object.assign(config, sent);
                                 return ApiClient.updatePluginConfiguration(MetaTaggerConfig.pluginUniqueId, config).then(function (result) {
                                     savedSuccessfully = true;
-                                    if (active && sessionEpoch === saveSessionEpoch) { renderSavedConfiguration(draft); }
+                                    if (active && sessionEpoch === saveSessionEpoch) {
+                                        var saved = Object.assign({}, draft);
+                                        oneTimeFields.forEach(function (id) { saved[id] = Boolean(config[id]); });
+                                        renderSavedConfiguration(saved);
+                                        ['ForceFullScanOnNextRun', 'RebuildTrackingLedgerOnNextRun'].forEach(function (id) {
+                                            document.querySelector('#' + id).checked = saved[id];
+                                        });
+                                        document.querySelector('#EarlierInstallationChoice').value = claimChoiceFromConfig(saved);
+                                    }
                                     return result;
                                 });
                             });

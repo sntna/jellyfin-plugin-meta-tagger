@@ -83,6 +83,31 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
         Assert.Equal(next.Id.ToString("N"), Assert.Single(host.UpdateAttempts).ItemId);
     }
 
+    [Fact]
+    public async Task RunAsync_UnreadableLedgerFallsBackToPreviewWithoutReplacingIt()
+    {
+        var item = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"], Tags = ["meta:genre:comedy"] };
+        var configuration = new PluginConfiguration { PreviewOnly = false, StaleTagMode = StaleTagMode.Remove };
+        var host = new InMemoryMetaTaggerHost(configuration, [item]);
+        Directory.CreateDirectory(_directory);
+        var ledgerPath = Path.Combine(_directory, "meta-tagger-state.json");
+        File.WriteAllText(ledgerPath, "{ interrupted");
+        File.WriteAllText(ledgerPath + ".bak", "{ also interrupted");
+        var runner = CreateRunner(host, new MetaTaggerStateStore(_directory));
+
+        for (var run = 0; run < 2; run++)
+        {
+            var result = await runner.RunAsync(new NoOpProgress(), CancellationToken.None, new MetaTaggerRunOptions { PreviewOnly = false });
+
+            Assert.True(result.PreviewOnly);
+            Assert.Equal("Preview fallback", result.Outcome);
+        }
+
+        Assert.Empty(host.UpdateAttempts);
+        Assert.Equal("{ interrupted", File.ReadAllText(ledgerPath));
+        Assert.Equal("{ also interrupted", File.ReadAllText(ledgerPath + ".bak"));
+    }
+
     [Theory]
     [InlineData("audio")]
     [InlineData("subtitle")]

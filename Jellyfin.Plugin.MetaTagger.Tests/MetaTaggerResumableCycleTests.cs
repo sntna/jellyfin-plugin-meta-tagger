@@ -49,6 +49,42 @@ public sealed class MetaTaggerResumableCycleTests
     }
 
     [Fact]
+    public async Task RunAsync_SingleItemApplyBetweenInvocations_ResumesTheSameCycle()
+    {
+        var configuration = MovieConfiguration();
+        configuration.MaxItemsPerRun = 2;
+        var host = new InMemoryHost(
+            configuration,
+            [
+                Movie("11111111-1111-1111-1111-111111111111", "Drama"),
+                Movie("22222222-2222-2222-2222-222222222222", "Comedy"),
+                Movie("33333333-3333-3333-3333-333333333333", "Mystery"),
+                Movie("44444444-4444-4444-4444-444444444444", "Thriller")
+            ]);
+        var stateStore = new InMemoryStateStore();
+        var runner = CreateRunner(host, stateStore);
+        var options = new MetaTaggerRunOptions { PreviewOnly = false };
+
+        await runner.RunAsync(new NoOpProgress(), CancellationToken.None, options);
+        var revision = configuration.Installation!.Generation!.Revision;
+        await runner.ApplyItemAsync(Guid.Parse("44444444-4444-4444-4444-444444444444"), CancellationToken.None);
+        Assert.True(configuration.Installation!.Generation!.Revision > revision);
+        var second = await runner.RunAsync(new NoOpProgress(), CancellationToken.None, options);
+
+        Assert.Equal(2, second.ItemsScanned);
+        Assert.Equal(0, second.ItemsRemaining);
+        Assert.Equal(
+            [
+                "11111111111111111111111111111111",
+                "22222222222222222222222222222222",
+                "44444444444444444444444444444444",
+                "33333333333333333333333333333333"
+            ],
+            host.UpdateAttempts);
+        Assert.Empty(stateStore.State.RunCursors);
+    }
+
+    [Fact]
     public async Task RunAsync_MaxRunMinutes_ResumesAfterTimeBudgetChanges()
     {
         var configuration = MovieConfiguration();
@@ -510,6 +546,12 @@ public sealed class MetaTaggerResumableCycleTests
         public void PublishRunConfiguration(MetaTaggerRunConfigurationPublication publication)
         {
             publication.ApplyTo(configuration);
+        }
+
+        public InstallationState SaveGenerationState(Guid installationId, GenerationState generation)
+        {
+            _configuration.Installation!.Generation = generation.Copy();
+            return _configuration.Installation.Copy();
         }
     }
 

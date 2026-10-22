@@ -3010,7 +3010,8 @@ test('all 34 settings fields load into the cards and Maintenance and save unchan
     assert.equal(page.element('EarlierInstallationChoice').value, 'Every');
     await page.edit('GeneratedTagPrefix', 'edited');
     await page.click('SaveSettingsButton');
-    await page.respond('load-settings', {});
+    // One-time actions the page did not change keep the server's current values.
+    await page.respond('load-settings', everyField);
     const save = page.request('save-settings').body;
     for (const [id, value] of Object.entries(everyField)) {
         assert.deepEqual(save[id], id === 'GeneratedTagPrefix' ? 'edited' : value, id);
@@ -3149,6 +3150,34 @@ test('Discard restores saved values, including the earlier-installation choice, 
     assert.match(page.element('CardTagFormatSentence').textContent, /meta:genre:animation/);
     assert.equal(page.sent('save-settings').length, 0);
     assert.equal(page.element('RunPreviewButton').disabled, false, 'saved settings are runnable again');
+});
+
+for (const flag of ['ForceFullScanOnNextRun', 'RebuildTrackingLedgerOnNextRun', 'ClaimExistingGeneratedTagsOnNextRun']) {
+    test(`saving other settings keeps ${flag} that a run already used, instead of turning it back on`, async () => {
+        const page = await readyDashboard({ [flag]: true });
+        await page.edit('MaxItemsPerRun', '5');
+        await page.click('SaveSettingsButton');
+        await page.respond('load-settings', { [flag]: false });
+        const saveRequest = page.request('save-settings');
+        assert.strictEqual(saveRequest.body[flag], false);
+        assert.strictEqual(saveRequest.body.MaxItemsPerRun, 5);
+        saveRequest.resolve({});
+        await page.tick();
+        if (flag === 'ClaimExistingGeneratedTagsOnNextRun') {
+            assert.equal(page.element('EarlierInstallationChoice').value, 'Off');
+        } else {
+            assert.equal(Boolean(page.element(flag).checked), false);
+        }
+    });
+}
+
+test('turning a used one-time action on again still saves it', async () => {
+    const page = await readyDashboard({ ForceFullScanOnNextRun: false });
+    await page.go('Maintenance');
+    await page.edit('ForceFullScanOnNextRun', true);
+    await page.click('SaveSettingsButton');
+    await page.respond('load-settings', { ForceFullScanOnNextRun: false });
+    assert.strictEqual(page.request('save-settings').body.ForceFullScanOnNextRun, true);
 });
 
 test('Discard after a save restores the saved values, not the loaded ones', async () => {
