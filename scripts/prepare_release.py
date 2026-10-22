@@ -130,7 +130,7 @@ def prepare(args) -> str:
     for heading, entries in groups.items():
         body = sections.get(heading, '')
         additions = [entry for entry in entries if entry not in body.splitlines()]
-        sections[heading] = (body + '\n\n' + '\n'.join(additions)).strip()
+        sections[heading] = (body + '\n' + '\n'.join(additions)).strip()
     order = ['Added', 'Changed', 'Deprecated', 'Removed', 'Fixed', 'Security']
     order.extend(heading for heading in sections if heading not in order)
     notes = '\n\n'.join(filter(None, [pieces[0].strip(), *[

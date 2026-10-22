@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -26,7 +27,12 @@ class PrepareReleaseTests(unittest.TestCase):
             target.parent.mkdir(parents=True, exist_ok=True)
             text = (ROOT / name).read_text()
             version = ET.parse(ROOT / PROJECT).getroot().findtext('.//Version')
-            target.write_text(text.replace(version, '0.1.0'))
+            text = text.replace(version, '0.1.0')
+            if name == 'CHANGELOG.md':
+                # Start from an empty Unreleased section so curated entries in the
+                # real changelog do not leak into the generated-notes assertions.
+                text = re.sub(r'(## \[Unreleased\]\n).*?(?=^## )', r'\1\n', text, flags=re.M | re.S)
+            target.write_text(text)
         shutil.copytree(ROOT / 'scripts', self.root / 'scripts', ignore=shutil.ignore_patterns('__pycache__'))
         (self.root / '.gitignore').write_text('__pycache__/\n')
         self.git('init', '-b', 'main')
@@ -68,6 +74,17 @@ class PrepareReleaseTests(unittest.TestCase):
         self.assertIn('[0.2.0]: https://github.com/sntna/jellyfin-plugin-meta-tagger/compare/v0.1.0...v0.2.0', changelog)
         self.assertEqual(head, self.git('rev-parse', 'HEAD'))
         self.assertEqual('v0.1.0', self.git('tag', '--list'))
+
+    def test_generated_entries_join_curated_unreleased_entries(self):
+        path = self.root / 'CHANGELOG.md'
+        path.write_text(path.read_text().replace('## [Unreleased]\n',
+                                                 '## [Unreleased]\n\n### Changed\n\n- Curated change.\n'))
+        self.commit('fix: Record curated notes (#20)')
+        self.commit('feat!: Replace configuration format (#16)')
+        result = self.prepare()
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn('### Changed\n\n- Curated change.\n- Breaking: Replace configuration format (#16)\n',
+                      path.read_text())
 
     def test_older_github_merge_commits_are_skipped_and_reported(self):
         self.commit('Merge pull request #2 from sntna/dependabot/github_actions/actions/checkout-7.0.1')
