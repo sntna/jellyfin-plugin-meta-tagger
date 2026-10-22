@@ -6,6 +6,29 @@ All notable changes to this project are documented here. The project follows
 
 ## [Unreleased]
 
+### Changed
+
+- The dashboard is organized into four tabs: Activity, Items, Settings, and
+  Maintenance. Tab switches keep draft edits, item selection, search, and
+  pagination, and opening the page lands on Activity.
+- Activity shows the run controls, the latest run, proposed tag changes, and
+  an Earlier activity feed with All, Changed tags, and Problems filters that
+  replaces Recent runs and the History view.
+- Settings are grouped into five cards: Sources & item types, Automation, Tag
+  format, Outdated tags, and Limits & privacy. Try unsaved settings stays
+  visible beside them.
+- A save bar appears on every tab while settings have unsaved edits, with
+  Discard, Save & apply tags now, and Save settings. Saving is still explicit.
+- Maintenance holds the next-run actions, tag removal, and a single
+  Off / Next scheduled run / Every library run choice for tags from an
+  earlier installation, which replaces the two separate checkboxes without
+  changing the stored settings.
+
+### Removed
+
+- Back buttons, Escape-to-return, the Saved tag results panel, the Advanced
+  behavior section, and the Tracking and legacy tag settings shortcut.
+
 ## [0.1.0] - 2026-09-19
 
 ### Added
