@@ -52,10 +52,14 @@ public sealed partial class MetaTaggerRunner
             var configuration = CloneConfiguration(source);
             if (draft is not null) { configuration.Installation = _host.GetConfiguration().Installation?.Copy(); }
             inspection.ConfigurationRevision = configuration.ConfigurationRevision;
+            // The reported decision reads the same records a run would, so inspection and preview
+            // report the eligibility a run acts on.
+            var state = await _stateStore.LoadAsync(cancellationToken).ConfigureAwait(false);
             var baselineItemIds = await LoadBaselineItemIdsAsync(
                 _stateStore, configuration.Installation?.Generation, cancellationToken).ConfigureAwait(false);
             inspection.GenerationEligibility = new GenerationEligibilitySnapshot(
-                configuration.Installation, RunInvocation.ConfiguredDefault, baselineItemIds).Decide(item).ToString();
+                configuration.Installation, RunInvocation.ConfiguredDefault, baselineItemIds)
+                .Decide(item, state.Items).ToString();
             if (configuration.Installation?.Origin == InstallationOrigin.Uncertain)
             {
                 return Unavailable("InstallationUnavailable", "The saved installation policy is unavailable. Restore the plugin configuration before applying tags.");
@@ -79,7 +83,6 @@ public sealed partial class MetaTaggerRunner
             // Item inspection and approval never claim untracked tags or consume maintenance actions.
             configuration.ClaimExistingGeneratedTagsForCleanup = false;
             configuration.LastRunSummaryText = string.Empty;
-            var state = await _stateStore.LoadAsync(cancellationToken).ConfigureAwait(false);
             MetadataTagInput input;
             try { input = ProjectMetadata(item, configuration, state, cancellationToken); }
             catch (MediaStreamLookupException exception)

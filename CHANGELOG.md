@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The project follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Automatic runs restore tags for an existing library item the plugin already
+  manages after something outside the plugin removes them, such as a Jellyfin
+  **Replace all metadata** refresh. Items the plugin has never tagged still
+  require an explicit Apply, and a check that writes nothing no longer forgets
+  the tags the plugin recorded for an item.
+
 ### Changed
 
 - The dashboard is organized into four tabs: Activity, Items, Settings, and

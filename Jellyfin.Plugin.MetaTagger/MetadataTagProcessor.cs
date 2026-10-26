@@ -65,7 +65,8 @@ public sealed class MetadataTagProcessor
         var rebuildOnly = options.RunMode == MetadataTagRunMode.RebuildTrackingLedger;
         var shouldWrite = !options.PreviewOnly && !rebuildOnly && merge.HasChangesToApply;
         var finalTags = shouldWrite ? merge.FinalTags : input.ExistingTags;
-        var entry = CreateEntry(input, configuration, generated, ownedTags, finalTags, merge, fingerprint, now, shouldWrite);
+        var entry = CreateEntry(input, configuration, generated, ownedTags, finalTags, merge, fingerprint, now,
+            shouldWrite, rebuildOnly, previous);
 
         return new MetadataTagProcessResult(merge, shouldWrite, entry);
     }
@@ -84,13 +85,23 @@ public sealed class MetadataTagProcessor
         TagMergeResult merge,
         string fingerprint,
         DateTimeOffset now,
-        bool wroteTags)
+        bool wroteTags,
+        bool rebuildOnly,
+        MetaTaggerStateItem? previous)
     {
         var finalSet = finalTags.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var generatedSet = generated.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // A run that changed nothing must not drop records of tags this plugin wrote and still
+        // generates. Something outside the plugin, such as a Jellyfin metadata refresh that
+        // replaces all metadata, can remove them from the item between runs.
+        var retainedRecords = wroteTags || rebuildOnly
+            ? []
+            : (previous?.LastAppliedTags ?? []).Where(generatedSet.Contains);
         var appliedTags = generated
             .Where(finalSet.Contains)
             .Concat(merge.LegacyTagsClaimed.Where(finalSet.Contains))
             .Concat(ownedTags.Where(finalSet.Contains))
+            .Concat(retainedRecords)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
@@ -103,7 +114,8 @@ public sealed class MetadataTagProcessor
             LastGeneratedTags = generated.ToArray(),
             LastAppliedTags = appliedTags,
             LastRunUtc = now,
-            LastWriteUtc = wroteTags ? now : null,
+            // A later run that writes nothing does not undo an earlier confirmed write.
+            LastWriteUtc = wroteTags ? now : previous?.LastWriteUtc,
             PluginVersion = Plugin.PluginVersion,
             GeneratedTagPrefixAtWrite = TagFormat.GeneratedNamespace(configuration),
             ManualTagPrefixAtWrite = TagFormat.ManualNamespace(configuration),
