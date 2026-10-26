@@ -85,6 +85,9 @@ internal interface IMetaTaggerHost
     InstallationState SaveGenerationState(Guid installationId, GenerationState generation)
         => throw new InvalidOperationException("Generation state persistence is unavailable.");
 
+    InstallationState ResolveUncertainInstallation()
+        => throw new InvalidOperationException("Installation recovery is unavailable.");
+
     IReadOnlyList<BaseItem> GetItems(BaseItemKind[] includedItemTypes);
 
     BaseItem? GetItem(Guid itemId);
@@ -114,6 +117,10 @@ internal sealed class JellyfinMetaTaggerHost : IMetaTaggerHost
     public InstallationState SaveGenerationState(Guid installationId, GenerationState generation)
         => (Plugin.Instance ?? throw new InvalidOperationException("The installation is unavailable."))
             .SaveGenerationState(installationId, generation);
+
+    public InstallationState ResolveUncertainInstallation()
+        => (Plugin.Instance ?? throw new InvalidOperationException("The installation is unavailable."))
+            .ResolveUncertainInstallation();
 
     public JellyfinMetaTaggerHost(ILibraryManager libraryManager, IMediaSourceManager? mediaSourceManager = null)
     {

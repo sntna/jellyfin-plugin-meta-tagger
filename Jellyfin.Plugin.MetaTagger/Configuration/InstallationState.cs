@@ -33,13 +33,21 @@ public sealed class GenerationState
 {
     public long Revision { get; set; }
     public bool BaselineComplete { get; set; }
-    public string[]? BaselineItemIds { get; set; }
     public int? BaselineItemCount { get; set; }
+
+    // The baseline item IDs are stored beside the tracking ledger, not in this
+    // configuration. These two fields are what proves that file is the recorded one.
+    public string? BaselineChecksum { get; set; }
+
+    // Builds from before that move recorded the item IDs here instead. They are read once, to
+    // seed the relocated baseline, and then cleared. A baseline captured here never sets them.
+    public string[]? BaselineItemIds { get; set; }
+
     public string[]? AuthorizedItemTypes { get; set; }
     public string[]? AuthorizedItemIds { get; set; }
 
     internal bool IsValid => Revision > 0
-        && (!BaselineComplete || BaselineItemIds is not null && BaselineItemCount == BaselineItemIds.Length)
+        && (!BaselineComplete || (BaselineItemCount >= 0 && !string.IsNullOrEmpty(BaselineChecksum)))
         && (BaselineItemIds ?? []).All(id => Guid.TryParseExact(id, "N", out _))
         && AuthorizedItemTypes is not null
         && AuthorizedItemTypes.All(type => type is "Movie" or "Series" or "Episode" or "Video")
@@ -50,8 +58,9 @@ public sealed class GenerationState
     {
         Revision = Revision,
         BaselineComplete = BaselineComplete,
-        BaselineItemIds = BaselineItemIds?.ToArray(),
         BaselineItemCount = BaselineItemCount,
+        BaselineChecksum = BaselineChecksum,
+        BaselineItemIds = BaselineItemIds?.ToArray(),
         AuthorizedItemTypes = AuthorizedItemTypes?.ToArray(),
         AuthorizedItemIds = AuthorizedItemIds?.ToArray()
     };

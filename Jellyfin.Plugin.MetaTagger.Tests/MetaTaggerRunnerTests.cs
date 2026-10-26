@@ -372,6 +372,12 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
 
     private sealed class ItemStateBoundary(MetaTaggerStateStore store, Action onLoad) : IMetaTaggerStateStore
     {
+
+        public Task SaveBaselineAsync(IReadOnlyCollection<string> itemIds, CancellationToken cancellationToken)
+            => store.SaveBaselineAsync(itemIds, cancellationToken);
+
+        public Task<string[]?> LoadBaselineAsync(int? expectedCount, string? expectedChecksum, CancellationToken cancellationToken)
+            => store.LoadBaselineAsync(expectedCount, expectedChecksum, cancellationToken);
         public Task<MetaTaggerState> LoadAsync(CancellationToken token) { onLoad(); return store.LoadAsync(token); }
         public Task SaveAsync(MetaTaggerState state, CancellationToken token) => store.SaveAsync(state, token);
         public Task SaveRunAsync(MetaTaggerRunRecord record, CancellationToken token) => store.SaveRunAsync(record, token);
@@ -620,6 +626,12 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
 
     private sealed class HistoryCountingStore(MetaTaggerStateStore store, List<MetaTaggerRunRecord> publications) : IMetaTaggerStateStore
     {
+
+        public Task SaveBaselineAsync(IReadOnlyCollection<string> itemIds, CancellationToken cancellationToken)
+            => store.SaveBaselineAsync(itemIds, cancellationToken);
+
+        public Task<string[]?> LoadBaselineAsync(int? expectedCount, string? expectedChecksum, CancellationToken cancellationToken)
+            => store.LoadBaselineAsync(expectedCount, expectedChecksum, cancellationToken);
         public Task<MetaTaggerState> LoadAsync(CancellationToken token) => store.LoadAsync(token);
         public Task SaveAsync(MetaTaggerState state, CancellationToken token) => store.SaveAsync(state, token);
         public Task SaveRunAsync(MetaTaggerRunRecord record, CancellationToken token) { publications.Add(record); return store.SaveRunAsync(record, token); }
@@ -2558,6 +2570,14 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
 
     private sealed class BlockingLoadMetaTaggerStateStore : IMetaTaggerStateStore
     {
+
+        public TestBaseline Baseline { get; } = new();
+
+        public Task SaveBaselineAsync(IReadOnlyCollection<string> itemIds, CancellationToken cancellationToken)
+            => Baseline.SaveAsync(itemIds);
+
+        public Task<string[]?> LoadBaselineAsync(int? expectedCount, string? expectedChecksum, CancellationToken cancellationToken)
+            => Baseline.LoadAsync(expectedCount, expectedChecksum);
         private readonly TaskCompletionSource<bool> _firstLoadEntered =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource<bool> _releaseLoads =
@@ -2605,6 +2625,14 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
 
     private sealed class BlockingSummaryMetaTaggerStateStore : IMetaTaggerStateStore
     {
+
+        public TestBaseline Baseline { get; } = new();
+
+        public Task SaveBaselineAsync(IReadOnlyCollection<string> itemIds, CancellationToken cancellationToken)
+            => Baseline.SaveAsync(itemIds);
+
+        public Task<string[]?> LoadBaselineAsync(int? expectedCount, string? expectedChecksum, CancellationToken cancellationToken)
+            => Baseline.LoadAsync(expectedCount, expectedChecksum);
         private readonly TaskCompletionSource<bool> _firstSummarySaveEntered =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource<bool> _releaseSummarySave =
@@ -2656,6 +2684,14 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
 
         public MetaTaggerState? SavedState { get; private set; }
 
+        public TestBaseline Baseline { get; } = new();
+
+        public Task SaveBaselineAsync(IReadOnlyCollection<string> itemIds, CancellationToken cancellationToken)
+            => Baseline.SaveAsync(itemIds);
+
+        public Task<string[]?> LoadBaselineAsync(int? expectedCount, string? expectedChecksum, CancellationToken cancellationToken)
+            => Baseline.LoadAsync(expectedCount, expectedChecksum);
+
         public List<(MetaTaggerState State, CancellationToken Token)> SaveAttempts { get; } = [];
 
         public Task<MetaTaggerState> LoadAsync(CancellationToken cancellationToken)
@@ -2697,6 +2733,14 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
 
         public List<(MetaTaggerState State, CancellationToken Token)> SaveAttempts { get; } = [];
 
+        public TestBaseline Baseline { get; } = new();
+
+        public Task SaveBaselineAsync(IReadOnlyCollection<string> itemIds, CancellationToken cancellationToken)
+            => Baseline.SaveAsync(itemIds);
+
+        public Task<string[]?> LoadBaselineAsync(int? expectedCount, string? expectedChecksum, CancellationToken cancellationToken)
+            => Baseline.LoadAsync(expectedCount, expectedChecksum);
+
         public Task<MetaTaggerState> LoadAsync(CancellationToken cancellationToken)
         {
             return Task.FromResult(SnapshotState(_persistedState));
@@ -2729,6 +2773,14 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
 
     private sealed class LoadFailingMetaTaggerStateStore : IMetaTaggerStateStore
     {
+
+        public TestBaseline Baseline { get; } = new();
+
+        public Task SaveBaselineAsync(IReadOnlyCollection<string> itemIds, CancellationToken cancellationToken)
+            => Baseline.SaveAsync(itemIds);
+
+        public Task<string[]?> LoadBaselineAsync(int? expectedCount, string? expectedChecksum, CancellationToken cancellationToken)
+            => Baseline.LoadAsync(expectedCount, expectedChecksum);
         public Task<MetaTaggerState> LoadAsync(CancellationToken cancellationToken)
         {
             return Task.FromException<MetaTaggerState>(new IOException("Injected state load failure."));
@@ -2754,6 +2806,14 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
 
     private sealed class PreviewFailingMetaTaggerStateStore : IMetaTaggerStateStore
     {
+
+        public TestBaseline Baseline { get; } = new();
+
+        public Task SaveBaselineAsync(IReadOnlyCollection<string> itemIds, CancellationToken cancellationToken)
+            => Baseline.SaveAsync(itemIds);
+
+        public Task<string[]?> LoadBaselineAsync(int? expectedCount, string? expectedChecksum, CancellationToken cancellationToken)
+            => Baseline.LoadAsync(expectedCount, expectedChecksum);
         public Task<MetaTaggerState> LoadAsync(CancellationToken cancellationToken)
         {
             return Task.FromResult(new MetaTaggerState());
@@ -2779,6 +2839,14 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
 
     private sealed class SummaryFailingMetaTaggerStateStore : IMetaTaggerStateStore
     {
+
+        public TestBaseline Baseline { get; } = new();
+
+        public Task SaveBaselineAsync(IReadOnlyCollection<string> itemIds, CancellationToken cancellationToken)
+            => Baseline.SaveAsync(itemIds);
+
+        public Task<string[]?> LoadBaselineAsync(int? expectedCount, string? expectedChecksum, CancellationToken cancellationToken)
+            => Baseline.LoadAsync(expectedCount, expectedChecksum);
         public Task<MetaTaggerState> LoadAsync(CancellationToken cancellationToken)
         {
             return Task.FromResult(new MetaTaggerState());
@@ -2804,6 +2872,14 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
 
     private sealed class FirstSaveFailingMetaTaggerStateStore : IMetaTaggerStateStore
     {
+
+        public TestBaseline Baseline { get; } = new();
+
+        public Task SaveBaselineAsync(IReadOnlyCollection<string> itemIds, CancellationToken cancellationToken)
+            => Baseline.SaveAsync(itemIds);
+
+        public Task<string[]?> LoadBaselineAsync(int? expectedCount, string? expectedChecksum, CancellationToken cancellationToken)
+            => Baseline.LoadAsync(expectedCount, expectedChecksum);
         private int _saveCount;
 
         public Task<MetaTaggerState> LoadAsync(CancellationToken cancellationToken)
@@ -2863,6 +2939,14 @@ public sealed partial class MetaTaggerRunnerTests : IDisposable
 
     private sealed class FailOnAccessMetaTaggerStateStore : IMetaTaggerStateStore
     {
+
+        public TestBaseline Baseline { get; } = new();
+
+        public Task SaveBaselineAsync(IReadOnlyCollection<string> itemIds, CancellationToken cancellationToken)
+            => Baseline.SaveAsync(itemIds);
+
+        public Task<string[]?> LoadBaselineAsync(int? expectedCount, string? expectedChecksum, CancellationToken cancellationToken)
+            => Baseline.LoadAsync(expectedCount, expectedChecksum);
         public List<string> Operations { get; } = [];
 
         public Task<MetaTaggerState> LoadAsync(CancellationToken cancellationToken)

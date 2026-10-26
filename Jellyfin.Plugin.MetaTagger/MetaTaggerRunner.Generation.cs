@@ -8,19 +8,42 @@ namespace Jellyfin.Plugin.MetaTagger;
 
 public sealed partial class MetaTaggerRunner
 {
-    public Task<MetaTaggerGenerationStatus> GetGenerationStatusAsync(CancellationToken cancellationToken)
+    public async Task<MetaTaggerGenerationStatus> GetGenerationStatusAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         // Generation state is replaced as a copy when saved, so reading it does not wait for a run.
+        InstallationState? installation;
         try
         {
-            return Task.FromResult(GenerationStatus(_host.GetConfiguration().Installation));
+            installation = _host.GetConfiguration().Installation;
         }
         catch (InvalidOperationException)
         {
-            return Task.FromResult(GenerationStatus(null));
+            return GenerationStatus(null);
         }
+
+        var status = GenerationStatus(installation);
+        if (status.BaselineStatus != "Complete") { return status; }
+        // The recorded count and checksum cannot show on their own that the stored item IDs
+        // are the ones they describe, and a baseline failing that check withholds generation.
+        var baselineItemIds = await LoadBaselineItemIdsAsync(_stateStore, installation?.Generation, cancellationToken)
+            .ConfigureAwait(false);
+        return baselineItemIds is null ? UnverifiableBaselineStatus : status;
     }
+
+    // A recorded baseline whose stored item IDs cannot be verified proves nothing, so neither
+    // the reported status nor a run summary may present it as a baseline to act on.
+    private static MetaTaggerGenerationStatus UnverifiableBaselineStatus
+        => new() { Status = "AuthorizationUnavailable", BaselineStatus = "Unavailable" };
+
+    private static void DescribeUnverifiableBaseline(MetaTaggerRunSummary summary)
+    {
+        summary.BaselineStatus = UnverifiableBaselineStatus.BaselineStatus;
+        summary.BaselineItemCount = UnverifiableBaselineStatus.BaselineItemCount;
+    }
+
+    public MetaTaggerGenerationStatus ConfirmInstallation()
+        => GenerationStatus(_host.ResolveUncertainInstallation());
 
     private static MetaTaggerGenerationStatus GenerationStatus(InstallationState? installation)
     {
@@ -36,7 +59,7 @@ public sealed partial class MetaTaggerRunner
         return new()
         {
             BaselineStatus = generation is null ? "NotCaptured" : generation.BaselineComplete ? "Complete" : "Incomplete",
-            BaselineItemCount = generation?.BaselineComplete == true ? generation.BaselineItemIds!.Length : null,
+            BaselineItemCount = generation?.BaselineComplete == true ? generation.BaselineItemCount : null,
             EligibilityRevision = generation?.Revision ?? 0,
             AuthorizedItemTypes = generation?.AuthorizedItemTypes?.ToArray() ?? [],
             AuthorizedItemIds = generation?.AuthorizedItemIds?.ToArray() ?? [],
@@ -54,6 +77,16 @@ public sealed partial class MetaTaggerRunner
 
     private static readonly BaseItemKind[] SupportedGenerationTypes =
         [BaseItemKind.Movie, BaseItemKind.Series, BaseItemKind.Episode, BaseItemKind.Video];
+
+    // Null means a recorded baseline whose item IDs could not be verified, which is not
+    // the same as a library that had no items when the baseline was captured.
+    private static Task<string[]?> LoadBaselineItemIdsAsync(IMetaTaggerStateStore stateStore,
+        GenerationState? generation, CancellationToken cancellationToken)
+    {
+        return generation is { BaselineComplete: true }
+            ? stateStore.LoadBaselineAsync(generation.BaselineItemCount, generation.BaselineChecksum, cancellationToken)
+            : Task.FromResult<string[]?>([]);
+    }
 
     private static bool IsBulkBackfillInvocation(MetaTaggerRunOptions options, RunInvocation invocation)
         => !options.PreviewOnly && !options.ClearGeneratedTags && options.RunMode != MetadataTagRunMode.RebuildTrackingLedger
@@ -86,7 +119,7 @@ public sealed partial class MetaTaggerRunner
         DescribeGenerationState(summary, configuration.Installation);
     }
 
-    private void CaptureGenerationBaseline(PluginConfiguration configuration, MetaTaggerRunBudget budget,
+    private async Task CaptureGenerationBaselineAsync(PluginConfiguration configuration, MetaTaggerRunBudget budget,
         MetaTaggerRunSummary summary, CancellationToken cancellationToken)
     {
         var installation = configuration.Installation;
@@ -102,7 +135,15 @@ public sealed partial class MetaTaggerRunner
         var selectedTypes = GetIncludedItemTypes(configuration).Select(type => type.ToString()).ToHashSet(StringComparer.Ordinal);
         var itemsRemaining = items.Where(item => selectedTypes.Contains(GenerationItemType(item)))
             .Select(item => item.Id).Distinct().Count();
-        var ids = new HashSet<string>(installation.Generation?.BaselineItemIds ?? [], StringComparer.OrdinalIgnoreCase);
+        // Recapturing an incomplete baseline keeps membership recorded earlier, so an item
+        // that is temporarily absent from the library does not become a later addition. A
+        // baseline captured before the item IDs moved records them in the saved policy, which
+        // is the only place this recapture can read that membership from.
+        var ids = new HashSet<string>(
+            await _stateStore.LoadBaselineAsync(installation.Generation?.BaselineItemCount,
+                installation.Generation?.BaselineChecksum, cancellationToken).ConfigureAwait(false)
+                ?? installation.Generation?.BaselineItemIds ?? [],
+            StringComparer.OrdinalIgnoreCase);
         foreach (var item in items)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -117,16 +158,22 @@ public sealed partial class MetaTaggerRunner
         {
             AuthorizedItemTypes = [], AuthorizedItemIds = []
         };
+        var baselineItemIds = ids.Order(StringComparer.Ordinal).ToArray();
         generation.Revision++;
-        generation.BaselineItemIds = ids.Order(StringComparer.Ordinal).ToArray();
-        generation.BaselineItemCount = generation.BaselineItemIds.Length;
+        generation.BaselineItemCount = baselineItemIds.Length;
+        generation.BaselineChecksum = MetaTaggerStateStore.ComputeBaselineChecksum(baselineItemIds);
         generation.BaselineComplete = true;
+        // The relocated file now records the item IDs, so the saved policy stops carrying them.
+        generation.BaselineItemIds = null;
         cancellationToken.ThrowIfCancellationRequested();
         if (budget.ShouldStopBeforeItem(summary, _clock.UtcNow, out reason))
         {
             MarkBudgetLimitReached(summary, reason, itemsRemaining);
             return;
         }
+        // The item IDs must be readable before the saved policy claims this baseline.
+        // A configuration that records a baseline its file cannot reproduce is not trusted.
+        await _stateStore.SaveBaselineAsync(baselineItemIds, cancellationToken).ConfigureAwait(false);
         configuration.Installation = _host.SaveGenerationState(installation.InstallationId, generation);
         DescribeGenerationState(summary, configuration.Installation);
         cancellationToken.ThrowIfCancellationRequested();
@@ -144,7 +191,8 @@ public sealed partial class MetaTaggerRunner
         private readonly HashSet<string> _authorizedIds = new(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<string> _baselineIds = new(StringComparer.OrdinalIgnoreCase);
 
-        internal GenerationEligibilitySnapshot(InstallationState? installation, RunInvocation invocation)
+        internal GenerationEligibilitySnapshot(InstallationState? installation, RunInvocation invocation,
+            string[]? baselineItemIds)
         {
             if (installation is null || installation.Origin == InstallationOrigin.Uncertain)
             {
@@ -160,9 +208,16 @@ public sealed partial class MetaTaggerRunner
             }
 
             _baselineComplete = generation?.BaselineComplete == true;
+            if (_baselineComplete && baselineItemIds is null)
+            {
+                // A recorded baseline whose stored item IDs cannot be verified proves nothing.
+                _unavailable = GenerationItemEligibility.AuthorizationUnavailable;
+                return;
+            }
+
             _authorizedTypes.UnionWith(generation?.AuthorizedItemTypes ?? []);
             _authorizedIds.UnionWith(generation?.AuthorizedItemIds ?? []);
-            if (_baselineComplete) { _baselineIds.UnionWith(generation!.BaselineItemIds!); }
+            if (_baselineComplete) { _baselineIds.UnionWith(baselineItemIds!); }
 
             var prior = installation.PriorGenerationEligibility;
             var priorApply = invocation == RunInvocation.PostScan ? prior?.PostScanApply
@@ -170,17 +225,31 @@ public sealed partial class MetaTaggerRunner
             if (priorApply == true) { _authorizedTypes.UnionWith(prior?.IncludedItemTypes ?? []); }
         }
 
-        internal GenerationItemEligibility Decide(BaseItem item)
+        // The ledger is read per item by key. Callers pass the live records so the decision never
+        // rebuilds a per-item index over them.
+        internal GenerationItemEligibility Decide(BaseItem item, IReadOnlyDictionary<string, MetaTaggerStateItem> ledger)
         {
+            ArgumentNullException.ThrowIfNull(ledger);
             if (_unavailable is { } unavailable) { return unavailable; }
             if (_authorizedTypes.Contains(GenerationItemType(item))) { return GenerationItemEligibility.Eligible; }
             var itemId = item.Id.ToString("N");
             if (_authorizedIds.Contains(itemId)) { return GenerationItemEligibility.Eligible; }
             if (!_baselineComplete) { return GenerationItemEligibility.BaselineUnavailable; }
-            return _baselineIds.Contains(itemId)
-                ? GenerationItemEligibility.BackfillRequired : GenerationItemEligibility.Eligible;
+            if (!_baselineIds.Contains(itemId)) { return GenerationItemEligibility.Eligible; }
+            // Backfill authorization withholds existing library items the plugin has never tagged.
+            // An item whose records hold a confirmed write by this plugin is already managed, so
+            // re-applying to it is maintenance rather than backfill.
+            return HasConfirmedPluginWrite(ledger, itemId)
+                ? GenerationItemEligibility.Eligible : GenerationItemEligibility.BackfillRequired;
         }
     }
+
+    private static bool HasConfirmedPluginWrite(IReadOnlyDictionary<string, MetaTaggerStateItem> ledger, string itemId)
+        // Saved records can be incomplete, so a confirmed write needs both a recorded write time
+        // and recorded tags for that item.
+        => ledger.TryGetValue(itemId, out var entry)
+            && entry?.LastWriteUtc is not null
+            && entry.LastAppliedTags?.Length > 0;
 
     private enum GenerationItemEligibility
     {

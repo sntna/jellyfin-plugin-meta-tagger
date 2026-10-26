@@ -141,6 +141,12 @@ public sealed partial class MetaTaggerRunnerTests
 
     private sealed class HoldNextLoadStateStore(MetaTaggerStateStore inner) : IMetaTaggerStateStore
     {
+
+        public Task SaveBaselineAsync(IReadOnlyCollection<string> itemIds, CancellationToken cancellationToken)
+            => inner.SaveBaselineAsync(itemIds, cancellationToken);
+
+        public Task<string[]?> LoadBaselineAsync(int? expectedCount, string? expectedChecksum, CancellationToken cancellationToken)
+            => inner.LoadBaselineAsync(expectedCount, expectedChecksum, cancellationToken);
         private TaskCompletionSource<bool> _held = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource<bool> _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private int _holdNext;

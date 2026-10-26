@@ -68,6 +68,9 @@ See the [settings guide](docs/meta-tagger-plugin.md) for all options, or the
   Tags with the manual prefix and separator are always kept.
 - Jellyfin item locks, Tags-field locks, and `manual:tagger:skip` protect items
   from plugin changes.
+- A Jellyfin **Replace all metadata** refresh removes tags the plugin wrote. The
+  next run that applies changes restores them for items the plugin already
+  manages. See [Jellyfin metadata refreshes](docs/meta-tagger-plugin.md#jellyfin-metadata-refreshes).
 - Generated tags describe metadata. They do not infer audience, tone, or risk.
 
 Existing tags matching the current generated output can become recorded plugin

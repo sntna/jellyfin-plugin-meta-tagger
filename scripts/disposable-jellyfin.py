@@ -726,6 +726,15 @@ def install_catalog_package(server, manifest_url, version):
     wait_package_installation(server, version)
 
 
+def plugin_data_digests(server):
+    """Digest the plugin-owned files a previous installation left behind."""
+    data_directory = server.directory / "config/plugins/Jellyfin.Plugin.MetaTagger"
+    if not data_directory.is_dir():
+        return {}
+    return {path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in sorted(data_directory.iterdir()) if path.is_file()}
+
+
 def reset_plugin_installation_fixture(server):
     """Reset only plugin evidence after uninstalling from a verified disposable server."""
     docker("stop", server.meta["container"])
@@ -803,6 +812,14 @@ def test_release_lifecycle(args):
     saved_triggers = {task["Key"]: task["Triggers"] for task in server.api("/ScheduledTasks")
                       if task["Key"].startswith("MetaTagger")}
     server.configure(GeneratedTagPrefix="upgrade", QuietLogging=True, PreviewOnly=True, RunAfterLibraryScan=False)
+    previous_state = None
+    if args.previous_manifest_url and args.previous_release_tag:
+        # Let the genuine prior release record its own run state before the upgrade.
+        # Preview makes no media writes, so only plugin-owned files change.
+        summary = server.task("MetaTaggerPreviewTags")
+        assert summary["PreviewOnly"] and summary["WritesApplied"] == 0, summary
+        previous_state = plugin_data_digests(server)
+        assert "last-run-summary.json" in previous_state, previous_state
     configured = server.api(f"/Plugins/{PLUGIN_ID}/Configuration")
 
     if args.previous_manifest_url:
@@ -813,6 +830,12 @@ def test_release_lifecycle(args):
         after_upgrade = server.api(f"/Plugins/{PLUGIN_ID}/Configuration")
         assert after_upgrade["GeneratedTagPrefix"] == "upgrade"
         assert after_upgrade["QuietLogging"] is True
+        if previous_state is not None:
+            # An upgrade over a real release keeps its saved settings, its recorded
+            # summary, and the plugin-owned files it wrote before the upgrade.
+            assert after_upgrade["LastRunSummaryText"] == configured["LastRunSummaryText"]
+            retained = plugin_data_digests(server)
+            assert {name: retained.get(name) for name in previous_state} == previous_state
     else:
         after_upgrade = configured
 
@@ -859,6 +882,8 @@ def test_release_lifecycle(args):
     assert all(not task["Triggers"] for task in fresh_tasks if task["Key"] != daily["Key"])
     server.evidence("release-zip-lifecycle", {
         "packageSha256": package_hash,
+        "upgradedFrom": args.previous_release_tag or f"synthetic {args.previous_version} fixture",
+        "previousInstallationStateRetained": previous_state is not None,
         "freshInstallPreviewOnly": fresh["PreviewOnly"],
         "upgradeRetainedConfiguration": after_upgrade["GeneratedTagPrefix"] == "upgrade",
         "disableEnableRetainedConfiguration": after_enable["GeneratedTagPrefix"] == "upgrade",
@@ -866,7 +891,9 @@ def test_release_lifecycle(args):
         "reinstallPreviewOnly": after_reinstall["PreviewOnly"],
         "savedTaskTriggersPreserved": True,
     })
-    print("PASS catalog ZIP install, upgrade, disable, enable, uninstall, and reinstall lifecycle", flush=True)
+    print("PASS catalog ZIP install, upgrade from "
+          f"{args.previous_release_tag or 'the synthetic fixture'}, disable, enable, uninstall, "
+          "and reinstall lifecycle", flush=True)
 
 
 def test_recovery(args):
@@ -1077,6 +1104,8 @@ def main():
     release_lifecycle.add_argument("--version", default="0.1.0.0")
     release_lifecycle.add_argument("--previous-manifest-url")
     release_lifecycle.add_argument("--previous-version", default="0.0.0.0")
+    release_lifecycle.add_argument("--previous-release-tag",
+                                   help="Record that the previous catalog is a published release.")
     reset = commands.add_parser("reset-fixtures")
     reset.add_argument("directory")
     recovery = commands.add_parser("test-recovery")
