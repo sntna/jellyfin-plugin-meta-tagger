@@ -28,6 +28,36 @@ public sealed partial class Plugin
         }
     }
 
+    internal InstallationState ResolveUncertainInstallation()
+    {
+        lock (_configurationGate)
+        {
+            if (_installation.Origin != InstallationOrigin.Uncertain)
+            {
+                throw new InvalidOperationException("This installation does not need a migration record.");
+            }
+            // An administrator confirming an existing library proves nothing about the
+            // settings an earlier installation ran with, so nothing is pre-authorized.
+            var installation = new InstallationState
+            {
+                InstallationId = _installation.InstallationId,
+                MigrationVersion = 1,
+                Origin = InstallationOrigin.Established,
+                PriorGenerationEligibility = new GenerationEligibility
+                {
+                    IncludedItemTypes = [], ConfiguredApply = false, ApplyTask = false, PostScanApply = false
+                }
+            };
+            ValidateInstallation(installation);
+            var configuration = PluginConfigurationValidator.Sanitize(Configuration);
+            configuration.Installation = installation.Copy();
+            SaveConfigurationAtomically(configuration);
+            _installation = installation;
+            Configuration.Installation = installation.Copy();
+            return installation.Copy();
+        }
+    }
+
     private PluginConfiguration PrepareConfiguration(PluginConfiguration configuration)
     {
         var sanitized = PluginConfigurationValidator.Sanitize(configuration);

@@ -3390,3 +3390,49 @@ test('Maintenance copy matches when next-run flags take effect and clear', () =>
     assert.match(nextRun, /daily Generate metadata tags task and post-scan runs, not Apply tags now or Check changes first/);
     assert.match(nextRun, /clears after a clean daily run/);
 });
+
+test('an unconfirmed installation is surfaced with a recovery action', async () => {
+    const page = dashboard();
+    await page.open();
+    assert.equal(page.element('InstallationRecoveryNotice').hidden, true);
+
+    await page.respond('MetaTagger/GenerationStatus', { status: 'InstallationUnavailable', baselineStatus: 'Unavailable' });
+
+    assert.equal(page.element('InstallationRecoveryNotice').hidden, false);
+    const notice = markup.slice(markup.indexOf('id="InstallationRecoveryNotice"'), markup.indexOf('id="PanelActivity"'));
+    assert.match(notice, /authorizes nothing by itself/);
+    assert.match(notice, /previews only and never writes tags/);
+    // Confirming restores no saved settings, so it cannot promise automatic tagging on its own.
+    assert.match(notice, /review Settings afterwards before eligible later additions can receive tags automatically/);
+
+    await page.click('ConfirmInstallationButton');
+    assert.equal(page.element('ConfirmInstallationButton').disabled, true);
+    await page.respond('MetaTagger/Installation/Confirm', { status: 'Ready' });
+
+    assert.equal(page.element('InstallationRecoveryNotice').hidden, true);
+    assert.equal(page.element('InstallationRecoveryFeedback').textContent, '');
+});
+
+test('a confirmed installation shows no recovery action', async () => {
+    const page = dashboard();
+    await page.open();
+
+    await page.respond('MetaTagger/GenerationStatus', { status: 'Ready', baselineStatus: 'Complete' });
+
+    assert.equal(page.element('InstallationRecoveryNotice').hidden, true);
+    assert.equal(page.sent('MetaTagger/Installation/Confirm').length, 0);
+});
+
+test('a failed installation confirmation keeps the notice and allows another attempt', async () => {
+    const page = dashboard();
+    await page.open();
+    await page.respond('MetaTagger/GenerationStatus', { status: 'InstallationUnavailable' });
+
+    await page.click('ConfirmInstallationButton');
+    await page.fail('MetaTagger/Installation/Confirm');
+
+    assert.equal(page.element('InstallationRecoveryNotice').hidden, false);
+    assert.equal(page.element('ConfirmInstallationButton').disabled, false);
+    assert.match(page.element('InstallationRecoveryFeedback').textContent, /try again/);
+    assert.equal(page.element('InstallationRecoveryFeedback').getAttribute('data-feedback-tone'), 'error');
+});

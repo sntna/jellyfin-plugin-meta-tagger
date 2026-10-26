@@ -153,6 +153,54 @@ public sealed partial class MetaTaggerRunnerTests
         Assert.Empty(item.Tags);
     }
 
+    [Fact]
+    public async Task Migration_ConfirmedUncertainInstallation_RecordsAnExistingLibraryWithoutAuthorizingIt()
+    {
+        var dataPath = Path.Combine(_directory, "plugins", "Jellyfin.Plugin.MetaTagger");
+        await new MetaTaggerStateStore(dataPath).SaveAsync(new MetaTaggerState(), CancellationToken.None);
+        var plugin = CreatePersistedPlugin();
+        var item = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"] };
+        var host = new PersistedConfigurationHost(plugin, [item]);
+
+        var status = CreateRunner(host).ConfirmInstallation();
+
+        Assert.Equal("Ready", status.Status);
+        var installation = plugin.Configuration.Installation!;
+        Assert.Equal(InstallationOrigin.Established, installation.Origin);
+        Assert.Equal(1, installation.MigrationVersion);
+        Assert.Empty(installation.PriorGenerationEligibility!.IncludedItemTypes!);
+        Assert.False(installation.PriorGenerationEligibility.ConfiguredApply);
+        Assert.False(installation.PriorGenerationEligibility.ApplyTask);
+        Assert.False(installation.PriorGenerationEligibility.PostScanApply);
+
+        // Recovery authorizes nothing, so an automatic run still holds the existing item back.
+        plugin.UpdateConfiguration(new PluginConfiguration { PreviewOnly = false });
+        await new ScheduledTagTask(CreateRunner(host)).ExecuteAsync(new NoOpProgress(), CancellationToken.None);
+
+        Assert.Empty(item.Tags);
+
+        // An explicit Apply still authorizes the configured item types.
+        await new ApplyMetadataTagTask(CreateRunner(host)).ExecuteAsync(new NoOpProgress(), CancellationToken.None);
+
+        Assert.Equal(["meta:genre:drama"], item.Tags);
+        Assert.Equal(InstallationOrigin.Established, CreatePersistedPlugin().Configuration.Installation!.Origin);
+    }
+
+    [Fact]
+    public void Migration_ConfirmingAnInstallationThatIsNotUncertain_ChangesNothing()
+    {
+        var plugin = CreatePersistedPlugin();
+        var item = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"] };
+        var runner = CreateRunner(new PersistedConfigurationHost(plugin, [item]));
+        var origin = plugin.Configuration.Installation!.Origin;
+        var installationId = plugin.Configuration.Installation.InstallationId;
+
+        Assert.Throws<InvalidOperationException>(() => runner.ConfirmInstallation());
+
+        Assert.Equal(origin, plugin.Configuration.Installation!.Origin);
+        Assert.Equal(installationId, plugin.Configuration.Installation.InstallationId);
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
@@ -577,6 +625,8 @@ public sealed partial class MetaTaggerRunnerTests
 
         public InstallationState SaveGenerationState(Guid installationId, GenerationState generation)
             => plugin.SaveGenerationState(installationId, generation);
+
+        public InstallationState ResolveUncertainInstallation() => plugin.ResolveUncertainInstallation();
 
         public IReadOnlyList<BaseItem> GetItems(BaseItemKind[] includedItemTypes)
         {
