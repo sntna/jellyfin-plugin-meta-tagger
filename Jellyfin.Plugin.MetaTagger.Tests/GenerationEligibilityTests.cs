@@ -349,6 +349,37 @@ public sealed partial class MetaTaggerRunnerTests
     }
 
     [Fact]
+    public async Task Generation_UnverifiableBaseline_ReportsThatItWithholdsGeneration()
+    {
+        var plugin = CreateFreshGenerationPlugin();
+        var movie = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"] };
+        var items = new List<BaseItem> { movie };
+        await new ScheduledTagTask(CreateRunner(new PersistedConfigurationHost(plugin, items)))
+            .ExecuteAsync(new NoOpProgress(), CancellationToken.None);
+        Assert.Equal("Complete", (await CreateRunner(new PersistedConfigurationHost(CreatePersistedPlugin(), items))
+            .GetGenerationStatusAsync(CancellationToken.None)).BaselineStatus);
+
+        // The stored item IDs no longer reproduce the recorded checksum. The saved policy still
+        // records a count and a checksum, so nothing about the configuration itself looks wrong.
+        await File.WriteAllTextAsync(
+            Path.Combine(_directory, "meta-tagger-baseline.json"), $"[\"{Guid.NewGuid():N}\"]");
+        var runner = CreateRunner(new PersistedConfigurationHost(CreatePersistedPlugin(), items));
+
+        var status = await runner.GetGenerationStatusAsync(CancellationToken.None);
+        var summary = await runner.RunAsync(new NoOpProgress(), CancellationToken.None);
+
+        // The run withholds every item, so neither surface may report a baseline to act on.
+        Assert.Equal(1, summary.ItemsSkippedEligibilityUnavailable);
+        Assert.Equal(0, summary.WritesApplied);
+        Assert.Empty(movie.Tags);
+        Assert.Equal("AuthorizationUnavailable", status.Status);
+        Assert.Equal("Unavailable", status.BaselineStatus);
+        Assert.Null(status.BaselineItemCount);
+        Assert.Equal("Unavailable", summary.BaselineStatus);
+        Assert.Null(summary.BaselineItemCount);
+    }
+
+    [Fact]
     public async Task Generation_JellyfinHost_PreservesProtectionsAndIsolatesFailuresWithoutGrantingCleanupOwnership()
     {
         var plugin = CreateFreshGenerationPlugin();
@@ -502,7 +533,8 @@ public sealed partial class MetaTaggerRunnerTests
         await runner.RunAsync(new NoOpProgress(), CancellationToken.None, new MetaTaggerRunOptions { PreviewOnly = false });
         Assert.Equal(["meta:genre:drama"], movie.Tags);
         plugin = CreatePersistedPlugin();
-        runner = CreateRunner(new PersistedConfigurationHost(plugin, [movie]));
+        // The baseline this run captured lives in this store, so a restart reads it from there.
+        runner = CreateRunner(new PersistedConfigurationHost(plugin, [movie]), store);
         Assert.Equal(["Movie"], (await runner.GetGenerationStatusAsync(CancellationToken.None)).AuthorizedItemTypes);
     }
 

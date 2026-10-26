@@ -8,18 +8,38 @@ namespace Jellyfin.Plugin.MetaTagger;
 
 public sealed partial class MetaTaggerRunner
 {
-    public Task<MetaTaggerGenerationStatus> GetGenerationStatusAsync(CancellationToken cancellationToken)
+    public async Task<MetaTaggerGenerationStatus> GetGenerationStatusAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         // Generation state is replaced as a copy when saved, so reading it does not wait for a run.
+        InstallationState? installation;
         try
         {
-            return Task.FromResult(GenerationStatus(_host.GetConfiguration().Installation));
+            installation = _host.GetConfiguration().Installation;
         }
         catch (InvalidOperationException)
         {
-            return Task.FromResult(GenerationStatus(null));
+            return GenerationStatus(null);
         }
+
+        var status = GenerationStatus(installation);
+        if (status.BaselineStatus != "Complete") { return status; }
+        // The recorded count and checksum cannot show on their own that the stored item IDs
+        // are the ones they describe, and a baseline failing that check withholds generation.
+        var baselineItemIds = await LoadBaselineItemIdsAsync(_stateStore, installation?.Generation, cancellationToken)
+            .ConfigureAwait(false);
+        return baselineItemIds is null ? UnverifiableBaselineStatus : status;
+    }
+
+    // A recorded baseline whose stored item IDs cannot be verified proves nothing, so neither
+    // the reported status nor a run summary may present it as a baseline to act on.
+    private static MetaTaggerGenerationStatus UnverifiableBaselineStatus
+        => new() { Status = "AuthorizationUnavailable", BaselineStatus = "Unavailable" };
+
+    private static void DescribeUnverifiableBaseline(MetaTaggerRunSummary summary)
+    {
+        summary.BaselineStatus = UnverifiableBaselineStatus.BaselineStatus;
+        summary.BaselineItemCount = UnverifiableBaselineStatus.BaselineItemCount;
     }
 
     private static MetaTaggerGenerationStatus GenerationStatus(InstallationState? installation)
