@@ -73,6 +73,49 @@ public sealed class MetaTaggerStateStoreTests : IDisposable
         Assert.Empty(detail.Items);
     }
 
+    [Fact]
+    public async Task RunHistory_UndeletableExpiredDetailKeepsThePublishAndStillReportsRealFailures()
+    {
+        var promoter = new HistoryPublicationFailure();
+        var store = new MetaTaggerStateStore(_directory, promoter);
+        var first = new MetaTaggerRunRecord { Outcome = "Completed" };
+        await store.SaveRunAsync(first, CancellationToken.None);
+        var retained = new List<MetaTaggerRunRecord>();
+        BlockDetailDeletion(first.RunId);
+        for (var i = 0; i < 20; i++)
+        {
+            var run = new MetaTaggerRunRecord { Outcome = "Completed" };
+            retained.Add(run);
+            await store.SaveRunAsync(run, CancellationToken.None);
+        }
+
+        // The index already dropped the expired run, so its undeletable detail is a harmless orphan.
+        var history = await store.LoadRunsAsync(CancellationToken.None);
+        Assert.Equal(20, history.Count);
+        Assert.DoesNotContain(first.RunId, history.Select(run => run.RunId));
+        Assert.Null(await store.LoadRunAsync(first.RunId, CancellationToken.None));
+        Assert.True(Directory.Exists(Path.Combine(_directory, "runs", first.RunId.ToString("N") + ".json")));
+
+        // A failed detail publication must still surface even when cleanup also fails.
+        BlockDetailDeletion(retained[0].RunId);
+        promoter.FailDetail = true;
+        var failing = new MetaTaggerRunRecord { Outcome = "Completed" };
+        var exception = await Assert.ThrowsAsync<IOException>(() => store.SaveRunAsync(failing, CancellationToken.None));
+        Assert.Equal("Injected history publication failure", exception.Message);
+        var reopened = new MetaTaggerStateStore(_directory);
+        var entry = (await reopened.LoadRunsAsync(CancellationToken.None)).Single(run => run.RunId == failing.RunId);
+        Assert.False(entry.DetailsAvailable);
+    }
+
+    private void BlockDetailDeletion(Guid runId)
+    {
+        // Deleting a directory through File.Delete fails the same way an unwritable
+        // history directory does, without depending on the host's permission model.
+        var path = Path.Combine(_directory, "runs", runId.ToString("N") + ".json");
+        File.Delete(path);
+        Directory.CreateDirectory(path);
+    }
+
     private sealed class HistoryPublicationFailure : IMetaTaggerStateFilePromoter
     {
         public bool FailDetail { get; set; }
