@@ -288,14 +288,7 @@ public sealed partial class MetaTaggerRunnerTests
         var movie = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"] };
         await new ScheduledTagTask(CreateRunner(new PersistedConfigurationHost(plugin, [movie])))
             .ExecuteAsync(new NoOpProgress(), CancellationToken.None);
-        var configurationPath = Path.Combine(_directory, "configuration", "Jellyfin.Plugin.MetaTagger.xml");
-        var saved = await File.ReadAllTextAsync(configurationPath);
-        var checksum = saved[saved.IndexOf("<BaselineChecksum>", StringComparison.Ordinal)..
-            (saved.IndexOf("</BaselineChecksum>", StringComparison.Ordinal) + "</BaselineChecksum>".Length)];
-        // Builds before the move recorded the item IDs here and no checksum at all.
-        await File.WriteAllTextAsync(configurationPath, saved.Replace(checksum,
-            $"<BaselineItemIds><string>{movie.Id:N}</string></BaselineItemIds>", StringComparison.Ordinal));
-        File.Delete(Path.Combine(_directory, "meta-tagger-baseline.json"));
+        await RecordBaselineItemIdsInConfigurationAsync(movie.Id);
 
         var restarted = CreatePersistedPlugin();
         var summary = await CreateRunner(new PersistedConfigurationHost(restarted, [movie]))
@@ -308,6 +301,38 @@ public sealed partial class MetaTaggerRunnerTests
         Assert.True(recorded.BaselineComplete);
         Assert.Equal(1, recorded.BaselineItemCount);
         Assert.StartsWith("sha256:", recorded.BaselineChecksum);
+    }
+
+    [Fact]
+    public async Task Generation_ConfigurationFromBeforeTheBaselineMoved_KeepsMembershipOfAnAbsentItem()
+    {
+        var plugin = CreateFreshGenerationPlugin();
+        var present = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"] };
+        var absent = new Movie { Id = Guid.NewGuid(), Genres = ["Comedy"] };
+        var items = new List<BaseItem> { present, absent };
+        await new ScheduledTagTask(CreateRunner(new PersistedConfigurationHost(plugin, items)))
+            .ExecuteAsync(new NoOpProgress(), CancellationToken.None);
+        await RecordBaselineItemIdsInConfigurationAsync(present.Id, absent.Id);
+
+        // The first run after the upgrade cannot see one of the items the baseline recorded,
+        // as when a library location is offline while the recapture happens.
+        var restarted = CreatePersistedPlugin();
+        await CreateRunner(new PersistedConfigurationHost(restarted, [present]))
+            .RunAsync(new NoOpProgress(), CancellationToken.None);
+
+        // It comes back. It was in the library before the upgrade, so it is existing content
+        // held back for explicit authorization, not a later addition to tag automatically.
+        restarted = CreatePersistedPlugin();
+        var summary = await CreateRunner(new PersistedConfigurationHost(restarted, items))
+            .RunAsync(new NoOpProgress(), CancellationToken.None);
+
+        Assert.Equal(0, summary.WritesApplied);
+        Assert.Equal(2, summary.ItemsSkippedBaseline);
+        Assert.Empty(present.Tags);
+        Assert.Empty(absent.Tags);
+        var recordedAfter = restarted.Configuration.Installation!.Generation!;
+        Assert.Equal(2, recordedAfter.BaselineItemCount);
+        Assert.Null(recordedAfter.BaselineItemIds);
     }
 
     [Fact]
@@ -763,6 +788,20 @@ public sealed partial class MetaTaggerRunnerTests
 
         Assert.Equal(["manual:keep", "Favorites"], existing.Tags);
         Assert.Equal(["meta:genre:comedy"], added.Tags);
+    }
+
+    // Rewrites the saved policy the way a build from before the relocation recorded it: the
+    // item IDs in the configuration, no checksum, and nothing stored beside the ledger.
+    private async Task RecordBaselineItemIdsInConfigurationAsync(params Guid[] itemIds)
+    {
+        var configurationPath = Path.Combine(_directory, "configuration", "Jellyfin.Plugin.MetaTagger.xml");
+        var saved = await File.ReadAllTextAsync(configurationPath);
+        var checksum = saved[saved.IndexOf("<BaselineChecksum>", StringComparison.Ordinal)..
+            (saved.IndexOf("</BaselineChecksum>", StringComparison.Ordinal) + "</BaselineChecksum>".Length)];
+        var elements = string.Concat(itemIds.Select(itemId => $"<string>{itemId:N}</string>"));
+        await File.WriteAllTextAsync(configurationPath,
+            saved.Replace(checksum, $"<BaselineItemIds>{elements}</BaselineItemIds>", StringComparison.Ordinal));
+        File.Delete(Path.Combine(_directory, "meta-tagger-baseline.json"));
     }
 
     private Plugin CreateFreshGenerationPlugin(PersistedXmlSerializer? serializer = null)

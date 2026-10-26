@@ -133,10 +133,13 @@ public sealed partial class MetaTaggerRunner
         var itemsRemaining = items.Where(item => selectedTypes.Contains(GenerationItemType(item)))
             .Select(item => item.Id).Distinct().Count();
         // Recapturing an incomplete baseline keeps membership recorded earlier, so an item
-        // that is temporarily absent from the library does not become a later addition.
+        // that is temporarily absent from the library does not become a later addition. A
+        // baseline captured before the item IDs moved records them in the saved policy, which
+        // is the only place this recapture can read that membership from.
         var ids = new HashSet<string>(
             await _stateStore.LoadBaselineAsync(installation.Generation?.BaselineItemCount,
-                installation.Generation?.BaselineChecksum, cancellationToken).ConfigureAwait(false) ?? [],
+                installation.Generation?.BaselineChecksum, cancellationToken).ConfigureAwait(false)
+                ?? installation.Generation?.BaselineItemIds ?? [],
             StringComparer.OrdinalIgnoreCase);
         foreach (var item in items)
         {
@@ -157,6 +160,8 @@ public sealed partial class MetaTaggerRunner
         generation.BaselineItemCount = baselineItemIds.Length;
         generation.BaselineChecksum = MetaTaggerStateStore.ComputeBaselineChecksum(baselineItemIds);
         generation.BaselineComplete = true;
+        // The relocated file now records the item IDs, so the saved policy stops carrying them.
+        generation.BaselineItemIds = null;
         cancellationToken.ThrowIfCancellationRequested();
         if (budget.ShouldStopBeforeItem(summary, _clock.UtcNow, out reason))
         {

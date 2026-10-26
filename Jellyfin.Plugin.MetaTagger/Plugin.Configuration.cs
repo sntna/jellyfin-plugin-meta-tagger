@@ -97,8 +97,10 @@ public sealed partial class Plugin
     }
 
     // Builds from before the baseline item IDs moved beside the tracking ledger recorded a
-    // complete baseline with no checksum. Clearing it makes the next run recapture the current
-    // library, which can only widen the set of items held back for explicit authorization.
+    // complete baseline with no checksum. Marking it incomplete makes the next run recapture
+    // and write the relocated file, seeded by the item IDs that build recorded, so membership
+    // survives an item being absent from the library when that run happens. The recorded count
+    // goes with it: it describes a file that does not exist yet.
     private static void AdoptRelocatedBaseline(InstallationState installation)
     {
         if (installation.Generation is { BaselineComplete: true, BaselineChecksum: null or "" } generation)
