@@ -37,6 +37,25 @@ public sealed class MetaTaggerDashboardController : ControllerBase
     public Task<MetaTaggerGenerationStatus> GetGenerationStatusAsync(CancellationToken cancellationToken)
         => Runner.GetGenerationStatusAsync(cancellationToken);
 
+    [HttpPost("Installation/Confirm")]
+    [ProducesResponseType<MetaTaggerGenerationStatus>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public ActionResult<MetaTaggerGenerationStatus> ConfirmInstallation()
+    {
+        try
+        {
+            return Runner.ConfirmInstallation();
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Conflict(new ProblemDetails { Title = exception.Message, Status = StatusCodes.Status409Conflict });
+        }
+        catch (IOException exception)
+        {
+            return Conflict(new ProblemDetails { Title = exception.Message, Status = StatusCodes.Status409Conflict });
+        }
+    }
+
     [HttpGet("Runs")]
     public Task<IReadOnlyList<MetaTaggerRunRecord>> GetRunsAsync(CancellationToken cancellationToken)
         => _stateStore.LoadRunsAsync(cancellationToken);

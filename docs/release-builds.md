@@ -32,6 +32,25 @@ to create the initial candidate or a local install catalog. Only reuse a catalog
 after testing it from the same checkout; the reuse option does not run Jellyfin
 or prove that a lifecycle test has completed.
 
+The lifecycle test's `0.0.0` upgrade fixture is built from the current tree.
+Before a release, also run the upgrade over the last published release:
+
+```sh
+META_TAGGER_PREVIOUS_RELEASE_TAG=v0.1.0 ./scripts/test-release-lifecycle.sh
+```
+
+`scripts/fetch_released_catalog.py` downloads that release's `manifest.json`
+and package into `.jellyfin-test/release-downloads/TAG`, verifies both against
+the release's published `SHA256SUMS` and the package checksum in its own
+catalog, and serves the verified copy to the disposable server. Downloaded
+assets are untrusted data; nothing in them is executed outside the disposable
+container. An asset that does not match its published checksum stops the test,
+while a release the network cannot reach, or one whose `SHA256SUMS` does not
+cover its assets, prints a `SKIP` line and falls back to the synthetic fixture.
+The tag must use the `vX.Y.Z` form and name a release older than the tree's own
+version. Release and Verify leave the switch unset, so neither reaches the
+network for it.
+
 ## Release preparation
 
 Both local preparation and **Actions → Prepare release** run
