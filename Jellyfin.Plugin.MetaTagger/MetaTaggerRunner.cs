@@ -323,12 +323,14 @@ public sealed partial class MetaTaggerRunner
 
             if (!options.ClearGeneratedTags && !uncertainInstallation)
             {
-                CaptureGenerationBaseline(configuration, budget, summary, cancellationToken);
+                await CaptureGenerationBaselineAsync(configuration, budget, summary, cancellationToken).ConfigureAwait(false);
                 if (summary.BudgetLimitReached) { return summary; }
             }
 
             var generationSnapshot = options.ClearGeneratedTags || options.RunMode == MetadataTagRunMode.RebuildTrackingLedger
-                ? null : new GenerationEligibilitySnapshot(configuration.Installation, invocation);
+                ? null : new GenerationEligibilitySnapshot(configuration.Installation, invocation,
+                    await LoadBaselineItemIdsAsync(_stateStore, configuration.Installation?.Generation, cancellationToken)
+                        .ConfigureAwait(false));
             var items = _host.GetItems(includedItemTypes);
             var scopedItems = options.CleanupItemId is { } cleanupItemId
                 ? items.Where(item => item.Id == cleanupItemId)

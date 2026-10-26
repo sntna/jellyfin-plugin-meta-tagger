@@ -57,6 +57,7 @@ public sealed partial class Plugin
 
         if (configuration.Installation is { } installation)
         {
+            AdoptRelocatedBaseline(installation);
             ValidateInstallation(installation);
             _installation = installation.Copy();
         }
@@ -93,6 +94,18 @@ public sealed partial class Plugin
 
         configuration.Installation = _installation.Copy();
         Configuration = configuration;
+    }
+
+    // Builds from before the baseline item IDs moved beside the tracking ledger recorded a
+    // complete baseline with no checksum. Clearing it makes the next run recapture the current
+    // library, which can only widen the set of items held back for explicit authorization.
+    private static void AdoptRelocatedBaseline(InstallationState installation)
+    {
+        if (installation.Generation is { BaselineComplete: true, BaselineChecksum: null or "" } generation)
+        {
+            generation.BaselineComplete = false;
+            generation.BaselineItemCount = null;
+        }
     }
 
     private static void ValidateInstallation(InstallationState installation)

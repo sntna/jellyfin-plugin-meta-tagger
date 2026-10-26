@@ -52,7 +52,10 @@ public sealed partial class MetaTaggerRunner
             var configuration = CloneConfiguration(source);
             if (draft is not null) { configuration.Installation = _host.GetConfiguration().Installation?.Copy(); }
             inspection.ConfigurationRevision = configuration.ConfigurationRevision;
-            inspection.GenerationEligibility = new GenerationEligibilitySnapshot(configuration.Installation, RunInvocation.ConfiguredDefault).Decide(item).ToString();
+            var baselineItemIds = await LoadBaselineItemIdsAsync(
+                _stateStore, configuration.Installation?.Generation, cancellationToken).ConfigureAwait(false);
+            inspection.GenerationEligibility = new GenerationEligibilitySnapshot(
+                configuration.Installation, RunInvocation.ConfiguredDefault, baselineItemIds).Decide(item).ToString();
             if (configuration.Installation?.Origin == InstallationOrigin.Uncertain)
             {
                 return Unavailable("InstallationUnavailable", "The saved installation policy is unavailable. Restore the plugin configuration before applying tags.");

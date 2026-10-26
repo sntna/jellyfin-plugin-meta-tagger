@@ -50,8 +50,9 @@ public sealed partial class MetaTaggerRunner
             await PublishHistoryAsync(record).ConfigureAwait(false);
             if (configuration.IsEnabled && configuration.Installation?.Origin != InstallationOrigin.Uncertain)
             {
-                CaptureGenerationBaseline(configuration, new MetaTaggerRunBudget(configuration, summary.LastRunUtc!.Value),
-                    summary, cancellationToken);
+                await CaptureGenerationBaselineAsync(configuration,
+                    new MetaTaggerRunBudget(configuration, summary.LastRunUtc!.Value),
+                    summary, cancellationToken).ConfigureAwait(false);
             }
             if (summary.BudgetLimitReached)
             {
@@ -136,7 +137,7 @@ public sealed partial class MetaTaggerRunner
                 return summary;
             }
             // Optional checking must not change when later additions become eligible.
-            CaptureGenerationBaseline(configuration, budget, summary, cancellationToken);
+            await CaptureGenerationBaselineAsync(configuration, budget, summary, cancellationToken).ConfigureAwait(false);
             if (summary.BudgetLimitReached)
             {
                 summary.ItemsRemaining = 1;
