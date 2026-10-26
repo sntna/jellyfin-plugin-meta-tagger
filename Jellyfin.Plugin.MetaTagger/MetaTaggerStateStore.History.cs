@@ -46,7 +46,17 @@ public sealed partial class MetaTaggerStateStore
             await AtomicWriteAsync(HistoryPath, records.Take(20).ToArray(), false, cancellationToken).ConfigureAwait(false);
             foreach (var id in expired)
             {
-                File.Delete(RunPath(id));
+                try
+                {
+                    File.Delete(RunPath(id));
+                }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+                {
+                    // The retained index is already published and no longer names this run, so the
+                    // publish succeeded. LoadRunAsync only reads files named in the index, making an
+                    // undeletable expired detail a harmless orphan. Never report it as a history
+                    // publication failure, and never let it replace a real one.
+                }
             }
             publicationFailure?.Throw();
         }
