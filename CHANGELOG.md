@@ -11,8 +11,9 @@ All notable changes to this project are documented here. The project follows
 - Automatic runs restore tags for an existing library item the plugin already
   manages after something outside the plugin removes them, such as a Jellyfin
   **Replace all metadata** refresh. Items the plugin has never tagged still
-  require an explicit Apply, and a check that writes nothing no longer forgets
-  the tags the plugin recorded for an item.
+  require an explicit Apply. A check or a **Rebuild plugin tag records** run that
+  changes no tags no longer forgets the tags the plugin recorded for an item, so
+  neither forfeits that restoration.
 
 ### Changed
 

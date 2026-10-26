@@ -929,6 +929,50 @@ public sealed partial class MetaTaggerRunnerTests
         Assert.Equal(["Favorites", "meta:genre:drama"], movie.Tags);
     }
 
+    [Fact]
+    public async Task Generation_RecordRebuildOfAManagedItem_KeepsTheRecordsThatMakeItEligible()
+    {
+        var movie = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"], Tags = ["Favorites"] };
+        var store = new InMemoryMetaTaggerStateStore(RecordedWriteLedger(movie, ["meta:genre:drama"]));
+        var configuration = GenerationPerformanceConfiguration([movie], authorized: false, store);
+        var host = new InMemoryMetaTaggerHost(configuration, [movie]);
+        var runner = CreateRunner(host, store);
+
+        // Rebuilding the records is what a user is likely to reach for after noticing missing
+        // tags, so it must not forfeit the item's restoration.
+        await new RebuildMetadataTagLedgerTask(runner).ExecuteAsync(new NoOpProgress(), CancellationToken.None);
+        Assert.Empty(host.UpdateAttempts);
+        Assert.Equal(["Favorites"], movie.Tags);
+        var recorded = store.SavedState!.Items[movie.Id.ToString("N")];
+        Assert.Equal(["meta:genre:drama"], recorded.LastAppliedTags);
+        Assert.NotNull(recorded.LastWriteUtc);
+        var status = await runner.GetGenerationStatusAsync(CancellationToken.None);
+        Assert.Empty(status.AuthorizedItemTypes);
+        Assert.Empty(status.AuthorizedItemIds);
+
+        var summary = await runner.RunAsync(new NoOpProgress(), CancellationToken.None);
+
+        Assert.Equal(0, summary.ItemsSkippedBaseline);
+        Assert.Equal(1, summary.WritesApplied);
+        Assert.Equal(["Favorites", "meta:genre:drama"], movie.Tags);
+    }
+
+    [Fact]
+    public async Task Generation_RecordRebuild_StillDropsRecordsOfTagsItNoLongerGenerates()
+    {
+        var movie = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"], Tags = ["Favorites"] };
+        var store = new InMemoryMetaTaggerStateStore(
+            RecordedWriteLedger(movie, ["meta:genre:drama", "meta:genre:retired"]));
+        var configuration = GenerationPerformanceConfiguration([movie], authorized: false, store);
+        var host = new InMemoryMetaTaggerHost(configuration, [movie]);
+        var runner = CreateRunner(host, store);
+
+        await new RebuildMetadataTagLedgerTask(runner).ExecuteAsync(new NoOpProgress(), CancellationToken.None);
+
+        // A record of a tag that is both absent and no longer generated is stale, not a repair.
+        Assert.Equal(["meta:genre:drama"], store.SavedState!.Items[movie.Id.ToString("N")].LastAppliedTags);
+    }
+
     private static MetaTaggerState RecordedWriteLedger(BaseItem item, string[] recordedTags, bool recordWrite = true)
     {
         var itemId = item.Id.ToString("N");
