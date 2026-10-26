@@ -973,6 +973,59 @@ public sealed partial class MetaTaggerRunnerTests
         Assert.Equal(["meta:genre:drama"], store.SavedState!.Items[movie.Id.ToString("N")].LastAppliedTags);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Generation_PostScanUnderAsymmetricPriorEligibility_RestoresOnlyItemsThePluginWrote(bool recordedWrite)
+    {
+        // A 0.1.0 installation that applied tags on demand but never after a library scan, so the
+        // adopted policy authorizes Movie for a configured run and not for post-scan. The other
+        // eligibility fixtures authorize every invocation alike, which hides that difference.
+        WriteLegacyConfiguration(previewOnly: false, runAfterLibraryScan: false);
+        var plugin = CreatePersistedPlugin();
+        var prior = plugin.Configuration.Installation!.PriorGenerationEligibility!;
+        Assert.Equal(["Movie"], prior.IncludedItemTypes!);
+        Assert.True(prior.ConfiguredApply);
+        Assert.False(prior.PostScanApply);
+
+        // The invocation this policy does authorize captures the baseline and writes the tag, so
+        // the item belongs to the existing library and is managed by this plugin at once.
+        var movie = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"] };
+        var runner = CreateRunner(new PersistedConfigurationHost(plugin, [movie]));
+        await runner.RunAsync(new NoOpProgress(), CancellationToken.None);
+        Assert.Equal(["meta:genre:drama"], movie.Tags);
+        var store = new MetaTaggerStateStore(_directory);
+        if (!recordedWrite)
+        {
+            // Records that hold applied tags without a write time never confirmed a write here.
+            var state = await store.LoadAsync(CancellationToken.None);
+            state.Items[movie.Id.ToString("N")].LastWriteUtc = null;
+            await store.SaveAsync(state, CancellationToken.None);
+        }
+
+        // Jellyfin replaces all metadata for the item, which empties its tags.
+        movie.Tags = [];
+        // The user then turns post-scan on. The saved policy still never authorized post-scan.
+        var configuration = PluginConfigurationValidator.Sanitize(plugin.Configuration);
+        configuration.RunAfterLibraryScan = true;
+        plugin.UpdateConfiguration(configuration);
+        plugin = CreatePersistedPlugin();
+        runner = CreateRunner(new PersistedConfigurationHost(plugin, [movie]));
+
+        await new LibraryPostScanTask(runner, store, new MetaTaggerClock()).Run(new NoOpProgress(), CancellationToken.None);
+
+        // A confirmed write makes restoration maintenance, which the invocation gate does not
+        // withhold. Without one the item is ordinary existing library content, still held back.
+        var summary = await store.LoadSummaryAsync(CancellationToken.None);
+        Assert.Equal(recordedWrite ? 1 : 0, summary!.WritesApplied);
+        Assert.Equal(recordedWrite ? 0 : 1, summary.ItemsSkippedBaseline);
+        Assert.Equal<string>(recordedWrite ? ["meta:genre:drama"] : [], movie.Tags);
+        var status = await runner.GetGenerationStatusAsync(CancellationToken.None);
+        Assert.Empty(status.AuthorizedItemTypes);
+        Assert.Empty(status.AuthorizedItemIds);
+        Assert.False(status.PriorGenerationEligibility!.PostScanApply);
+    }
+
     private static MetaTaggerState RecordedWriteLedger(BaseItem item, string[] recordedTags, bool recordWrite = true)
     {
         var itemId = item.Id.ToString("N");
