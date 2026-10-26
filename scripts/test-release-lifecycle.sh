@@ -29,6 +29,20 @@ done
 mkdir -p -- "$current_repository"
 
 if [[ -n "$previous_release_tag" ]]; then
+  # Check the tag before it names a directory that is removed by name or
+  # reaches the network. An unchecked tag would escape the downloads directory.
+  if [[ ! "$previous_release_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    printf 'META_TAGGER_PREVIOUS_RELEASE_TAG must use the vX.Y.Z form.\n' >&2
+    exit 2
+  fi
+  previous_release_version="${previous_release_tag#v}.0"
+  if [[ "$previous_release_version" == "${release_version}.0" ]]; then
+    # Both plugins would install into the same versioned directory, so the
+    # upgrade would be a no-op and every retention assertion would pass blindly.
+    printf 'Published %s holds this tree version %s, so it cannot test an upgrade.\n' \
+      "$previous_release_tag" "$previous_release_version" >&2
+    exit 2
+  fi
   # Downloaded release assets are untrusted data. Keep them in their own
   # disposable directory, verified against the release's published SHA256SUMS.
   download_directory="$repo_root/.jellyfin-test/release-downloads/$previous_release_tag"
@@ -48,7 +62,7 @@ if [[ -n "$previous_release_tag" ]]; then
   python3 "${fetch_arguments[@]}" || fetch_status=$?
   if ((fetch_status == 0)); then
     previous_repository="$download_directory"
-    previous_version="${previous_release_tag#v}.0"
+    previous_version="$previous_release_version"
     previous_release="$previous_release_tag"
   elif ((fetch_status == 75)); then
     printf 'SKIP upgrade from published %s: assets unavailable. Using the synthetic 0.0.0 fixture.\n' \

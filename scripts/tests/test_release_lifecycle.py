@@ -165,7 +165,8 @@ class ReleaseRepositoryTests(unittest.TestCase):
 class PublishedPreviousReleaseTests(unittest.TestCase):
     """The opt-in switch upgrades over a published release, or skips cleanly."""
 
-    def run_lifecycle(self, download_base):
+    def run_lifecycle(self, download_base, tag='v0.1.0', project_version='0.2.0',
+                      seed_downloads=False):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         root = Path(directory.name)
@@ -176,10 +177,12 @@ class PublishedPreviousReleaseTests(unittest.TestCase):
         (scripts / 'package_release.py').write_text(textwrap.dedent('''\
             import argparse
             import json
+            import os
             from pathlib import Path
 
             def _project_versions():
-                return '0.2.0', '0.2.0.0'
+                version = os.environ.get('TEST_PROJECT_VERSION', '0.2.0')
+                return version, version + '.0'
 
             if __name__ == '__main__':
                 parser = argparse.ArgumentParser()
@@ -231,9 +234,17 @@ class PublishedPreviousReleaseTests(unittest.TestCase):
             for listener in [current, previous]:
                 listener.bind(('127.0.0.1', 0))
                 ports.append(str(listener.getsockname()[1]))
+        sentinel = root / '.jellyfin-test/sentinel.txt'
+        sentinel.parent.mkdir(parents=True, exist_ok=True)
+        sentinel.write_text('keep')
+        if seed_downloads:
+            # A previous opt-in run leaves this behind, which is what lets a
+            # traversal tag resolve through it to a path outside.
+            (root / '.jellyfin-test/release-downloads').mkdir()
         observed_path = root / 'observed.json'
         env = dict(os.environ, TEST_CATALOG_ADDRESS='127.0.0.1', TEST_OBSERVED_PATH=str(observed_path),
-                   META_TAGGER_PREVIOUS_RELEASE_TAG='v0.1.0',
+                   TEST_PROJECT_VERSION=project_version,
+                   META_TAGGER_PREVIOUS_RELEASE_TAG=tag,
                    META_TAGGER_RELEASE_DOWNLOAD_BASE=download_base, no_proxy='*')
         env.pop('META_TAGGER_REPOSITORY_BIND_ADDRESS', None)
         result = subprocess.run(['bash', str(scripts / 'test-release-lifecycle.sh'), '', *ports],
@@ -268,6 +279,42 @@ class PublishedPreviousReleaseTests(unittest.TestCase):
         self.assertNotIn('--previous-release-tag', observed['argv'])
         self.assertEqual('0.0.0.0', observed['argv'][observed['argv'].index('--previous-version') + 1])
         self.assertEqual(hashlib.sha256(b'fixture-package').hexdigest(), observed['previousPackageSha256'])
+        self.assertTrue((root / '.jellyfin-test/repository-previous/manifest.json').is_file())
+
+    def test_tag_outside_the_version_form_is_refused_before_anything_is_removed(self):
+        # The download directory is removed by name, so a tag that walks out of it
+        # deletes elsewhere once an earlier run has created it. Check the tag first.
+        result, root, observed = self.run_lifecycle(closed_loopback_url(),
+                                                    tag='../sentinel.txt', seed_downloads=True)
+
+        self.assertTrue((root / '.jellyfin-test/sentinel.txt').is_file(),
+                        'the tag reached a path outside the download directory')
+        self.assertEqual(2, result.returncode, result.stdout + result.stderr)
+        self.assertIn('must use the vX.Y.Z form', result.stderr)
+        self.assertIsNone(observed)
+
+    def test_tag_holding_the_tree_version_is_refused_as_an_upgrade(self):
+        result, root, observed = self.run_lifecycle(closed_loopback_url(),
+                                                    tag='v0.1.0', project_version='0.1.0')
+
+        self.assertEqual(2, result.returncode, result.stdout + result.stderr)
+        self.assertIn('holds this tree version 0.1.0.0', result.stderr)
+        self.assertFalse((root / '.jellyfin-test/release-downloads').exists())
+        self.assertIsNone(observed)
+
+    def test_release_missing_an_asset_skips_and_keeps_the_synthetic_fixture_upgrade(self):
+        release = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, release)
+        write_published_release(release / 'v0.1.0')
+        sums = release / 'v0.1.0/SHA256SUMS'
+        sums.write_text(''.join(line + '\n' for line in sums.read_text().splitlines()
+                                if 'meta-tagger_' not in line))
+        base = serve_directory(self, release)
+        result, root, observed = self.run_lifecycle(base + '/v0.1.0')
+
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertIn('SKIP upgrade from published v0.1.0', result.stderr)
+        self.assertNotIn('--previous-release-tag', observed['argv'])
         self.assertTrue((root / '.jellyfin-test/repository-previous/manifest.json').is_file())
 
     def test_tampered_release_package_stops_the_lifecycle_test(self):
@@ -317,15 +364,18 @@ class ReleaseCatalogVerificationTests(unittest.TestCase):
             self.fetch(base)
         self.assertFalse(self.output.exists())
 
-    def test_asset_outside_the_published_checksums_is_rejected(self):
+    def test_asset_outside_the_published_checksums_is_unavailable_not_a_failure(self):
         write_published_release(self.root / 'release')
         sums = self.root / 'release/SHA256SUMS'
         sums.write_text(''.join(line + '\n' for line in sums.read_text().splitlines()
                                 if 'meta-tagger_' not in line))
         base = serve_directory(self, self.root / 'release')
 
-        with self.assertRaisesRegex(ValueError, 'does not cover meta-tagger_0.1.0.0.zip'):
+        # Unverifiable, so unusable, but an old release may simply not carry it.
+        with self.assertRaisesRegex(catalog.ReleaseUnavailable,
+                                    'does not cover meta-tagger_0.1.0.0.zip'):
             self.fetch(base)
+        self.assertFalse(self.output.exists())
 
     def test_unreachable_release_is_reported_as_unavailable(self):
         with self.assertRaises(catalog.ReleaseUnavailable):

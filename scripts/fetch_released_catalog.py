@@ -30,7 +30,7 @@ UNAVAILABLE_EXIT_CODE = 75
 
 
 class ReleaseUnavailable(Exception):
-    """The published release or one of its assets could not be downloaded."""
+    """The published release does not provide the assets this upgrade needs."""
 
 
 def _download(download_base: str, name: str, timeout: float) -> bytes:
@@ -74,7 +74,9 @@ def fetch_released_catalog(
     checksums = parse_checksums(published_checksums.decode("utf-8"))
     uncovered = [name for name in ("manifest.json", package_name) if name not in checksums]
     if uncovered:
-        raise ValueError(f"Published SHA256SUMS does not cover {', '.join(uncovered)}.")
+        # An asset the release never vouched for is unusable rather than evidence
+        # of tampering: an older release may simply not carry it. The caller skips.
+        raise ReleaseUnavailable(f"Published SHA256SUMS does not cover {', '.join(uncovered)}.")
 
     verified: dict[str, bytes] = {}
     for name in ("manifest.json", package_name):

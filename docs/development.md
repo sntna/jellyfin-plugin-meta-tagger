@@ -157,11 +157,17 @@ configuration and run state, and asserts both survive the upgrade to the
 candidate ZIP. `scripts/fetch_released_catalog.py` downloads the release's
 `manifest.json` and package into `.jellyfin-test/release-downloads/TAG`,
 verifies both against the release's published `SHA256SUMS`, and serves that
-verified copy to the disposable server. A failed verification stops the test.
-When the release or the network is unavailable the run prints a `SKIP` line and
-continues with the synthetic `0.0.0` fixture, so the default offline path and CI
-are unchanged. Set `META_TAGGER_RELEASE_DOWNLOAD_BASE` to read the assets from
-somewhere other than the GitHub release.
+verified copy to the disposable server. An asset that does not match its
+published checksum stops the test. When the release, the network, or a
+`SHA256SUMS` entry covering those assets is missing, the run prints a `SKIP`
+line and continues with the synthetic `0.0.0` fixture, so the default offline
+path and CI are unchanged. Set `META_TAGGER_RELEASE_DOWNLOAD_BASE` to read the
+assets from somewhere other than the GitHub release.
+
+The tag must use the `vX.Y.Z` form, and it must name a release older than this
+tree: a tag holding the tree's own version would install both plugins into the
+same versioned directory, so the upgrade and its retention assertions would
+pass without testing anything. Both are refused with exit 2.
 
 ## Dashboard development
 
