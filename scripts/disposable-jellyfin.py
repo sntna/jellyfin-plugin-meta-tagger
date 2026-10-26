@@ -367,8 +367,13 @@ def test_basic(args):
     config = server.api(f"/Plugins/{PLUGIN_ID}/Configuration")
     assert config["PreviewOnly"] is False and config["RunAfterLibraryScan"] is True
     passed("fresh install defaults to automatic Apply", {"PreviewOnly": False, "items": len(initial)})
+    # A fresh installation leaves episodes, studios and production year off, and
+    # the assertions below need all three. IncludeParentSeriesMetadataOnEpisodes
+    # is inert while episodes are out of scope.
     server.configure(GeneratedTagPrefix="custom", EnableExistingTagsAsKeywords=True,
-                     IncludeParentSeriesMetadataOnEpisodes=True, StaleTagMode="Keep", PreviewOnly=True,
+                     IncludeEpisodes=True, IncludeParentSeriesMetadataOnEpisodes=True,
+                     StaleTagMode="Keep", PreviewOnly=True,
+                     EnableStudios=True, EnableProductionYear=True,
                      EnableProductionCountries=True, EnableProviderIds=True, QuietLogging=True)
     server.update_item(movie, ProviderIds={"Acceptance": "synthetic-movie-001"}, CustomRating="PG-13")
     summary = server.task("MetaTaggerPreviewTags")
@@ -994,7 +999,8 @@ def test_upgrade(args):
     server = Server(directory)
     server.login()
     server.configure(GeneratedTagPrefix="upgrade", StaleTagMode="Remove", PreviewOnly=True,
-                     EnableExistingTagsAsKeywords=False, IncludeParentSeriesMetadataOnEpisodes=True)
+                     EnableExistingTagsAsKeywords=False, IncludeEpisodes=True,
+                     IncludeParentSeriesMetadataOnEpisodes=True)
     summary = server.task("MetaTaggerApplyTags")
     assert summary["WritesApplied"] == 7
     before = server.tags()
