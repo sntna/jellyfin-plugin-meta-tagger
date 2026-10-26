@@ -22,6 +22,9 @@ public sealed partial class MetaTaggerRunner
         }
     }
 
+    public MetaTaggerGenerationStatus ConfirmInstallation()
+        => GenerationStatus(_host.ResolveUncertainInstallation());
+
     private static MetaTaggerGenerationStatus GenerationStatus(InstallationState? installation)
     {
         if (installation is null || installation.Origin == InstallationOrigin.Uncertain)

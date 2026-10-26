@@ -192,6 +192,7 @@ export async function developmentContract(browser, diagnostics, onPage = () => {
                 IsEnabled: true, EnableGenres: true, IncludeMovies: true, PreviewOnly: true,
                 ConfigurationRevision: 'development-revision', DefaultRunMode: 'Incremental', StaleTagMode: 'Keep' },
             '/MetaTagger/Libraries': [], '/MetaTagger/Runs': [], '/MetaTagger/ItemRuns/Current': null,
+            '/MetaTagger/GenerationStatus': { status: 'Ready', baselineStatus: 'Complete' },
             '/MetaTagger/Preview': { status: 'Ready', summary: {}, changes: [] },
             '/MetaTagger/Items': { totalCount: 1, items: [{ itemId: 'generated', name, itemType: 'Movie' }] },
             '/MetaTagger/Items/generated': { itemId: 'generated', name, itemType: 'Movie', generatedTags: ['meta:genre:drama'], sources: [] },
