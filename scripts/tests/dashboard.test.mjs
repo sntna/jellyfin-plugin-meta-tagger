@@ -3402,6 +3402,8 @@ test('an unconfirmed installation is surfaced with a recovery action', async () 
     const notice = markup.slice(markup.indexOf('id="InstallationRecoveryNotice"'), markup.indexOf('id="PanelActivity"'));
     assert.match(notice, /authorizes nothing by itself/);
     assert.match(notice, /previews only and never writes tags/);
+    // Confirming restores no saved settings, so it cannot promise automatic tagging on its own.
+    assert.match(notice, /review Settings afterwards before eligible later additions can receive tags automatically/);
 
     await page.click('ConfirmInstallationButton');
     assert.equal(page.element('ConfirmInstallationButton').disabled, true);
