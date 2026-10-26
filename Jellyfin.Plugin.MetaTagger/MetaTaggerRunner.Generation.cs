@@ -170,17 +170,31 @@ public sealed partial class MetaTaggerRunner
             if (priorApply == true) { _authorizedTypes.UnionWith(prior?.IncludedItemTypes ?? []); }
         }
 
-        internal GenerationItemEligibility Decide(BaseItem item)
+        // The ledger is read per item by key. Callers pass the live records so the decision never
+        // rebuilds a per-item index over them.
+        internal GenerationItemEligibility Decide(BaseItem item, IReadOnlyDictionary<string, MetaTaggerStateItem> ledger)
         {
+            ArgumentNullException.ThrowIfNull(ledger);
             if (_unavailable is { } unavailable) { return unavailable; }
             if (_authorizedTypes.Contains(GenerationItemType(item))) { return GenerationItemEligibility.Eligible; }
             var itemId = item.Id.ToString("N");
             if (_authorizedIds.Contains(itemId)) { return GenerationItemEligibility.Eligible; }
             if (!_baselineComplete) { return GenerationItemEligibility.BaselineUnavailable; }
-            return _baselineIds.Contains(itemId)
-                ? GenerationItemEligibility.BackfillRequired : GenerationItemEligibility.Eligible;
+            if (!_baselineIds.Contains(itemId)) { return GenerationItemEligibility.Eligible; }
+            // Backfill authorization withholds existing library items the plugin has never tagged.
+            // An item whose records hold a confirmed write by this plugin is already managed, so
+            // re-applying to it is maintenance rather than backfill.
+            return HasConfirmedPluginWrite(ledger, itemId)
+                ? GenerationItemEligibility.Eligible : GenerationItemEligibility.BackfillRequired;
         }
     }
+
+    private static bool HasConfirmedPluginWrite(IReadOnlyDictionary<string, MetaTaggerStateItem> ledger, string itemId)
+        // Saved records can be incomplete, so a confirmed write needs both a recorded write time
+        // and recorded tags for that item.
+        => ledger.TryGetValue(itemId, out var entry)
+            && entry?.LastWriteUtc is not null
+            && entry.LastAppliedTags?.Length > 0;
 
     private enum GenerationItemEligibility
     {

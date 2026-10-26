@@ -260,13 +260,51 @@ saved triggers are unchanged. Generate metadata tags defaults to once per day
 and follows the saved automatic mode. Post-scan processing is a separate hook.
 Both require tagging to be enabled and selected item types. Neither authorizes
 backfill. The persisted baseline excludes existing items until explicit Apply
-authorizes them; eligible later additions can receive tags automatically.
+authorizes them; eligible later additions can receive tags automatically. An
+existing item whose plugin tag records hold a confirmed write by the plugin is
+already managed, so automatic runs keep maintaining it without new authorization.
 Incremental processing can enumerate the full selected scope and skip unchanged items.
 
 `MinimumMinutesBetweenAutoRuns` skips post-scan processing when the latest tagging
 run was too recent. Earlier activity records **Skipped: cooldown**, with no items checked
 or tags written. The skip neither extends the cooldown nor queues a run. The next
 library scan after the cooldown can run. The daily task does not use this cooldown.
+
+### Jellyfin metadata refreshes
+
+Jellyfin owns an item's tags, so a Jellyfin metadata refresh can remove tags this
+plugin wrote. The plugin cannot prevent that. In Jellyfin 12.0:
+
+- **Scan for new and updated files**, including the scheduled library scan, and
+  **Search for missing metadata** keep an item's existing tags.
+- **Replace all metadata** keeps only the tags a metadata provider supplies during
+  that refresh, so tags this plugin wrote are removed. Starting it on a library or
+  folder applies the same refresh to every item underneath it, which can clear
+  plugin tags across a whole library in one action.
+- **Identify**, which rematches an item to different metadata, removes an item's
+  tags the same way.
+- Saving an item in Jellyfin's metadata editor replaces its tags with the ones the
+  editor submitted. This is separate from a refresh.
+
+This describes Jellyfin 12.0, the server version this plugin targets. Later
+Jellyfin releases were not compared.
+
+The next plugin run restores tags for items it already manages. When the plugin's
+tag records hold a confirmed write for the item, a run that applies changes
+recalculates its tags from current metadata and writes them again, including for
+an item in the persisted baseline. Previews report the difference without changing
+tags, and **Check changes first** for a single item lists recorded tags that are
+missing from it. An existing item the plugin has never tagged has no recorded tags
+to restore and still needs an explicit Apply before the plugin tags it.
+
+Locking the **Tags** metadata field keeps Jellyfin 12.0 from replacing an item's
+tags, including under Replace all metadata. It also stops metadata providers from
+supplying tags, and this plugin skips an item with that lock, reporting it as
+**Protected** and leaving its tags and plugin tag records unchanged. **Lock this
+item to prevent future changes** protects the item's tags by stopping its metadata
+refreshes altogether, and the plugin skips that item as well. Use either lock when
+Jellyfin and the plugin should both leave the item's tags alone; leave it unlocked
+when the plugin should keep the item's tags up to date.
 
 ## Resource controls
 

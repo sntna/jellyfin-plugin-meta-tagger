@@ -663,6 +663,161 @@ public sealed partial class MetaTaggerRunnerTests
         Assert.Equal(["meta:genre:comedy"], added.Tags);
     }
 
+    [Fact]
+    public async Task Generation_ManagedBaselineItem_RestoresTagsRemovedOutsideThePlugin()
+    {
+        // A Jellyfin "Replace all metadata" refresh empties the item's tags, including the
+        // tags this plugin wrote and still records as its own.
+        var movie = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"], Tags = ["Favorites"] };
+        var configuration = GenerationPerformanceConfiguration([movie], authorized: false);
+        var host = new InMemoryMetaTaggerHost(configuration, [movie]);
+        var store = new InMemoryMetaTaggerStateStore(RecordedWriteLedger(movie, ["meta:genre:drama"]));
+        var runner = CreateRunner(host, store);
+
+        var summary = await runner.RunAsync(new NoOpProgress(), CancellationToken.None);
+
+        Assert.Equal(0, summary.ItemsSkippedBaseline);
+        Assert.Equal(1, summary.WritesApplied);
+        Assert.Equal(["Favorites", "meta:genre:drama"], movie.Tags);
+        Assert.Equal(["meta:genre:drama"], store.SavedState!.Items[movie.Id.ToString("N")].LastAppliedTags);
+        var status = await runner.GetGenerationStatusAsync(CancellationToken.None);
+        Assert.Empty(status.AuthorizedItemTypes);
+        Assert.Empty(status.AuthorizedItemIds);
+    }
+
+    [Theory]
+    [InlineData("no records")]
+    [InlineData("no recorded write")]
+    [InlineData("no recorded tags")]
+    public async Task Generation_BaselineItemWithoutARecordedWrite_StillRequiresBackfillAuthorization(string records)
+    {
+        var movie = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"], Tags = ["Favorites"] };
+        var configuration = GenerationPerformanceConfiguration([movie], authorized: false);
+        var host = new InMemoryMetaTaggerHost(configuration, [movie]);
+        var ledger = records switch
+        {
+            "no recorded write" => RecordedWriteLedger(movie, ["meta:genre:drama"], recordWrite: false),
+            "no recorded tags" => RecordedWriteLedger(movie, []),
+            _ => new MetaTaggerState()
+        };
+        var runner = CreateRunner(host, new InMemoryMetaTaggerStateStore(ledger));
+
+        var summary = await runner.RunAsync(new NoOpProgress(), CancellationToken.None);
+
+        Assert.Equal(1, summary.ItemsSkippedBaseline);
+        Assert.Equal(0, summary.WritesApplied);
+        Assert.Empty(host.UpdateAttempts);
+        Assert.Equal(["Favorites"], movie.Tags);
+        var inspection = await runner.InspectItemAsync(movie.Id, null, CancellationToken.None);
+        Assert.Equal("BackfillRequired", inspection.GenerationEligibility);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Generation_ItemInspection_ReportsTheEligibilityARunActsOn(bool recordedWrite)
+    {
+        var movie = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"], Tags = ["Favorites"] };
+        var configuration = GenerationPerformanceConfiguration([movie], authorized: false);
+        var host = new InMemoryMetaTaggerHost(configuration, [movie]);
+        var store = new InMemoryMetaTaggerStateStore(RecordedWriteLedger(movie, ["meta:genre:drama"], recordedWrite));
+        var runner = CreateRunner(host, store);
+
+        var inspection = await runner.InspectItemAsync(movie.Id, null, CancellationToken.None);
+        var summary = await runner.RunAsync(new NoOpProgress(), CancellationToken.None);
+
+        Assert.Equal(recordedWrite ? "Eligible" : "BackfillRequired", inspection.GenerationEligibility);
+        Assert.Equal(recordedWrite ? 1 : 0, summary.WritesApplied);
+        Assert.Equal(recordedWrite ? 0 : 1, summary.ItemsSkippedBaseline);
+        Assert.Equal(recordedWrite ? ["Favorites", "meta:genre:drama"] : ["Favorites"], movie.Tags);
+    }
+
+    [Fact]
+    public async Task Generation_RecapturedBaseline_RestoresTagsRemovedOutsideThePluginOnTheNextAutomaticRun()
+    {
+        var plugin = CreateFreshGenerationPlugin();
+        var items = new List<BaseItem>();
+        var runner = CreateRunner(new PersistedConfigurationHost(plugin, items));
+        await new ScheduledTagTask(runner).ExecuteAsync(new NoOpProgress(), CancellationToken.None);
+
+        // The plugin tags an item added after the baseline, so its own records hold that write.
+        var added = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"], Tags = ["Favorites"] };
+        items.Add(added);
+        plugin = CreatePersistedPlugin();
+        runner = CreateRunner(new PersistedConfigurationHost(plugin, items));
+        await new ScheduledTagTask(runner).ExecuteAsync(new NoOpProgress(), CancellationToken.None);
+        Assert.Equal(["Favorites", "meta:genre:drama"], added.Tags);
+
+        // A later baseline recapture records the item as part of the existing library.
+        var serializer = new PersistedXmlSerializer();
+        var path = Path.Combine(_directory, "configuration", "Jellyfin.Plugin.MetaTagger.xml");
+        var saved = (PluginConfiguration)serializer.DeserializeFromFile(typeof(PluginConfiguration), path);
+        saved.Installation!.Generation!.BaselineComplete = false;
+        serializer.SerializeToFile(saved, path);
+        plugin = CreatePersistedPlugin();
+        runner = CreateRunner(new PersistedConfigurationHost(plugin, items));
+        await new ScheduledTagTask(runner).ExecuteAsync(new NoOpProgress(), CancellationToken.None);
+        var status = await runner.GetGenerationStatusAsync(CancellationToken.None);
+        Assert.Equal("Complete", status.BaselineStatus);
+        Assert.Equal(1, status.BaselineItemCount);
+        Assert.Empty(status.AuthorizedItemTypes);
+        Assert.Empty(status.AuthorizedItemIds);
+
+        // Jellyfin replaces all metadata for the item, which empties its tags.
+        added.Tags = [];
+        plugin = CreatePersistedPlugin();
+        runner = CreateRunner(new PersistedConfigurationHost(plugin, items));
+        await new ScheduledTagTask(runner).ExecuteAsync(new NoOpProgress(), CancellationToken.None);
+
+        Assert.Equal(["meta:genre:drama"], added.Tags);
+        var summary = await new MetaTaggerStateStore(_directory).LoadSummaryAsync(CancellationToken.None);
+        Assert.Equal(0, summary!.ItemsSkippedBaseline);
+        Assert.Equal(1, summary.WritesApplied);
+    }
+
+    [Fact]
+    public async Task Generation_PreviewOfAManagedItem_KeepsTheRecordsThatMakeItEligible()
+    {
+        var movie = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"], Tags = ["Favorites"] };
+        var configuration = GenerationPerformanceConfiguration([movie], authorized: false);
+        var host = new InMemoryMetaTaggerHost(configuration, [movie]);
+        var store = new InMemoryMetaTaggerStateStore(RecordedWriteLedger(movie, ["meta:genre:drama"]));
+        var runner = CreateRunner(host, store);
+
+        // A check between the refresh and the next Apply reports the proposal without writing,
+        // so it must not forget that the plugin wrote these tags.
+        var preview = await runner.RunAsync(new NoOpProgress(), CancellationToken.None,
+            new MetaTaggerRunOptions { PreviewOnly = true });
+        Assert.Equal(0, preview.WritesApplied);
+        Assert.Equal(["Favorites"], movie.Tags);
+        var recorded = store.SavedState!.Items[movie.Id.ToString("N")];
+        Assert.Equal(["meta:genre:drama"], recorded.LastAppliedTags);
+        Assert.NotNull(recorded.LastWriteUtc);
+
+        var summary = await runner.RunAsync(new NoOpProgress(), CancellationToken.None);
+
+        Assert.Equal(0, summary.ItemsSkippedBaseline);
+        Assert.Equal(1, summary.WritesApplied);
+        Assert.Equal(["Favorites", "meta:genre:drama"], movie.Tags);
+    }
+
+    private static MetaTaggerState RecordedWriteLedger(BaseItem item, string[] recordedTags, bool recordWrite = true)
+    {
+        var itemId = item.Id.ToString("N");
+        return new MetaTaggerState
+        {
+            Items = new(StringComparer.OrdinalIgnoreCase)
+            {
+                [itemId] = new MetaTaggerStateItem
+                {
+                    ItemId = itemId, ItemType = item.GetType().Name, LastGeneratedTags = recordedTags,
+                    LastAppliedTags = recordedTags, LastRunUtc = DateTimeOffset.UnixEpoch,
+                    LastWriteUtc = recordWrite ? DateTimeOffset.UnixEpoch : null
+                }
+            }
+        };
+    }
+
     private Plugin CreateFreshGenerationPlugin(PersistedXmlSerializer? serializer = null)
     {
         var plugin = CreatePersistedPlugin(serializer);
