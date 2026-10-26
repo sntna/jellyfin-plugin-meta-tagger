@@ -1485,6 +1485,7 @@
 </div>
 
 <div id="PageLoadError" class="metadataTaggerNotice" role="alert" data-feedback-tone="error" hidden><p>Settings could not be loaded. Reload the page to try again. If this continues, check the Jellyfin server log.</p><button id="ReloadSettingsButton" type="button" class="emby-button">Reload page</button></div>
+<div id="InstallationRecoveryNotice" class="metadataTaggerNotice" role="alert" data-feedback-tone="warning" hidden><p>Meta Tagger found traces of an earlier installation but no saved settings, so it cannot tell whether this library was already tagged. Until that is resolved it previews only and never writes tags. Restore the plugin configuration from a backup, or confirm this is an existing library: that authorizes nothing by itself, so existing items still need an explicit Apply and later additions are tagged automatically.</p><button id="ConfirmInstallationButton" type="button" class="emby-button">Confirm existing library</button><p id="InstallationRecoveryFeedback" role="status"></p></div>
 <section id="PanelActivity" role="tabpanel" aria-labelledby="TabActivity">
 <section id="ScopeBlock" class="metadataTaggerCard" aria-labelledby="ScopeHeading">
     <div class="metadataTaggerScopeTop">
@@ -2734,6 +2735,44 @@
                         nav.appendChild(crumb);
                     });
                 }
+                function showInstallationRecovery(visible) {
+                    document.querySelector('#InstallationRecoveryNotice').hidden = !visible;
+                    document.querySelector('#ConfirmInstallationButton').disabled = false;
+                }
+
+                function loadInstallationStatus() {
+                    var epoch = sessionEpoch;
+                    return ApiClient.getJSON(ApiClient.getUrl('MetaTagger/GenerationStatus')).then(function (status) {
+                        if (!active || epoch !== sessionEpoch) { return; }
+                        showInstallationRecovery(field(status, 'status') === 'InstallationUnavailable');
+                    }, function () {
+                        // The saved policy is unknown either way; leave the notice as it is.
+                    });
+                }
+
+                function confirmInstallation() {
+                    var epoch = sessionEpoch;
+                    var feedback = document.querySelector('#InstallationRecoveryFeedback');
+                    document.querySelector('#ConfirmInstallationButton').disabled = true;
+                    setFeedbackTone('InstallationRecoveryFeedback', 'neutral');
+                    feedback.textContent = 'Recording this installation…';
+                    return ApiClient.ajax({
+                        type: 'POST',
+                        url: ApiClient.getUrl('MetaTagger/Installation/Confirm'),
+                        dataType: 'json'
+                    }).then(function () {
+                        if (!active || epoch !== sessionEpoch) { return; }
+                        showInstallationRecovery(false);
+                        feedback.textContent = '';
+                        loadRuns();
+                    }, function () {
+                        if (!active || epoch !== sessionEpoch) { return; }
+                        document.querySelector('#ConfirmInstallationButton').disabled = false;
+                        setFeedbackTone('InstallationRecoveryFeedback', 'error');
+                        feedback.textContent = 'This installation could not be recorded. Check the Jellyfin server log, then try again.';
+                    });
+                }
+
                 function loadLibraries() {
                     return runRequest('libraries', function () { return ApiClient.getJSON(ApiClient.getUrl('MetaTagger/Libraries')); }, function (libraries) {
                         var select = document.querySelector('#ItemLibrary');
@@ -4131,6 +4170,8 @@
 
                 document.querySelector('#ReloadSettingsButton').addEventListener('click', function () { location.reload(); });
 
+                document.querySelector('#ConfirmInstallationButton').addEventListener('click', confirmInstallation);
+
                 document.querySelector('#MetaTaggerConfigPage')
                     .addEventListener('pageshow', function() {
                         active = true;
@@ -4143,6 +4184,7 @@
                         });
                         renderFeed();
                         recoverItemRun();
+                        loadInstallationStatus();
                         settingsLoaded = false;
                         document.querySelector('#PageLoadError').hidden = true;
                         setFeedbackTone('TaskFeedback', 'neutral');
