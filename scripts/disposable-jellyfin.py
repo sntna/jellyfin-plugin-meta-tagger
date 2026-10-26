@@ -367,8 +367,13 @@ def test_basic(args):
     config = server.api(f"/Plugins/{PLUGIN_ID}/Configuration")
     assert config["PreviewOnly"] is False and config["RunAfterLibraryScan"] is True
     passed("fresh install defaults to automatic Apply", {"PreviewOnly": False, "items": len(initial)})
+    # This scenario selects every source and item type it asserts on, rather than relying on
+    # defaults: episodes, studios and production year are all off for a fresh installation, and
+    # IncludeParentSeriesMetadataOnEpisodes is inert while episodes are out of scope.
     server.configure(GeneratedTagPrefix="custom", EnableExistingTagsAsKeywords=True,
-                     IncludeParentSeriesMetadataOnEpisodes=True, StaleTagMode="Keep", PreviewOnly=True,
+                     IncludeEpisodes=True, IncludeParentSeriesMetadataOnEpisodes=True,
+                     StaleTagMode="Keep", PreviewOnly=True,
+                     EnableStudios=True, EnableProductionYear=True,
                      EnableProductionCountries=True, EnableProviderIds=True, QuietLogging=True)
     server.update_item(movie, ProviderIds={"Acceptance": "synthetic-movie-001"}, CustomRating="PG-13")
     summary = server.task("MetaTaggerPreviewTags")
