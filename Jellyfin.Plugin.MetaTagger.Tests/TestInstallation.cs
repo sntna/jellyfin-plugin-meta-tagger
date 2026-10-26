@@ -16,12 +16,42 @@ internal static class TestInstallation
                 IncludedItemTypes = ["Movie", "Series", "Episode", "Video"],
                 ConfiguredApply = true, PostScanApply = true, ApplyTask = true
             },
-            Generation = new GenerationState
-            {
-                Revision = 1, BaselineComplete = true, BaselineItemIds = [], BaselineItemCount = 0,
-                AuthorizedItemTypes = ["Movie", "Series", "Episode", "Video"], AuthorizedItemIds = []
-            }
+            Generation = RecordBaseline(
+                new GenerationState
+                {
+                    Revision = 1,
+                    AuthorizedItemTypes = ["Movie", "Series", "Episode", "Video"], AuthorizedItemIds = []
+                },
+                [])
         };
         return configuration;
+    }
+
+    // The item IDs live in the store; the saved policy records only what proves that file.
+    internal static GenerationState RecordBaseline(GenerationState generation, IReadOnlyCollection<string> itemIds)
+    {
+        generation.BaselineComplete = true;
+        generation.BaselineItemCount = itemIds.Count;
+        generation.BaselineChecksum = MetaTaggerStateStore.ComputeBaselineChecksum(itemIds);
+        return generation;
+    }
+}
+
+internal sealed class TestBaseline
+{
+    internal string[] ItemIds { get; set; } = [];
+
+    internal Task SaveAsync(IReadOnlyCollection<string> itemIds)
+    {
+        ItemIds = itemIds.ToArray();
+        return Task.CompletedTask;
+    }
+
+    internal Task<string[]?> LoadAsync(int? expectedCount, string? expectedChecksum)
+    {
+        return Task.FromResult(expectedCount == ItemIds.Length
+            && string.Equals(MetaTaggerStateStore.ComputeBaselineChecksum(ItemIds), expectedChecksum, StringComparison.Ordinal)
+                ? ItemIds
+                : null);
     }
 }

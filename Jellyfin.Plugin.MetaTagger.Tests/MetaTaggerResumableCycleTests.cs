@@ -557,6 +557,14 @@ public sealed class MetaTaggerResumableCycleTests
 
     private sealed class InMemoryStateStore : IMetaTaggerStateStore
     {
+
+        public TestBaseline Baseline { get; } = new();
+
+        public Task SaveBaselineAsync(IReadOnlyCollection<string> itemIds, CancellationToken cancellationToken)
+            => Baseline.SaveAsync(itemIds);
+
+        public Task<string[]?> LoadBaselineAsync(int? expectedCount, string? expectedChecksum, CancellationToken cancellationToken)
+            => Baseline.LoadAsync(expectedCount, expectedChecksum);
         private MetaTaggerState _state;
 
         public InMemoryStateStore(MetaTaggerState? state = null)

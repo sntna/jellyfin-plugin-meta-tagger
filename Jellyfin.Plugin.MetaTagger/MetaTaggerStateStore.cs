@@ -23,6 +23,17 @@ internal interface IMetaTaggerStateStore
 
     Task SaveRunAsync(MetaTaggerRunRecord record, CancellationToken cancellationToken) => Task.CompletedTask;
 
+    Task SaveBaselineAsync(IReadOnlyCollection<string> itemIds, CancellationToken cancellationToken)
+        => Task.CompletedTask;
+
+    // A store without baseline persistence can account for an empty baseline and nothing
+    // else. Null withholds generation rather than standing in for item IDs it does not hold.
+    Task<string[]?> LoadBaselineAsync(int? expectedCount, string? expectedChecksum, CancellationToken cancellationToken)
+        => Task.FromResult(expectedCount == 0
+            && string.Equals(MetaTaggerStateStore.ComputeBaselineChecksum([]), expectedChecksum, StringComparison.Ordinal)
+                ? []
+                : (string[]?)null);
+
     Task SaveSummaryAsync(MetaTaggerRunSummary summary, CancellationToken cancellationToken);
 
     Task<string> SavePreviewChangesAsync(

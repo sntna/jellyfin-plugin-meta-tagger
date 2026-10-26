@@ -359,10 +359,18 @@ languages, and optional parent-series metadata. Provider IDs help detect
 metadata changes, but generated provider tags contain the provider name only.
 
 The plugin writes only the item's Jellyfin Tags field. It also stores its XML
-configuration and JSON files for tag ownership, previews, summaries, and run
-history in Jellyfin's plugin data directories. Those JSON records can contain
-item IDs, names, paths, and tag values. Treat the Jellyfin configuration and
-backup directories as private data.
+configuration and JSON files for tag ownership, previews, summaries, run
+history, and the existing-library baseline in Jellyfin's plugin data
+directories. Those JSON records can contain item IDs, names, paths, and tag
+values. Treat the Jellyfin configuration and backup directories as private data.
+
+The baseline file holds one ID per item that was in the library when the
+baseline was captured, so it grows with the library. The saved settings record
+only that baseline's item count and a checksum of it. A baseline whose file
+cannot reproduce its recorded checksum is not trusted: runs then report that
+eligibility is unavailable and write no tags, rather than treating unaccounted
+items as later additions. Restoring the plugin configuration and its data
+directory together keeps the two consistent.
 
 Routine logs always include operational counts and may include item IDs. When
 **Hide item names and tag values in routine logs** is off, logs can also contain

@@ -87,6 +87,7 @@ public sealed partial class Plugin
 
         if (configuration.Installation is { } installation)
         {
+            AdoptRelocatedBaseline(installation);
             ValidateInstallation(installation);
             _installation = installation.Copy();
         }
@@ -123,6 +124,20 @@ public sealed partial class Plugin
 
         configuration.Installation = _installation.Copy();
         Configuration = configuration;
+    }
+
+    // Builds from before the baseline item IDs moved beside the tracking ledger recorded a
+    // complete baseline with no checksum. Marking it incomplete makes the next run recapture
+    // and write the relocated file, seeded by the item IDs that build recorded, so membership
+    // survives an item being absent from the library when that run happens. The recorded count
+    // goes with it: it describes a file that does not exist yet.
+    private static void AdoptRelocatedBaseline(InstallationState installation)
+    {
+        if (installation.Generation is { BaselineComplete: true, BaselineChecksum: null or "" } generation)
+        {
+            generation.BaselineComplete = false;
+            generation.BaselineItemCount = null;
+        }
     }
 
     private static void ValidateInstallation(InstallationState installation)

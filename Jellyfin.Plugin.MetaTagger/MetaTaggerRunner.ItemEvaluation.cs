@@ -55,7 +55,10 @@ public sealed partial class MetaTaggerRunner
             // The reported decision reads the same records a run would, so inspection and preview
             // report the eligibility a run acts on.
             var state = await _stateStore.LoadAsync(cancellationToken).ConfigureAwait(false);
-            inspection.GenerationEligibility = new GenerationEligibilitySnapshot(configuration.Installation, RunInvocation.ConfiguredDefault)
+            var baselineItemIds = await LoadBaselineItemIdsAsync(
+                _stateStore, configuration.Installation?.Generation, cancellationToken).ConfigureAwait(false);
+            inspection.GenerationEligibility = new GenerationEligibilitySnapshot(
+                configuration.Installation, RunInvocation.ConfiguredDefault, baselineItemIds)
                 .Decide(item, state.Items).ToString();
             if (configuration.Installation?.Origin == InstallationOrigin.Uncertain)
             {

@@ -258,24 +258,150 @@ public sealed partial class MetaTaggerRunnerTests
     }
 
     [Fact]
-    public async Task Generation_TruncatedPersistedBaseline_FailsInitializationWithoutPublishingPermission()
+    public async Task Generation_CapturedBaseline_KeepsItemIdsOutOfTheSavedConfiguration()
+    {
+        var plugin = CreateFreshGenerationPlugin();
+        var movie = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"] };
+
+        await new ScheduledTagTask(CreateRunner(new PersistedConfigurationHost(plugin, [movie])))
+            .ExecuteAsync(new NoOpProgress(), CancellationToken.None);
+
+        var configurationPath = Path.Combine(_directory, "configuration", "Jellyfin.Plugin.MetaTagger.xml");
+        Assert.DoesNotContain(movie.Id.ToString("N"), await File.ReadAllTextAsync(configurationPath),
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(movie.Id.ToString("N"),
+            await File.ReadAllTextAsync(Path.Combine(_directory, "meta-tagger-baseline.json")),
+            StringComparison.OrdinalIgnoreCase);
+        var recorded = ((PluginConfiguration)new PersistedXmlSerializer()
+            .DeserializeFromFile(typeof(PluginConfiguration), configurationPath)).Installation!.Generation!;
+        Assert.True(recorded.BaselineComplete);
+        Assert.Equal(1, recorded.BaselineItemCount);
+        Assert.StartsWith("sha256:", recorded.BaselineChecksum);
+        Assert.Equal("Complete", (await CreateRunner(new PersistedConfigurationHost(CreatePersistedPlugin(), [movie]))
+            .GetGenerationStatusAsync(CancellationToken.None)).BaselineStatus);
+    }
+
+    [Fact]
+    public async Task Generation_ConfigurationFromBeforeTheBaselineMoved_RecapturesInsteadOfFailing()
+    {
+        var plugin = CreateFreshGenerationPlugin();
+        var movie = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"] };
+        await new ScheduledTagTask(CreateRunner(new PersistedConfigurationHost(plugin, [movie])))
+            .ExecuteAsync(new NoOpProgress(), CancellationToken.None);
+        await RecordBaselineItemIdsInConfigurationAsync(movie.Id);
+
+        var restarted = CreatePersistedPlugin();
+        var summary = await CreateRunner(new PersistedConfigurationHost(restarted, [movie]))
+            .RunAsync(new NoOpProgress(), CancellationToken.None);
+
+        // The baseline is recaptured from the current library, so the item stays held back.
+        Assert.Equal(0, summary.WritesApplied);
+        Assert.Empty(movie.Tags);
+        var recorded = restarted.Configuration.Installation!.Generation!;
+        Assert.True(recorded.BaselineComplete);
+        Assert.Equal(1, recorded.BaselineItemCount);
+        Assert.StartsWith("sha256:", recorded.BaselineChecksum);
+    }
+
+    [Fact]
+    public async Task Generation_ConfigurationFromBeforeTheBaselineMoved_KeepsMembershipOfAnAbsentItem()
+    {
+        var plugin = CreateFreshGenerationPlugin();
+        var present = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"] };
+        var absent = new Movie { Id = Guid.NewGuid(), Genres = ["Comedy"] };
+        var items = new List<BaseItem> { present, absent };
+        await new ScheduledTagTask(CreateRunner(new PersistedConfigurationHost(plugin, items)))
+            .ExecuteAsync(new NoOpProgress(), CancellationToken.None);
+        await RecordBaselineItemIdsInConfigurationAsync(present.Id, absent.Id);
+
+        // The first run after the upgrade cannot see one of the items the baseline recorded,
+        // as when a library location is offline while the recapture happens.
+        var restarted = CreatePersistedPlugin();
+        await CreateRunner(new PersistedConfigurationHost(restarted, [present]))
+            .RunAsync(new NoOpProgress(), CancellationToken.None);
+
+        // It comes back. It was in the library before the upgrade, so it is existing content
+        // held back for explicit authorization, not a later addition to tag automatically.
+        restarted = CreatePersistedPlugin();
+        var summary = await CreateRunner(new PersistedConfigurationHost(restarted, items))
+            .RunAsync(new NoOpProgress(), CancellationToken.None);
+
+        Assert.Equal(0, summary.WritesApplied);
+        Assert.Equal(2, summary.ItemsSkippedBaseline);
+        Assert.Empty(present.Tags);
+        Assert.Empty(absent.Tags);
+        var recordedAfter = restarted.Configuration.Installation!.Generation!;
+        Assert.Equal(2, recordedAfter.BaselineItemCount);
+        Assert.Null(recordedAfter.BaselineItemIds);
+    }
+
+    [Fact]
+    public async Task Generation_TruncatedPersistedBaseline_BlocksGenerationWithoutPublishingPermission()
     {
         var plugin = CreateFreshGenerationPlugin();
         var first = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"] };
         var second = new Movie { Id = Guid.NewGuid(), Genres = ["Comedy"] };
-        await new ScheduledTagTask(CreateRunner(new PersistedConfigurationHost(plugin, [first, second])))
+        var items = new List<BaseItem> { first, second };
+        await new ScheduledTagTask(CreateRunner(new PersistedConfigurationHost(plugin, items)))
             .ExecuteAsync(new NoOpProgress(), CancellationToken.None);
-        var path = Path.Combine(_directory, "configuration", "Jellyfin.Plugin.MetaTagger.xml");
-        var serializer = new PersistedXmlSerializer();
-        var saved = (PluginConfiguration)serializer.DeserializeFromFile(typeof(PluginConfiguration), path);
-        saved.Installation!.Generation!.BaselineItemIds = [first.Id.ToString("N")];
-        serializer.SerializeToFile(saved, path);
-        var original = File.ReadAllText(path);
 
-        Assert.Throws<InvalidDataException>(() => CreatePersistedPlugin());
-        Assert.Equal(original, File.ReadAllText(path));
+        // A later addition is normally eligible without any authorization. A baseline whose
+        // stored item IDs no longer reproduce the recorded checksum must hold back even that.
+        var added = new Movie { Id = Guid.NewGuid(), Genres = ["Horror"] };
+        items.Add(added);
+        await File.WriteAllTextAsync(
+            Path.Combine(_directory, "meta-tagger-baseline.json"), $"[\"{first.Id:N}\"]");
+        var serializer = new PersistedXmlSerializer();
+        var configurationPath = Path.Combine(_directory, "configuration", "Jellyfin.Plugin.MetaTagger.xml");
+        GenerationState Recorded() => ((PluginConfiguration)serializer
+            .DeserializeFromFile(typeof(PluginConfiguration), configurationPath)).Installation!.Generation!;
+        var before = Recorded();
+
+        var summary = await CreateRunner(new PersistedConfigurationHost(CreatePersistedPlugin(), items))
+            .RunAsync(new NoOpProgress(), CancellationToken.None);
+
+        Assert.Equal(0, summary.WritesApplied);
+        Assert.Equal(3, summary.ItemsSkippedEligibilityUnavailable);
         Assert.Empty(first.Tags);
         Assert.Empty(second.Tags);
+        Assert.Empty(added.Tags);
+        // The run published no permission it could not account for.
+        var after = Recorded();
+        Assert.Equal(before.Revision, after.Revision);
+        Assert.Equal(before.BaselineChecksum, after.BaselineChecksum);
+        Assert.Equal(before.BaselineItemCount, after.BaselineItemCount);
+        Assert.Empty(after.AuthorizedItemTypes!);
+    }
+
+    [Fact]
+    public async Task Generation_UnverifiableBaseline_ReportsThatItWithholdsGeneration()
+    {
+        var plugin = CreateFreshGenerationPlugin();
+        var movie = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"] };
+        var items = new List<BaseItem> { movie };
+        await new ScheduledTagTask(CreateRunner(new PersistedConfigurationHost(plugin, items)))
+            .ExecuteAsync(new NoOpProgress(), CancellationToken.None);
+        Assert.Equal("Complete", (await CreateRunner(new PersistedConfigurationHost(CreatePersistedPlugin(), items))
+            .GetGenerationStatusAsync(CancellationToken.None)).BaselineStatus);
+
+        // The stored item IDs no longer reproduce the recorded checksum. The saved policy still
+        // records a count and a checksum, so nothing about the configuration itself looks wrong.
+        await File.WriteAllTextAsync(
+            Path.Combine(_directory, "meta-tagger-baseline.json"), $"[\"{Guid.NewGuid():N}\"]");
+        var runner = CreateRunner(new PersistedConfigurationHost(CreatePersistedPlugin(), items));
+
+        var status = await runner.GetGenerationStatusAsync(CancellationToken.None);
+        var summary = await runner.RunAsync(new NoOpProgress(), CancellationToken.None);
+
+        // The run withholds every item, so neither surface may report a baseline to act on.
+        Assert.Equal(1, summary.ItemsSkippedEligibilityUnavailable);
+        Assert.Equal(0, summary.WritesApplied);
+        Assert.Empty(movie.Tags);
+        Assert.Equal("AuthorizationUnavailable", status.Status);
+        Assert.Equal("Unavailable", status.BaselineStatus);
+        Assert.Null(status.BaselineItemCount);
+        Assert.Equal("Unavailable", summary.BaselineStatus);
+        Assert.Null(summary.BaselineItemCount);
     }
 
     [Fact]
@@ -432,7 +558,8 @@ public sealed partial class MetaTaggerRunnerTests
         await runner.RunAsync(new NoOpProgress(), CancellationToken.None, new MetaTaggerRunOptions { PreviewOnly = false });
         Assert.Equal(["meta:genre:drama"], movie.Tags);
         plugin = CreatePersistedPlugin();
-        runner = CreateRunner(new PersistedConfigurationHost(plugin, [movie]));
+        // The baseline this run captured lives in this store, so a restart reads it from there.
+        runner = CreateRunner(new PersistedConfigurationHost(plugin, [movie]), store);
         Assert.Equal(["Movie"], (await runner.GetGenerationStatusAsync(CancellationToken.None)).AuthorizedItemTypes);
     }
 
@@ -663,15 +790,29 @@ public sealed partial class MetaTaggerRunnerTests
         Assert.Equal(["meta:genre:comedy"], added.Tags);
     }
 
+    // Rewrites the saved policy the way a build from before the relocation recorded it: the
+    // item IDs in the configuration, no checksum, and nothing stored beside the ledger.
+    private async Task RecordBaselineItemIdsInConfigurationAsync(params Guid[] itemIds)
+    {
+        var configurationPath = Path.Combine(_directory, "configuration", "Jellyfin.Plugin.MetaTagger.xml");
+        var saved = await File.ReadAllTextAsync(configurationPath);
+        var checksum = saved[saved.IndexOf("<BaselineChecksum>", StringComparison.Ordinal)..
+            (saved.IndexOf("</BaselineChecksum>", StringComparison.Ordinal) + "</BaselineChecksum>".Length)];
+        var elements = string.Concat(itemIds.Select(itemId => $"<string>{itemId:N}</string>"));
+        await File.WriteAllTextAsync(configurationPath,
+            saved.Replace(checksum, $"<BaselineItemIds>{elements}</BaselineItemIds>", StringComparison.Ordinal));
+        File.Delete(Path.Combine(_directory, "meta-tagger-baseline.json"));
+    }
+
     [Fact]
     public async Task Generation_ManagedBaselineItem_RestoresTagsRemovedOutsideThePlugin()
     {
         // A Jellyfin "Replace all metadata" refresh empties the item's tags, including the
         // tags this plugin wrote and still records as its own.
         var movie = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"], Tags = ["Favorites"] };
-        var configuration = GenerationPerformanceConfiguration([movie], authorized: false);
-        var host = new InMemoryMetaTaggerHost(configuration, [movie]);
         var store = new InMemoryMetaTaggerStateStore(RecordedWriteLedger(movie, ["meta:genre:drama"]));
+        var configuration = GenerationPerformanceConfiguration([movie], authorized: false, store);
+        var host = new InMemoryMetaTaggerHost(configuration, [movie]);
         var runner = CreateRunner(host, store);
 
         var summary = await runner.RunAsync(new NoOpProgress(), CancellationToken.None);
@@ -692,15 +833,16 @@ public sealed partial class MetaTaggerRunnerTests
     public async Task Generation_BaselineItemWithoutARecordedWrite_StillRequiresBackfillAuthorization(string records)
     {
         var movie = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"], Tags = ["Favorites"] };
-        var configuration = GenerationPerformanceConfiguration([movie], authorized: false);
-        var host = new InMemoryMetaTaggerHost(configuration, [movie]);
         var ledger = records switch
         {
             "no recorded write" => RecordedWriteLedger(movie, ["meta:genre:drama"], recordWrite: false),
             "no recorded tags" => RecordedWriteLedger(movie, []),
             _ => new MetaTaggerState()
         };
-        var runner = CreateRunner(host, new InMemoryMetaTaggerStateStore(ledger));
+        var store = new InMemoryMetaTaggerStateStore(ledger);
+        var configuration = GenerationPerformanceConfiguration([movie], authorized: false, store);
+        var host = new InMemoryMetaTaggerHost(configuration, [movie]);
+        var runner = CreateRunner(host, store);
 
         var summary = await runner.RunAsync(new NoOpProgress(), CancellationToken.None);
 
@@ -718,9 +860,9 @@ public sealed partial class MetaTaggerRunnerTests
     public async Task Generation_ItemInspection_ReportsTheEligibilityARunActsOn(bool recordedWrite)
     {
         var movie = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"], Tags = ["Favorites"] };
-        var configuration = GenerationPerformanceConfiguration([movie], authorized: false);
-        var host = new InMemoryMetaTaggerHost(configuration, [movie]);
         var store = new InMemoryMetaTaggerStateStore(RecordedWriteLedger(movie, ["meta:genre:drama"], recordedWrite));
+        var configuration = GenerationPerformanceConfiguration([movie], authorized: false, store);
+        var host = new InMemoryMetaTaggerHost(configuration, [movie]);
         var runner = CreateRunner(host, store);
 
         var inspection = await runner.InspectItemAsync(movie.Id, null, CancellationToken.None);
@@ -779,9 +921,9 @@ public sealed partial class MetaTaggerRunnerTests
     public async Task Generation_PreviewOfAManagedItem_KeepsTheRecordsThatMakeItEligible()
     {
         var movie = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"], Tags = ["Favorites"] };
-        var configuration = GenerationPerformanceConfiguration([movie], authorized: false);
-        var host = new InMemoryMetaTaggerHost(configuration, [movie]);
         var store = new InMemoryMetaTaggerStateStore(RecordedWriteLedger(movie, ["meta:genre:drama"]));
+        var configuration = GenerationPerformanceConfiguration([movie], authorized: false, store);
+        var host = new InMemoryMetaTaggerHost(configuration, [movie]);
         var runner = CreateRunner(host, store);
 
         // A check between the refresh and the next Apply reports the proposal without writing,
@@ -805,9 +947,9 @@ public sealed partial class MetaTaggerRunnerTests
     public async Task Generation_RecordRebuildOfAManagedItem_KeepsTheRecordsThatMakeItEligible()
     {
         var movie = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"], Tags = ["Favorites"] };
-        var configuration = GenerationPerformanceConfiguration([movie], authorized: false);
-        var host = new InMemoryMetaTaggerHost(configuration, [movie]);
         var store = new InMemoryMetaTaggerStateStore(RecordedWriteLedger(movie, ["meta:genre:drama"]));
+        var configuration = GenerationPerformanceConfiguration([movie], authorized: false, store);
+        var host = new InMemoryMetaTaggerHost(configuration, [movie]);
         var runner = CreateRunner(host, store);
 
         // Rebuilding the records is what a user is likely to reach for after noticing missing
@@ -833,10 +975,10 @@ public sealed partial class MetaTaggerRunnerTests
     public async Task Generation_RecordRebuild_StillDropsRecordsOfTagsItNoLongerGenerates()
     {
         var movie = new Movie { Id = Guid.NewGuid(), Genres = ["Drama"], Tags = ["Favorites"] };
-        var configuration = GenerationPerformanceConfiguration([movie], authorized: false);
-        var host = new InMemoryMetaTaggerHost(configuration, [movie]);
         var store = new InMemoryMetaTaggerStateStore(
             RecordedWriteLedger(movie, ["meta:genre:drama", "meta:genre:retired"]));
+        var configuration = GenerationPerformanceConfiguration([movie], authorized: false, store);
+        var host = new InMemoryMetaTaggerHost(configuration, [movie]);
         var runner = CreateRunner(host, store);
 
         await new RebuildMetadataTagLedgerTask(runner).ExecuteAsync(new NoOpProgress(), CancellationToken.None);
