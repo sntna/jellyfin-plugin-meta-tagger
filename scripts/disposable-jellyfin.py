@@ -367,9 +367,9 @@ def test_basic(args):
     config = server.api(f"/Plugins/{PLUGIN_ID}/Configuration")
     assert config["PreviewOnly"] is False and config["RunAfterLibraryScan"] is True
     passed("fresh install defaults to automatic Apply", {"PreviewOnly": False, "items": len(initial)})
-    # This scenario selects every source and item type it asserts on, rather than relying on
-    # defaults: episodes, studios and production year are all off for a fresh installation, and
-    # IncludeParentSeriesMetadataOnEpisodes is inert while episodes are out of scope.
+    # A fresh installation leaves episodes, studios and production year off, and
+    # the assertions below need all three. IncludeParentSeriesMetadataOnEpisodes
+    # is inert while episodes are out of scope.
     server.configure(GeneratedTagPrefix="custom", EnableExistingTagsAsKeywords=True,
                      IncludeEpisodes=True, IncludeParentSeriesMetadataOnEpisodes=True,
                      StaleTagMode="Keep", PreviewOnly=True,
@@ -999,7 +999,8 @@ def test_upgrade(args):
     server = Server(directory)
     server.login()
     server.configure(GeneratedTagPrefix="upgrade", StaleTagMode="Remove", PreviewOnly=True,
-                     EnableExistingTagsAsKeywords=False, IncludeParentSeriesMetadataOnEpisodes=True)
+                     EnableExistingTagsAsKeywords=False, IncludeEpisodes=True,
+                     IncludeParentSeriesMetadataOnEpisodes=True)
     summary = server.task("MetaTaggerApplyTags")
     assert summary["WritesApplied"] == 7
     before = server.tags()
