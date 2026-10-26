@@ -263,6 +263,22 @@ backfill. The persisted baseline excludes existing items until explicit Apply
 authorizes them; eligible later additions can receive tags automatically.
 Incremental processing can enumerate the full selected scope and skip unchanged items.
 
+### Unconfirmed installations
+
+When the saved plugin settings are missing but evidence of an earlier installation
+remains, such as saved task triggers or a tracking ledger, the plugin cannot tell a
+new install from an existing library. It records the installation as unconfirmed,
+previews only, and writes no tags. Every item reports its generation eligibility as
+unavailable. This also happens when the very first settings write is interrupted.
+
+Restore the saved plugin settings from a backup to recover the earlier policy. With
+no backup, the dashboard offers **Confirm existing library**. Confirming records the
+installation as established and authorizes nothing by itself: the baseline still
+excludes every existing item until an explicit Apply authorizes it, and eligible
+later additions can receive tags automatically. Confirming cannot recover the
+automatic mode, selected sources, or item types that an earlier installation used;
+review Settings afterwards.
+
 `MinimumMinutesBetweenAutoRuns` skips post-scan processing when the latest tagging
 run was too recent. Earlier activity records **Skipped: cooldown**, with no items checked
 or tags written. The skip neither extends the cooldown nor queues a run. The next
