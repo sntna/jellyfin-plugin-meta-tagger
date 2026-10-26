@@ -17,6 +17,14 @@ All notable changes to this project are documented here. The project follows
 
 ### Changed
 
+- Fresh installations now apply tags automatically and run after library
+  scans, instead of starting in Preview with post-scan runs off. Upgrades and
+  reinstalls with retained configuration keep their saved mode and triggers.
+  A missing configuration with signs of an earlier installation still starts
+  in Preview.
+- Before its first automatic write, the plugin records the items already in
+  the library. Those items receive tags only after an explicit Apply; items
+  added later are tagged automatically.
 - The dashboard is organized into four tabs: Activity, Items, Settings, and
   Maintenance. Tab switches keep draft edits, item selection, search, and
   pagination, and opening the page lands on Activity.
