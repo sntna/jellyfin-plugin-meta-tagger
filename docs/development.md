@@ -145,6 +145,24 @@ candidate ZIP, disables and enables the plugin, uninstalls it, and reinstalls
 it. It uses only the generated disposable Jellyfin server. The temporary
 fixture exercises Jellyfin's update path; it is not a supported release.
 
+The fixture is built from the current tree, so it does not prove an upgrade
+over an older plugin. Opt in to that with a published release tag:
+
+```bash
+META_TAGGER_PREVIOUS_RELEASE_TAG=v0.1.0 ./scripts/test-release-lifecycle.sh
+```
+
+The lifecycle test then installs that published release, lets it record its own
+configuration and run state, and asserts both survive the upgrade to the
+candidate ZIP. `scripts/fetch_released_catalog.py` downloads the release's
+`manifest.json` and package into `.jellyfin-test/release-downloads/TAG`,
+verifies both against the release's published `SHA256SUMS`, and serves that
+verified copy to the disposable server. A failed verification stops the test.
+When the release or the network is unavailable the run prints a `SKIP` line and
+continues with the synthetic `0.0.0` fixture, so the default offline path and CI
+are unchanged. Set `META_TAGGER_RELEASE_DOWNLOAD_BASE` to read the assets from
+somewhere other than the GitHub release.
+
 ## Dashboard development
 
 Start dashboard iteration with `./scripts/dev.sh` and open the development
