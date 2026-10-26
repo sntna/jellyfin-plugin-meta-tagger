@@ -204,8 +204,10 @@ test('public docs name only labels the page shows', () => {
     const docs = ['README.md', 'docs/dashboard.md', 'docs/meta-tagger-plugin.md']
         .map(path => [path, readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8')]);
     const pageText = markup.replace(/&amp;/g, '&').replace(/\s+/g, ' ');
-    // Bold text that is not this page's: Jellyfin navigation, a task name, and the supported server version.
-    const jellyfinLabels = ['Dashboard → Plugins → Repositories', 'Apply metadata tag changes', '12.0.0'];
+    // Bold text that is not this page's: Jellyfin navigation, a task name, the supported server
+    // version, and Jellyfin's own metadata refresh options.
+    const jellyfinLabels = ['Dashboard → Plugins → Repositories', 'Apply metadata tag changes', '12.0.0',
+        'Replace all metadata', 'Scan for new and updated files', 'Search for missing metadata', 'Identify'];
     // Labels and navigation the four-tab redesign removed.
     const removed = ['Overview', 'Browse items', 'History', 'Try these settings', 'Try unsaved settings on an item', 'More sources',
         'Edit settings', 'Review removal', 'Recent runs', 'Refresh history', 'Tracking and legacy tag settings', 'workspace',

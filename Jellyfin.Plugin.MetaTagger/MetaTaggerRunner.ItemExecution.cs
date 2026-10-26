@@ -168,7 +168,7 @@ public sealed partial class MetaTaggerRunner
                     }
                     if (!options.ClearGeneratedTags && options.RunMode != MetadataTagRunMode.RebuildTrackingLedger)
                     {
-                        eligibility = library!.Context.Eligibility!.Decide(item);
+                        eligibility = library!.Context.Eligibility!.Decide(item, state.Items);
                         if (!options.PreviewOnly && eligibility != GenerationItemEligibility.Eligible)
                         {
                             if (eligibility == GenerationItemEligibility.BackfillRequired) { summary.ItemsSkippedBaseline++; }
