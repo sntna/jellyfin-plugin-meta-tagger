@@ -488,7 +488,7 @@ public sealed partial class MetaTaggerRunnerTests
         }
     }
 
-    private string WriteLegacyConfiguration(bool previewOnly)
+    private string WriteLegacyConfiguration(bool previewOnly, bool runAfterLibraryScan = true)
     {
         var path = Path.Combine(_directory, "configuration", "Jellyfin.Plugin.MetaTagger.xml");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
@@ -503,7 +503,7 @@ public sealed partial class MetaTaggerRunnerTests
               <IncludeSeries>false</IncludeSeries>
               <IncludeEpisodes>false</IncludeEpisodes>
               <IncludeVideos>false</IncludeVideos>
-              <RunAfterLibraryScan>true</RunAfterLibraryScan>
+              <RunAfterLibraryScan>{runAfterLibraryScan.ToString().ToLowerInvariant()}</RunAfterLibraryScan>
               <MinimumMinutesBetweenAutoRuns>0</MinimumMinutesBetweenAutoRuns>
             </PluginConfiguration>
             """);
