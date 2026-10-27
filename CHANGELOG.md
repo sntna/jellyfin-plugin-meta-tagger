@@ -6,14 +6,22 @@ All notable changes to this project are documented here. The project follows
 
 ## [Unreleased]
 
-### Fixed
+## [0.2.0] - 2026-10-27
 
-- Automatic runs restore tags for an existing library item the plugin already
-  manages after something outside the plugin removes them, such as a Jellyfin
-  **Replace all metadata** refresh. Items the plugin has never tagged still
-  require an explicit Apply. A check or a **Rebuild plugin tag records** run that
-  changes no tags no longer forgets the tags the plugin recorded for an item, so
-  neither forfeits that restoration.
+### Added
+
+- add manual release preparation automation (#9)
+- automate local implementation ticket pickup (#13)
+- enforce existing-library baseline and explicit backfill (#30)
+- complete unattended ticket review and merge workflow
+- enable safe fresh automatic tagging defaults (#33)
+- support direct Apply and optional checking (#34)
+- explain metadata source results and recorded audio languages (#35)
+- retain immutable run details (#25) (#36)
+- build the compact tagging workspace (#37)
+- complete on-demand inspection, history, and maintenance (#38)
+- build the four-tab dashboard with the Activity tab (#51)
+- regroup settings and maintenance into cards and a Maintenance area (#52)
 
 ### Changed
 
@@ -46,6 +54,26 @@ All notable changes to this project are documented here. The project follows
 - Back buttons, Escape-to-return, the Saved tag results panel, the Advanced
   behavior section, and the Tracking and legacy tag settings shortcut.
 
+### Fixed
+
+- Automatic runs restore tags for an existing library item the plugin already
+  manages after something outside the plugin removes them, such as a Jellyfin
+  **Replace all metadata** refresh. Items the plugin has never tagged still
+  require an explicit Apply. A check or a **Rebuild plugin tag records** run that
+  changes no tags no longer forgets the tags the plugin recorded for an item, so
+  neither forfeits that restoration.
+- implement scheduled tickets in the Codex app (#28)
+- preserve established installations during migration (#29)
+- preserve exact bytes in review packet comparisons (#41)
+- name current dashboard controls in guidance messages (#53)
+- keep used one-time actions off, protect an unreadable ledger, and resume cycles after item approval (#54)
+- keep dashboard checks responsive during library runs (#56)
+- let release preparation skip older GitHub merge commits (#58)
+- keep maintenance edits made while a save is in progress (#60)
+- let an unconfirmed installation be recovered (#61)
+- keep expired run history cleanup from failing a publish (#62)
+- restore managed tags after an external metadata refresh (#63)
+
 ## [0.1.0] - 2026-09-19
 
 ### Added
@@ -75,5 +103,6 @@ All notable changes to this project are documented here. The project follows
 - Expiring single-use approvals for item updates and cleanup.
 - Atomic state writes with backup recovery and preview-safe failure behavior.
 
-[Unreleased]: https://github.com/sntna/jellyfin-plugin-meta-tagger/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/sntna/jellyfin-plugin-meta-tagger/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/sntna/jellyfin-plugin-meta-tagger/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/sntna/jellyfin-plugin-meta-tagger/releases/tag/v0.1.0
