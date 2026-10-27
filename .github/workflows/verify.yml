@@ -45,7 +45,21 @@ jobs:
       - name: Install pinned dashboard browser tools
         run: |
           npm ci --prefix scripts/browser --ignore-scripts --no-audit --no-fund
-          npm exec --prefix scripts/browser -- playwright install --with-deps chromium
+      - name: Restore Playwright browser
+        id: playwright-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('scripts/browser/package-lock.json') }}
+      - name: Install Playwright browser
+        env:
+          PLAYWRIGHT_CACHE_HIT: ${{ steps.playwright-cache.outputs.cache-hit }}
+        run: |
+          if [[ "$PLAYWRIGHT_CACHE_HIT" == true ]]; then
+            npm exec --prefix scripts/browser -- playwright install-deps chromium
+          else
+            npm exec --prefix scripts/browser -- playwright install --with-deps chromium
+          fi
       - name: Test release ZIP lifecycle on Linux Docker
         env:
           META_TAGGER_DOCKER_CONTEXT: ""
