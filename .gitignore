@@ -52,7 +52,11 @@ __pycache__/
 .worktrees/
 .codex/
 .agents/
-.claude/
+.claude/*
+# The shared verification skill is the one tracked agent file.
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/verify/
 skills-lock.json
 
 # Local secrets and credentials

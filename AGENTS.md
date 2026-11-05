@@ -11,7 +11,9 @@
 
 ## Verification
 
-- Run `./scripts/build-and-test.sh` after changing source, tests, project files, dashboard code, or packaging.
+- Run `./scripts/check.sh` (wraps `./scripts/build-and-test.sh`) before every PR; it must pass.
+- Follow `.claude/skills/verify/SKILL.md` to exercise changed behaviour (single tests, built DLL,
+  disposable Jellyfin in Docker) and paste its output as evidence in the PR body or review.
 - Add tests at the highest stable interface that owns changed behavior.
 - Use only generated disposable Jellyfin state for integration checks. Never write to a live server.
 
