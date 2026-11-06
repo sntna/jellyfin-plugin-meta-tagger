@@ -112,8 +112,8 @@ or use `scripts/release.sh`. Preparation never starts publication automatically.
 ## GitHub App setup
 
 Create a GitHub App installed only on this repository with **Contents: Read and
-write** and **Pull requests: Read and write**. Store its App ID in the repository
-Actions variable `RELEASE_APP_ID` and its private key in the Actions secret
+write** and **Pull requests: Read and write**. Store its Client ID (`Iv…`) in the
+repository Actions variable `RELEASE_APP_CLIENT_ID` and its private key in the Actions secret
 `RELEASE_APP_PRIVATE_KEY`. The workflow further limits the installation token to
 this repository and those permissions. Its ordinary `GITHUB_TOKEN` has only
 `contents: read`. No App token is used by the publisher.
