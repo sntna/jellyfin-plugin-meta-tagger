@@ -11,7 +11,7 @@ public sealed partial class Plugin : BasePlugin<PluginConfiguration>, IHasWebPag
 {
     public static readonly Guid PluginId = Guid.Parse("4851185f-7284-4cad-9eeb-2c73576bb214");
 
-    public const string PluginVersion = "0.1.0";
+    public const string PluginVersion = "0.2.0";
 
     public Plugin(IApplicationPaths applicationPaths, IXmlSerializer xmlSerializer)
         : base(applicationPaths, xmlSerializer)

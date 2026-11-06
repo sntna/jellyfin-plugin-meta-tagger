@@ -8,8 +8,8 @@ namespace Jellyfin.Plugin.MetaTagger.Tests;
 
 public sealed class PluginVersionContractTests
 {
-    private const string ExpectedDevelopmentVersion = "0.1.0";
-    private const string ExpectedFourPartVersion = "0.1.0.0";
+    private const string ExpectedDevelopmentVersion = "0.2.0";
+    private const string ExpectedFourPartVersion = "0.2.0.0";
     private const string ExpectedTargetAbi = "12.0.0.0";
 
     [Fact]
