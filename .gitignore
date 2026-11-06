@@ -51,8 +51,8 @@ __pycache__/
 .jellyfin-test/
 .worktrees/
 .codex/
-.agents/
-.claude/
+.claude/settings.local.json
+.verify/
 skills-lock.json
 
 # Local secrets and credentials

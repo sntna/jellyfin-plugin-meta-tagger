@@ -2,7 +2,9 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Read `AGENTS.md` (scope, safety invariants, compatibility pins, workflow) and `GLOSSARY.md` before exploring. This file only adds commands and architecture.
+@AGENTS.md
+
+`AGENTS.md` (imported above) covers scope, safety invariants, compatibility pins, verification and workflow. Read `GLOSSARY.md` before exploring. This file only adds commands and architecture.
 
 A Jellyfin 12.0.0 server plugin (`net10.0`) that turns existing item metadata into normalized tags like `meta:genre:science-fiction`.
 
@@ -11,6 +13,7 @@ A Jellyfin 12.0.0 server plugin (`net10.0`) that turns existing item metadata in
 Run from the repo root.
 
 ```bash
+./scripts/check.sh                   # the pre-PR gate (wraps build-and-test.sh)
 ./scripts/build-and-test.sh          # full verification: public-tree check, Node, Python, then C# tests in Release
 ./scripts/build.sh                   # Release build only
 ./scripts/check-dashboard.sh         # fast loop for configPage.html: Node dashboard tests + C# PluginTests
