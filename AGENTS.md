@@ -11,9 +11,13 @@
 
 ## Verification
 
-- Run `./scripts/check.sh` (wraps `./scripts/build-and-test.sh`) before every PR; it must pass.
-- Follow `.claude/skills/verify/SKILL.md` to exercise changed behaviour (single tests, built DLL,
-  disposable Jellyfin in Docker) and paste its output as evidence in the PR body or review.
+- `./scripts/check.sh` (wraps `./scripts/build-and-test.sh`) is the one command that must pass
+  before any PR (public-tree check, Node, Python, C# build and tests).
+- To prove a change works beyond the unit tests, follow the verify skill: `.claude/skills/verify/SKILL.md`.
+  It says how to start a disposable Jellyfin headlessly, how to exercise each feature, and how to run
+  a single test. Paste its output as evidence in the PR body or review.
+- Fail-before-fix: a test for new or fixed behaviour must fail on the base branch. Check it in a temporary
+  worktree (see the verify skill), never by reverting files in your own working tree.
 - Add tests at the highest stable interface that owns changed behavior.
 - Use only generated disposable Jellyfin state for integration checks. Never write to a live server.
 

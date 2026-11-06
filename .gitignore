@@ -51,12 +51,8 @@ __pycache__/
 .jellyfin-test/
 .worktrees/
 .codex/
-.agents/
-.claude/*
-# The shared verification skill is the one tracked agent file.
-!.claude/skills/
-.claude/skills/*
-!.claude/skills/verify/
+.claude/settings.local.json
+.verify/
 skills-lock.json
 
 # Local secrets and credentials

@@ -17,21 +17,25 @@ paraphrase evidence you did not produce.
 - Proxy tests bind loopback ports; `PermissionError: [Errno 1]` means the sandbox blocks sockets.
 - Never point any script at a live Jellyfin. Only the generated `.jellyfin-test/` server.
 
-## Gate (must pass before a PR)
+## Gate
+
+Must pass before every PR:
 
 ```bash
 ./scripts/check.sh   # public-tree check, Node tests, Python tests, C# build + xUnit (~30 s)
 ```
 Correct output ends with `Passed!  - Failed:     0, Passed:   N` and Python `OK`.
 
-## Build the plugin
+## Start and stop
+
+### Build the plugin
 
 ```bash
 ./scripts/build.sh   # -> Jellyfin.Plugin.MetaTagger/bin/Release/net10.0/Jellyfin.Plugin.MetaTagger.dll
 ```
 Expect `0 Warning(s)  0 Error(s)`. Building does not install it anywhere.
 
-## Run in a real Jellyfin 12 (Docker, ~2 min)
+### Run in a real Jellyfin 12 (Docker, ~2 min)
 
 The server is the single container `jellyfin-plugin-meta-tagger` at http://127.0.0.1:8097,
 state under `.jellyfin-test/v12-*/` (admin `tagger-admin`, password in that dir's
@@ -47,7 +51,7 @@ D=$(ls -d .jellyfin-test/v12-*)
 ```
 Lifecycle builds the release ZIP, serves catalogs on ports 8098/8099, installs through
 Jellyfin's catalog and must print `PASS catalog ZIP install, upgrade ... reinstall lifecycle`.
-This is the only working install path on Linux Docker (see "Not verifiable").
+This is the only working install path on Linux Docker (see "Not verifiable here").
 
 Stop and clean up when done (config files are root-owned, so delete them via the image):
 ```bash
@@ -82,7 +86,7 @@ npm exec --prefix scripts/browser -- playwright install chromium
 node scripts/check-dashboard-browser.mjs "$D"
 ```
 
-## Single tests (fail-before-fix)
+## Single tests
 
 ```bash
 # C#: class or single method
@@ -101,10 +105,26 @@ names matches nothing (`No test matches the given testcase filter`); filter by m
 `--filter 'FullyQualifiedName~MetaTaggerRunnerTests.ScheduledTasks_UseMetaTaggerCategoryAndPreserveKeysAndDefaultTriggers'`.
 A "No test matches" run is a wrong filter, never a pass or a valid failure.
 
-Fail-before-fix: put the base commit's source with the PR's new test file in a scratch
-worktree, run that single test, and expect it to fail; then expect it to pass on the PR head.
+## Fail-before-fix
 
-## Not verifiable headless on this machine
+A test for new or fixed behaviour must fail on the base branch. Check that in a temporary
+worktree. Never revert or stash files in your own working tree to do it.
+
+```bash
+base=$(git merge-base origin/main HEAD); head=$(git rev-parse HEAD)
+tmp=$(mktemp -d)/base && git worktree add --detach "$tmp" "$base"
+git -C "$tmp" checkout "$head" -- Jellyfin.Plugin.MetaTagger.Tests/TagNormalizerTests.cs  # the new/changed test file(s) only
+(cd "$tmp" && dotnet test Jellyfin.Plugin.MetaTagger.Tests --configuration Release --filter 'FullyQualifiedName~TagNormalizerTests.NewTestName')
+git worktree remove --force "$tmp"
+```
+Expect the test to fail on the base (an assertion failure, or a compile error because the new API
+does not exist yet; say which). Then run the same single test in your own tree on the PR head and
+expect it to pass. Node and Python tests work the same way: copy the test file, run it with the
+single-test command above inside `"$tmp"`.
+
+## Not verifiable here
+
+Not verifiable headless on this machine (Linux Docker, no OrbStack):
 
 - `./scripts/dev.sh` and `disposable-jellyfin.py install DIR DLL`: copy the DLL into the
   container's config dir, which Linux Docker makes root-owned (`PermissionError`; works only
